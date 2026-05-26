@@ -4,3 +4,4 @@ src-tauri/target/
 *.log
 .hermes/
 .env
+hermes-engine/
