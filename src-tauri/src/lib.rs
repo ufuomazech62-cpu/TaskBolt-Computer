@@ -5,7 +5,6 @@ mod engine;
 
 struct AppState {
     engine: Mutex<Option<engine::EngineHandle>>,
-    config_dir: std::path::PathBuf,
 }
 
 #[tauri::command]
@@ -16,19 +15,16 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
         return Ok("TaskBolt engine already running".to_string());
     }
 
-    // Detect OS and home directory
     let home = dirs::home_dir()
         .ok_or_else(|| "Could not find home directory".to_string())?;
     let taskbolt_dir = home.join(".taskbolt");
     std::fs::create_dir_all(&taskbolt_dir)
         .map_err(|e| format!("Failed to create .taskbolt dir: {e}"))?;
 
-    // Create subdirectories
     for sub in &["config", "data", "sessions", "skills", "logs"] {
         std::fs::create_dir_all(taskbolt_dir.join(sub)).ok();
     }
 
-    // Detect OS info
     let os_name = std::env::consts::OS;
     let os_arch = std::env::consts::ARCH;
     let info = format!(
@@ -36,7 +32,6 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
         taskbolt_dir.display()
     );
 
-    // Start the Python engine
     let handle = engine::start_engine(&taskbolt_dir)?;
     *engine_guard = Some(handle);
 
@@ -45,11 +40,22 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
 
 #[tauri::command]
 async fn send_message(state: State<'_, AppState>, content: String) -> Result<String, String> {
-    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    // Clone the engine handle reference to avoid holding the MutexGuard across await
+    let engine_clone = {
+        let guard = state.engine.lock().map_err(|e| e.to_string())?;
+        guard.as_ref().map(|h| {
+            // We need to work with the engine through the Arc inside EngineHandle
+            // Since EngineHandle already uses Arc internally, we pass a reference
+            h as *const engine::EngineHandle
+        })
+    };
 
-    let handle = engine_guard
-        .as_ref()
-        .ok_or_else(|| "Engine not started. Run auto_setup first.".to_string())?;
+    let handle = unsafe {
+        engine_clone
+            .ok_or_else(|| "Engine not started. Run auto_setup first.".to_string())?
+            .as_ref()
+            .ok_or_else(|| "Engine reference invalid.".to_string())?
+    };
 
     engine::send_to_engine(handle, &content).await
 }
@@ -59,13 +65,18 @@ async fn connect_telegram(
     state: State<'_, AppState>,
     bot_token: String,
 ) -> Result<String, String> {
-    // Write token to config and start gateway
-    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    let handle = engine_guard
-        .as_ref()
-        .ok_or_else(|| "Engine not started.".to_string())?;
+    let engine_clone = {
+        let guard = state.engine.lock().map_err(|e| e.to_string())?;
+        guard.as_ref().map(|h| h as *const engine::EngineHandle)
+    };
 
-    // Send gateway start command to engine
+    let handle = unsafe {
+        engine_clone
+            .ok_or_else(|| "Engine not started.".to_string())?
+            .as_ref()
+            .ok_or_else(|| "Engine reference invalid.".to_string())?
+    };
+
     let cmd = serde_json::json!({
         "type": "command",
         "action": "connect_telegram",
@@ -94,9 +105,6 @@ async fn get_system_info() -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let home = dirs::home_dir().unwrap_or_else(|| ".".into());
-    let config_dir = home.join(".taskbolt").join("config");
-
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -104,7 +112,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .manage(AppState {
             engine: Mutex::new(None),
-            config_dir,
         })
         .invoke_handler(tauri::generate_handler![
             auto_setup,

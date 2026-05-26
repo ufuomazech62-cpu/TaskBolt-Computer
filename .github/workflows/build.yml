@@ -2,8 +2,9 @@ name: Build TaskBolt Desktop
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
 jobs:
@@ -12,50 +13,79 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Clone hermes-engine
+        run: |
+          if (-not (Test-Path "hermes-engine\pyproject.toml")) {
+            git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-engine
+          }
+        shell: pwsh
+
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: 'npm'
 
-      - name: Setup Rust
+      - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Tauri App
+      - name: Build Tauri app (NSIS + MSI)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          args: --bundles msi,nsis
+          args: --bundles nsis,msi
 
-      - name: Upload Windows Installer
+      - name: Upload Windows NSIS Installer
         uses: actions/upload-artifact@v4
         with:
-          name: TaskBolt-Windows-Installer
-          path: src-tauri/target/release/bundle/
+          name: TaskBolt-Windows-Setup
+          path: src-tauri/target/release/bundle/nsis/
+
+      - name: Upload Windows MSI Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaskBolt-Windows-MSI
+          path: src-tauri/target/release/bundle/msi/
 
   build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Clone hermes-engine
+        run: |
+          if [ ! -f "hermes-engine/pyproject.toml" ]; then
+            git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-engine
+          fi
+
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: 'npm'
 
-      - name: Setup Rust
+      - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Tauri App
+      - name: Build Tauri app (DMG)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,8 +93,8 @@ jobs:
           projectPath: .
           args: --bundles dmg
 
-      - name: Upload macOS Installer
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: TaskBolt-macOS-Installer
-          path: src-tauri/target/release/bundle/
+          name: TaskBolt-macOS-DMG
+          path: src-tauri/target/release/bundle/dmg/

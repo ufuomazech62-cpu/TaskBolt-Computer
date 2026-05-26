@@ -2,13 +2,14 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 use tokio::sync::oneshot;
 
 pub struct EngineHandle {
-    child: Arc<tokio::sync::Mutex<Child>>,
+    #[allow(dead_code)]
+    child: Arc<tokio::sync::Mutex<tokio::process::Child>>,
     stdin_tx: tokio::sync::mpsc::UnboundedSender<String>,
-    response_tx: tokio::sync::Mutex<Option<oneshot::Sender<String>>>,
+    response_tx: Arc<tokio::sync::Mutex<Option<oneshot::Sender<String>>>>,
 }
 
 pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
@@ -25,19 +26,14 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
     };
 
     let python_exe = if python.exists() {
-        python
+        python.to_string_lossy().to_string()
     } else {
         // Fall back to system Python
-        std::env::var("TASKBOLT_PYTHON")
-            .ok()
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                if cfg!(windows) {
-                    "python".into()
-                } else {
-                    "python3".into()
-                }
-            })
+        if cfg!(windows) {
+            "python".to_string()
+        } else {
+            "python3".to_string()
+        }
     };
 
     let script = engine_dir.join("taskbolt_bridge.py");
@@ -53,16 +49,16 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|e| format!("Failed to start Python engine: {e}\n  Python: {python_exe:?}\n  Script: {script:?}"))?;
+        .map_err(|e| format!("Failed to start Python engine: {e}\n  Python: {python_exe}\n  Script: {script:?}"))?;
 
     let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
 
     let (stdin_tx, mut stdin_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
-    let (response_tx, response_rx) = tokio::sync::Mutex::new(None);
+    let response_tx: Arc<tokio::sync::Mutex<Option<oneshot::Sender<String>>>> =
+        Arc::new(tokio::sync::Mutex::new(None));
 
     let child = Arc::new(tokio::sync::Mutex::new(child));
-    let child_clone = child.clone();
 
     // Writer task: send messages to Python stdin
     tokio::spawn(async move {
@@ -77,19 +73,15 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
     });
 
     // Reader task: parse responses from Python stdout
-    let response_rx_arc = Arc::new(tokio::sync::Mutex::new(response_rx));
-    let response_rx_clone = response_rx_arc.clone();
+    let response_tx_reader = response_tx.clone();
     tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            // Protocol: lines starting with "RESPONSE:" are agent replies
-            // Lines starting with "STATUS:" are setup/status updates
-            // Lines starting with "ERROR:" are errors
             if line.starts_with("RESPONSE:") {
                 let content = line.strip_prefix("RESPONSE:").unwrap_or(&line).trim().to_string();
-                let mut rx_guard = response_rx_clone.lock().await;
-                if let Some(tx) = rx_guard.take() {
+                let mut guard = response_tx_reader.lock().await;
+                if let Some(tx) = guard.take() {
                     tx.send(content).ok();
                 }
             } else if line.starts_with("STATUS:") {
@@ -101,7 +93,10 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
     });
 
     // Stderr logger
-    let stderr = child_clone.lock().await.stderr.take();
+    let stderr = {
+        let mut c = child.lock().await;
+        c.stderr.take()
+    };
     if let Some(stderr) = stderr {
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
@@ -115,35 +110,33 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
     Ok(EngineHandle {
         child,
         stdin_tx,
-        response_tx: tokio::sync::Mutex::new(None),
+        response_tx,
     })
 }
 
 pub async fn send_to_engine(handle: &EngineHandle, message: &str) -> Result<String, String> {
     let (tx, rx) = oneshot::channel();
-    
-    // Store the response channel
+
+    // Store the response channel and drop the lock immediately
     {
         let mut guard = handle.response_tx.lock().await;
         *guard = Some(tx);
-    }
+    } // lock dropped here
 
     // Send the message as JSON to the Python bridge
     let json_msg = serde_json::json!({
         "type": "message",
         "content": message,
     });
-    
-    handle.stdin_tx
+
+    handle
+        .stdin_tx
         .send(json_msg.to_string())
         .map_err(|e| format!("Failed to send to engine: {e}"))?;
 
     // Wait for response with timeout
-    tokio::time::timeout(
-        std::time::Duration::from_secs(120),
-        rx,
-    )
-    .await
-    .map_err(|_| "Agent timed out (120s)".to_string())?
-    .map_err(|_| "Engine disconnected".to_string())
+    tokio::time::timeout(std::time::Duration::from_secs(120), rx)
+        .await
+        .map_err(|_| "Agent timed out (120s)".to_string())?
+        .map_err(|_| "Engine disconnected".to_string())
 }
