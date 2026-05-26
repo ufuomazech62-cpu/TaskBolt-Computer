@@ -1,15 +1,15 @@
-use std::sync::Mutex;
+use std::sync::Arc;
 use tauri::State;
 
 mod engine;
 
 struct AppState {
-    engine: Mutex<Option<engine::EngineHandle>>,
+    engine: Arc<tokio::sync::Mutex<Option<engine::EngineHandle>>>,
 }
 
 #[tauri::command]
 async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
-    let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut engine_guard = state.engine.lock().await;
 
     if engine_guard.is_some() {
         return Ok("TaskBolt engine already running".to_string());
@@ -40,24 +40,16 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
 
 #[tauri::command]
 async fn send_message(state: State<'_, AppState>, content: String) -> Result<String, String> {
-    // Clone the engine handle reference to avoid holding the MutexGuard across await
-    let engine_clone = {
-        let guard = state.engine.lock().map_err(|e| e.to_string())?;
-        guard.as_ref().map(|h| {
-            // We need to work with the engine through the Arc inside EngineHandle
-            // Since EngineHandle already uses Arc internally, we pass a reference
-            h as *const engine::EngineHandle
-        })
-    };
-
-    let handle = unsafe {
-        engine_clone
-            .ok_or_else(|| "Engine not started. Run auto_setup first.".to_string())?
+    // Lock, clone the Arc references we need, drop the lock, then await
+    let (stdin_tx, response_tx) = {
+        let guard = state.engine.lock().await;
+        let handle = guard
             .as_ref()
-            .ok_or_else(|| "Engine reference invalid.".to_string())?
-    };
+            .ok_or_else(|| "Engine not started. Run auto_setup first.".to_string())?;
+        (handle.stdin_tx(), handle.response_tx())
+    }; // lock dropped here
 
-    engine::send_to_engine(handle, &content).await
+    engine::send_to_engine_parts(&stdin_tx, &response_tx, &content).await
 }
 
 #[tauri::command]
@@ -65,16 +57,12 @@ async fn connect_telegram(
     state: State<'_, AppState>,
     bot_token: String,
 ) -> Result<String, String> {
-    let engine_clone = {
-        let guard = state.engine.lock().map_err(|e| e.to_string())?;
-        guard.as_ref().map(|h| h as *const engine::EngineHandle)
-    };
-
-    let handle = unsafe {
-        engine_clone
-            .ok_or_else(|| "Engine not started.".to_string())?
+    let (stdin_tx, response_tx) = {
+        let guard = state.engine.lock().await;
+        let handle = guard
             .as_ref()
-            .ok_or_else(|| "Engine reference invalid.".to_string())?
+            .ok_or_else(|| "Engine not started.".to_string())?;
+        (handle.stdin_tx(), handle.response_tx())
     };
 
     let cmd = serde_json::json!({
@@ -83,7 +71,7 @@ async fn connect_telegram(
         "bot_token": bot_token,
     });
 
-    engine::send_to_engine(handle, &cmd.to_string()).await
+    engine::send_to_engine_parts(&stdin_tx, &response_tx, &cmd.to_string()).await
 }
 
 #[tauri::command]
@@ -111,7 +99,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_os::init())
         .manage(AppState {
-            engine: Mutex::new(None),
+            engine: Arc::new(tokio::sync::Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             auto_setup,
