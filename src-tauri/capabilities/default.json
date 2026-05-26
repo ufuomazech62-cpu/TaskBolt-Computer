@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default capability for TaskBolt",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:default",
+    "dialog:default",
+    "fs:default",
+    "os:default"
+  ]
+}
