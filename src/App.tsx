@@ -49,6 +49,9 @@ interface MCPServer {
 type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin'
 type SettingsTab = 'general' | 'account' | 'skills' | 'mcp' | 'advanced'
 
+// ── SaaS Backend ────────────────────────────────────
+const SAAS_URL = 'https://taskbolt-saas-ddne1tmox-zazabrorie-4629s-projects.vercel.app'
+
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
   { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚡', enabled: true, isCore: true },
@@ -181,7 +184,7 @@ function App() {
     setEmailLoading(true)
     setEmailError('')
     try {
-      const res = await fetch('/api/auth/email/send', {
+      const res = await fetch(`${SAAS_URL}/api/auth/email/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput }),
@@ -217,7 +220,7 @@ function App() {
     setEmailLoading(true)
     setEmailError('')
     try {
-      const res = await fetch('/api/auth/email/verify', {
+      const res = await fetch(`${SAAS_URL}/api/auth/email/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, code: emailCode }),
@@ -237,18 +240,18 @@ function App() {
 
   // ── Google OAuth ─────────────────────────────────────
   const signInGoogle = () => {
-    window.open('/api/auth/google', '_blank', 'width=500,height=600')
+    window.open(`${SAAS_URL}/api/auth/google`, '_blank', 'width=500,height=600')
   }
 
   // ── GitHub OAuth ─────────────────────────────────────
   const signInGitHub = () => {
-    window.open('/api/auth/github', '_blank', 'width=500,height=600')
+    window.open(`${SAAS_URL}/api/auth/github`, '_blank', 'width=500,height=600')
   }
 
   // ── Telegram QR ──────────────────────────────────────
   const startTelegramQR = async () => {
     try {
-      const res = await fetch('/api/auth/telegram/qr')
+      const res = await fetch(`${SAAS_URL}/api/auth/telegram/qr`)
       const data = await res.json()
       if (data.ok) {
         setTgQR({ token: data.token, deeplink: data.deeplink })
@@ -256,7 +259,7 @@ function App() {
         // Poll for completion
         tgPollRef.current = setInterval(async () => {
           try {
-            const check = await fetch(`/api/auth/telegram/check?token=${data.token}`)
+            const check = await fetch(`${SAAS_URL}/api/auth/telegram/check?token=${data.token}`)
             const d = await check.json()
             if (d.ok && d.token) {
               handleAuthSuccess(d.token, d.user)
