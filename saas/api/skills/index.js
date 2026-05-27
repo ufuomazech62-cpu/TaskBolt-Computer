@@ -1,18 +1,16 @@
-import { sql, initDB } from "../_db.js";
-import jwt from "jsonwebtoken";
+const { sql, initDB } = require("../_db");
+const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "taskbolt-jwt-secret-change-in-prod";
 
 function getUser(req) {
-  const auth = req.headers.authorization?.replace("Bearer ", "");
+  const auth = (req.headers.authorization || "").replace("Bearer ", "");
   if (!auth) return null;
-  try {
-    return jwt.verify(auth, JWT_SECRET);
-  } catch { return null; }
+  try { return jwt.verify(auth, JWT_SECRET); } catch { return null; }
 }
 
-export default async function handler(req, res) {
-  await initDB();
+module.exports = async function handler(req, res) {
+  try { await initDB(); } catch (e) { return res.status(500).json({ error: "DB init failed" }); }
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const user = getUser(req);
@@ -35,4 +33,4 @@ export default async function handler(req, res) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-}
+};

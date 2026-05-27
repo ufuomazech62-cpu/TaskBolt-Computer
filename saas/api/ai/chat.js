@@ -1,11 +1,11 @@
 const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
-  const { messages, model = "qwen3.6-plus" } = req.body;
-  if (!messages?.length) return res.status(400).json({ error: "messages required" });
+  const { messages, model } = req.body;
+  if (!messages || !messages.length) return res.status(400).json({ error: "messages required" });
 
   try {
     const response = await fetch(`${API_BASE}/chat/completions`, {
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model,
+        model: model || "qwen3.6-plus",
         messages,
         extra_body: { enable_thinking: true },
       }),
@@ -31,4 +31,4 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
-}
+};

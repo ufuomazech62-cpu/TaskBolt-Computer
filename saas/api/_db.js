@@ -1,8 +1,8 @@
-import { neon } from "@neondatabase/serverless";
+const { neon } = require("@neondatabase/serverless");
 
 const sql = neon(process.env.NEON_DATABASE_URL);
 
-export async function initDB() {
+async function initDB() {
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -40,9 +40,6 @@ export async function initDB() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id, updated_at DESC)
   `;
-  await sql`
-    CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks USING gin(to_tsvector('english', title))
-  `;
 }
 
-export { sql, initDB };
+module.exports = { sql, initDB };
