@@ -20,8 +20,7 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "center": true,
-        "singleInstance": true
+        "center": true
       }
     ],
     "security": {
@@ -37,9 +36,6 @@
       "icons/128x128@2x.png",
       "icons/icon.ico",
       "icons/icon.png"
-    ],
-    "resources": {
-      "hermes-engine": "hermes-engine"
-    }
+    ]
   }
 }
