@@ -1,14 +1,24 @@
-const { sql, initDB } = require("../../_db");
-const { jsonResponse, setCorsHeaders } = require("../../_auth");
+const { neon } = require("@neondatabase/serverless");
+
+const sql = neon(process.env.NEON_DATABASE_URL);
+
+async function initDB() {
+  await sql`CREATE TABLE IF NOT EXISTS users (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, email TEXT, google_id TEXT, github_id TEXT, telegram_id BIGINT, username TEXT, display_name TEXT, avatar_url TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`;
+  await sql`CREATE TABLE IF NOT EXISTS auth_codes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL, expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT NOW())`;
+}
 
 module.exports = async (req, res) => {
-  if (req.method === "OPTIONS") { setCorsHeaders(res); return res.status(200).end(); }
-  if (req.method !== "POST") return jsonResponse(res, { error: "POST only" }, 405);
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
   
   await initDB();
   const { email } = req.body;
   const cleanEmail = (email || "").toLowerCase().trim();
-  if (!cleanEmail || !cleanEmail.includes("@")) return jsonResponse(res, { error: "Valid email required" }, 400);
+  if (!cleanEmail || !cleanEmail.includes("@")) return res.status(400).json({ error: "Valid email required" });
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
   await sql`DELETE FROM auth_codes WHERE email = ${cleanEmail}`;
@@ -36,7 +46,7 @@ module.exports = async (req, res) => {
   }
 
   if (!emailSent) {
-    return jsonResponse(res, { ok: true, sent: false, code, message: "Email service not configured. Code shown for testing." });
+    return res.status(200).json({ ok: true, sent: false, code, message: "Email service not configured. Code shown for testing." });
   }
-  return jsonResponse(res, { ok: true, sent: true, message: "Code sent to your email" });
+  return res.status(200).json({ ok: true, sent: true, message: "Code sent to your email" });
 };
