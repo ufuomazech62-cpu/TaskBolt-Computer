@@ -18,34 +18,45 @@ async function initDB() {
 }
 
 module.exports = async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
-  
-  await initDB();
-  const { email, code } = req.body;
-  const cleanEmail = (email || "").toLowerCase().trim();
-  const cleanCode = (code || "").trim();
-  
-  if (!cleanEmail || !cleanCode) return res.status(400).json({ error: "Email and code required" });
+  try {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+    
+    await initDB();
+    const { email, code } = req.body || {};
+    const cleanEmail = (email || "").toLowerCase().trim();
+    const cleanCode = (code || "").trim();
+    
+    if (!cleanEmail || !cleanCode) return res.status(400).json({ error: "Email and code required" });
 
-  const codes = await sql`SELECT * FROM auth_codes WHERE email = ${cleanEmail} AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`;
-  
-  if (codes.length === 0 || codes[0].code !== cleanCode) {
-    return res.status(400).json({ ok: false, error: "Invalid or expired code. Try again." });
+    // Use explicit text comparison instead of NOW()
+    const now = new Date().toISOString();
+    const codes = await sql`SELECT code, email FROM auth_codes WHERE email = ${cleanEmail} AND expires_at > ${now}::timestamp ORDER BY created_at DESC LIMIT 1`;
+    
+    if (!codes || codes.length === 0) {
+      return res.status(400).json({ ok: false, error: "No active codes. Please request a new code." });
+    }
+    
+    if (codes[0].code !== cleanCode) {
+      return res.status(400).json({ ok: false, error: "Invalid code. Try again." });
+    }
+
+    await sql`DELETE FROM auth_codes WHERE email = ${cleanEmail}`;
+
+    let user = await sql`SELECT id, email, display_name FROM users WHERE email = ${cleanEmail} LIMIT 1`;
+    if (!user || user.length === 0) {
+      user = await sql`INSERT INTO users (email, display_name) VALUES (${cleanEmail}, ${cleanEmail.split("@")[0]}) RETURNING id, email, display_name`;
+    }
+    user = user[0];
+    
+    const token = sign({ userId: user.id, email: user.email });
+    return res.status(200).json({ ok: true, token, user: { id: user.id, email: user.email, display_name: user.display_name } });
+  } catch(e) {
+    console.error("Verify error:", e);
+    return res.status(500).json({ error: e.message || "Internal error" });
   }
-
-  await sql`DELETE FROM auth_codes WHERE email = ${cleanEmail}`;
-
-  let user = await sql`SELECT * FROM users WHERE email = ${cleanEmail} LIMIT 1`;
-  if (user.length === 0) {
-    user = await sql`INSERT INTO users (email, display_name) VALUES (${cleanEmail}, ${cleanEmail.split("@")[0]}) RETURNING *`;
-  }
-  user = user[0];
-  
-  const token = sign({ userId: user.id, email: user.email });
-  return res.status(200).json({ ok: true, token, user });
 };
