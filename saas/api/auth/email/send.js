@@ -5,6 +5,13 @@ const sql = neon(process.env.NEON_DATABASE_URL);
 async function initDB() {
   await sql`CREATE TABLE IF NOT EXISTS users (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, email TEXT, google_id TEXT, github_id TEXT, telegram_id BIGINT, username TEXT, display_name TEXT, avatar_url TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`;
   await sql`CREATE TABLE IF NOT EXISTS auth_codes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, email TEXT NOT NULL, code TEXT NOT NULL, expires_at TIMESTAMP NOT NULL, created_at TIMESTAMP DEFAULT NOW())`;
+  // Migration safety
+  try { await sql`ALTER TABLE users ADD COLUMN email TEXT`; } catch(e) {}
+  try { await sql`ALTER TABLE users ADD COLUMN google_id TEXT`; } catch(e) {}
+  try { await sql`ALTER TABLE users ADD COLUMN github_id TEXT`; } catch(e) {}
+  try { await sql`ALTER TABLE users ADD COLUMN avatar_url TEXT`; } catch(e) {}
+  try { await sql`ALTER TABLE auth_codes ADD COLUMN code TEXT NOT NULL DEFAULT ''`; } catch(e) {}
+  try { await sql`ALTER TABLE auth_codes ADD COLUMN expires_at TIMESTAMP NOT NULL DEFAULT NOW() + interval '10 minutes'`; } catch(e) {}
 }
 
 module.exports = async (req, res) => {
