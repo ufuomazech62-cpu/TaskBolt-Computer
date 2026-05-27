@@ -22,88 +22,45 @@ impl EngineHandle {
     }
 }
 
-/// Find the hermes-engine directory at runtime.
-/// Dev:  <project_root>/hermes-engine (sibling of src-tauri)
-/// Prod: ~/.taskbolt/hermes-engine (cloned on first run)
-pub fn find_engine_dir() -> Result<PathBuf, String> {
-    // 1. Walk up from exe to find hermes-engine (dev mode)
+/// Find Python executable on the system.
+/// Prefers Python 3.12 on Windows (3.13+ has asyncio proactor bugs with piped stdin).
+fn find_python() -> String {
+    // 1. Check project-local .venv (dev mode)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             for ancestor in exe_dir.ancestors().take(5) {
-                let candidate = ancestor.join("hermes-engine");
-                if candidate.join("pyproject.toml").exists() {
-                    return Ok(candidate);
+                let venv_py = if cfg!(windows) {
+                    ancestor.join(".venv").join("Scripts").join("python.exe")
+                } else {
+                    ancestor.join(".venv").join("bin").join("python")
+                };
+                if venv_py.exists() {
+                    return venv_py.to_string_lossy().to_string();
                 }
             }
         }
     }
 
-    // 2. Check ~/.taskbolt/hermes-engine (production — cloned on first run)
-    let home = dirs::home_dir().ok_or_else(|| "Cannot find home dir".to_string())?;
-    let user_engine = home.join(".taskbolt").join("hermes-engine");
-    if user_engine.join("pyproject.toml").exists() {
-        return Ok(user_engine);
-    }
-
-    Err(format!(
-        "hermes-engine not found. Run auto_setup to clone it to {}",
-        user_engine.display()
-    ))
-}
-
-/// Clone hermes-engine on first run if not found.
-pub async fn ensure_engine() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or_else(|| "No home dir".to_string())?;
-    let engine_dir = home.join(".taskbolt").join("hermes-engine");
-
-    if engine_dir.join("pyproject.toml").exists() {
-        return Ok(engine_dir);
-    }
-
-    eprintln!("[TaskBolt] Cloning hermes-engine (first run)...");
-    let status = Command::new("git")
-        .args(["clone", "--depth", "1", "https://github.com/NousResearch/hermes-agent.git"])
-        .arg(&engine_dir)
-        .status()
-        .await
-        .map_err(|e| format!("git clone failed: {e}"))?;
-
-    if !status.success() {
-        return Err("git clone of hermes-engine failed".to_string());
-    }
-
-    eprintln!("[TaskBolt] hermes-engine cloned to {}", engine_dir.display());
-    Ok(engine_dir)
-}
-
-pub fn start_engine(engine_dir: &PathBuf, taskbolt_dir: &std::path::Path) -> Result<EngineHandle, String> {
-    // Bridge script is embedded in the binary via include_str! — always available
-    let bridge_dst = engine_dir.join("taskbolt_bridge.py");
-    if !bridge_dst.exists() {
-        std::fs::write(&bridge_dst, include_str!("../../taskbolt_bridge.py"))
-            .map_err(|e| format!("Write embedded bridge failed: {e}"))?;
-    }
-
-    // Python executable — prefer Python 3.12 on Windows (3.13+ has proactor bugs)
-    let python = if cfg!(windows) {
-        engine_dir.join(".venv").join("Scripts").join("python.exe")
-    } else {
-        engine_dir.join(".venv").join("bin").join("python")
-    };
-
-    let python_exe = if python.exists() {
-        python.to_string_lossy().to_string()
-    } else if cfg!(windows) {
-        // Try Python 3.12 first (avoids 3.13+ proactor bug)
+    // 2. Try Python 3.12 explicit path on Windows
+    if cfg!(windows) {
         let py312 = PathBuf::from(r"C:\Users\H-P\AppData\Local\Programs\Python\Python312\python.exe");
         if py312.exists() {
-            py312.to_string_lossy().to_string()
-        } else {
-            "python".to_string()
+            return py312.to_string_lossy().to_string();
         }
-    } else {
-        "python3".to_string()
-    };
+    }
+
+    // 3. Fallback to PATH
+    if cfg!(windows) { "python".to_string() } else { "python3".to_string() }
+}
+
+pub fn start_engine(taskbolt_dir: &std::path::Path) -> Result<EngineHandle, String> {
+    // Bridge script is embedded in the binary via include_str! — always available.
+    // Write it to the taskbolt data directory so it persists across runs.
+    let bridge_dst = taskbolt_dir.join("taskbolt_bridge.py");
+    std::fs::write(&bridge_dst, include_str!("../../taskbolt_bridge.py"))
+        .map_err(|e| format!("Write embedded bridge failed: {e}"))?;
+
+    let python_exe = find_python();
 
     let mut child = Command::new(&python_exe)
         .arg("-u")
@@ -114,7 +71,7 @@ pub fn start_engine(engine_dir: &PathBuf, taskbolt_dir: &std::path::Path) -> Res
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
-        .current_dir(engine_dir)
+        .current_dir(taskbolt_dir)
         .spawn()
         .map_err(|e| format!("Engine spawn failed: {e}\n  Python: {python_exe}\n  Bridge: {}", bridge_dst.display()))?;
 

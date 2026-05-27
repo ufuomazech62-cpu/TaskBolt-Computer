@@ -166,9 +166,7 @@ class TaskBoltBridge:
             content = choice.get("content", "")
 
             # Extract reasoning/thinking if available
-            if hasattr(choice, "reasoning_content") and choice.get("reasoning_content"):
-                thinking = choice["reasoning_content"]
-            elif "reasoning_content" in choice:
+            if isinstance(choice, dict) and choice.get("reasoning_content"):
                 thinking = choice["reasoning_content"]
 
             return thinking, content

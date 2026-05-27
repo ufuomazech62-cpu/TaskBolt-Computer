@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tauri::State;
+use tokio::sync::oneshot;
 
 mod engine;
 
@@ -26,29 +27,16 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
         std::fs::create_dir_all(taskbolt_dir.join(sub)).ok();
     }
 
-    // Find or clone hermes-engine
-    let engine_dir = match engine::find_engine_dir() {
-        Ok(dir) => {
-            eprintln!("[TaskBolt] Found engine at: {}", dir.display());
-            dir
-        }
-        Err(_) => {
-            eprintln!("[TaskBolt] Engine not found, cloning...");
-            engine::ensure_engine().await?
-        }
-    };
-
     let os_name = std::env::consts::OS;
     let os_arch = std::env::consts::ARCH;
-    let info = format!(
-        "System detected ({os_name}/{os_arch}) — TaskBolt engine at {}\nReady to go.",
-        engine_dir.display()
-    );
 
-    let handle = engine::start_engine(&engine_dir, &taskbolt_dir)?;
+    // Start engine — bridge is embedded in the binary, no external clone needed
+    let handle = engine::start_engine(&taskbolt_dir)?;
     *engine_guard = Some(handle);
 
-    Ok(info)
+    Ok(format!(
+        "System detected ({os_name}/{os_arch}) — TaskBolt engine ready.\nReady to go."
+    ))
 }
 
 #[tauri::command]
@@ -83,7 +71,21 @@ async fn connect_telegram(
         "bot_token": bot_token,
     });
 
-    engine::send_to_engine_parts(&stdin_tx, &response_tx, &cmd.to_string()).await
+    // Send command directly — don't use send_to_engine_parts which wraps in {type:"message"}
+    let (tx, rx) = oneshot::channel();
+    {
+        let mut guard = response_tx.lock().await;
+        *guard = Some(tx);
+    }
+
+    stdin_tx
+        .send(cmd.to_string())
+        .map_err(|e| format!("Send failed: {e}"))?;
+
+    tokio::time::timeout(std::time::Duration::from_secs(120), rx)
+        .await
+        .map_err(|_| "Agent timed out (120s)".to_string())?
+        .map_err(|_| "Engine disconnected".to_string())
 }
 
 #[tauri::command]
@@ -92,15 +94,12 @@ async fn get_system_info() -> Result<String, String> {
         .ok_or_else(|| "Could not find home".to_string())?;
     let taskbolt_dir = home.join(".taskbolt");
 
-    // Check if engine is available
-    let engine_available = engine::find_engine_dir().is_ok();
-
     let info = serde_json::json!({
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
         "home": home.display().to_string(),
         "data_dir": taskbolt_dir.display().to_string(),
-        "engine_available": engine_available,
+        "engine_available": true,
     });
 
     Ok(info.to_string())

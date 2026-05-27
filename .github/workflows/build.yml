@@ -13,15 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone hermes-engine
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "hermes-engine")) {
-            git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-engine
-          }
-          Copy-Item taskbolt_bridge.py hermes-engine/taskbolt_bridge.py -Force
-          Write-Host "hermes-engine ready with bridge script"
-
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -63,14 +54,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Clone hermes-engine
-        run: |
-          if [ ! -d "hermes-engine" ]; then
-            git clone --depth 1 https://github.com/NousResearch/hermes-agent.git hermes-engine
-          fi
-          cp taskbolt_bridge.py hermes-engine/taskbolt_bridge.py
-          echo "hermes-engine ready with bridge script"
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
