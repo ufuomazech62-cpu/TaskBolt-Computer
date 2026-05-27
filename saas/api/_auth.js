@@ -7,17 +7,16 @@ function requireAuth(req) {
   return verify(token);
 }
 
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  };
+function setCorsHeaders(res) {
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 }
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: corsHeaders() });
+function jsonResponse(res, data, status = 200) {
+  setCorsHeaders(res);
+  res.status(status).json(data);
 }
 
-module.exports = { requireAuth, corsHeaders, jsonResponse };
+module.exports = { requireAuth, setCorsHeaders, jsonResponse };
