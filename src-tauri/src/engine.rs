@@ -25,7 +25,7 @@ impl EngineHandle {
 /// Find the hermes-engine directory at runtime.
 /// Dev:  <project_root>/hermes-engine (sibling of src-tauri)
 /// Prod: bundled resources → hermes-engine/ next to the executable
-fn find_engine_dir() -> Result<PathBuf, String> {
+pub fn find_engine_dir() -> Result<PathBuf, String> {
     let exe = std::env::current_exe()
         .map_err(|e| format!("Cannot find current exe: {e}"))?;
     let exe_dir = exe.parent().ok_or("Cannot determine exe directory")?;
