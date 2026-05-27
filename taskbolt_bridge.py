@@ -63,7 +63,15 @@ class TaskBoltBridge:
 - **Optimize**: Clean up disk space, improve performance, and update everything
 - **Security**: Scan for vulnerabilities and harden system security
 - **Network**: Configure WiFi, firewall, proxies, and networking settings
+- **Browser**: Browse the web via CLI — fetch pages, scrape data, check URLs
+- **MCP**: Connect to external tools via Model Context Protocol
 - **Answer**: Any general question with thorough, actionable responses
+
+## Browser Skill:
+- You can instruct the user to open URLs in their browser
+- You can fetch web content via curl or Python urllib
+- For scraping, suggest specific URLs and extract the needed data
+- The user's browser is available through the Tauri shell plugin
 
 ## System Info:
 - OS: {os_info}
