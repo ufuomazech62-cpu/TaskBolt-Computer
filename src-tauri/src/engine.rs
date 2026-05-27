@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -22,21 +22,96 @@ impl EngineHandle {
     }
 }
 
-pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let project_root = manifest_dir.parent().unwrap();
-    let engine_dir = project_root.join("hermes-engine");
+/// Find the hermes-engine directory at runtime.
+/// Dev:  <project_root>/hermes-engine (sibling of src-tauri)
+/// Prod: bundled resources → hermes-engine/ next to the executable
+fn find_engine_dir() -> Result<PathBuf, String> {
+    let exe = std::env::current_exe()
+        .map_err(|e| format!("Cannot find current exe: {e}"))?;
+    let exe_dir = exe.parent().ok_or("Cannot determine exe directory")?;
 
-    // Copy bridge script from project root into hermes-engine
-    let bridge_src = project_root.join("taskbolt_bridge.py");
-    let bridge_dst = engine_dir.join("taskbolt_bridge.py");
-    if bridge_src.exists() {
-        std::fs::copy(&bridge_src, &bridge_dst)
-            .map_err(|e| format!("Failed to copy bridge: {e}"))?;
-    } else if !bridge_dst.exists() {
-        return Err("taskbolt_bridge.py not found".to_string());
+    // 1. Check next to the executable (dev: src-tauri/target/debug or release)
+    //    Walk up to find hermes-engine
+    for ancestor in exe_dir.ancestors().take(5) {
+        let candidate = ancestor.join("hermes-engine");
+        if candidate.join("pyproject.toml").exists() {
+            return Ok(candidate);
+        }
     }
 
+    // 2. Check Tauri bundled resources (production)
+    //    Tauri places resources in a `resources/` dir next to the exe
+    let bundled = exe_dir.join("resources").join("hermes-engine");
+    if bundled.join("pyproject.toml").exists() {
+        return Ok(bundled);
+    }
+
+    // 3. Check user's .taskbolt dir (fallback — engine cloned on first run)
+    let home = dirs::home_dir().ok_or_else(|| "Cannot find home dir".to_string())?;
+    let user_engine = home.join(".taskbolt").join("hermes-engine");
+    if user_engine.join("pyproject.toml").exists() {
+        return Ok(user_engine);
+    }
+
+    Err(format!(
+        "hermes-engine not found. Searched:\n  - exe ancestors\n  - {}\n  - {}",
+        bundled.display(),
+        user_engine.display()
+    ))
+}
+
+/// Clone hermes-engine on first run if not found.
+pub async fn ensure_engine() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or_else(|| "No home dir".to_string())?;
+    let engine_dir = home.join(".taskbolt").join("hermes-engine");
+
+    if engine_dir.join("pyproject.toml").exists() {
+        return Ok(engine_dir);
+    }
+
+    eprintln!("[TaskBolt] Cloning hermes-engine (first run)...");
+    let status = Command::new("git")
+        .args(["clone", "--depth", "1", "https://github.com/NousResearch/hermes-agent.git"])
+        .arg(&engine_dir)
+        .status()
+        .await
+        .map_err(|e| format!("git clone failed: {e}"))?;
+
+    if !status.success() {
+        return Err("git clone of hermes-engine failed".to_string());
+    }
+
+    eprintln!("[TaskBolt] hermes-engine cloned to {}", engine_dir.display());
+    Ok(engine_dir)
+}
+
+pub fn start_engine(engine_dir: &PathBuf, taskbolt_dir: &std::path::Path) -> Result<EngineHandle, String> {
+    // Copy bridge script into engine dir
+    let bridge_src = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|d| d.join("resources").join("taskbolt_bridge.py")))
+        .unwrap_or_else(|| PathBuf::from("taskbolt_bridge.py"));
+
+    let bridge_dst = engine_dir.join("taskbolt_bridge.py");
+
+    if bridge_src.exists() {
+        std::fs::copy(&bridge_src, &bridge_dst)
+            .map_err(|e| format!("Copy bridge failed: {e}"))?;
+    } else if !bridge_dst.exists() {
+        // Try from CARGO_MANIFEST_DIR (dev mode)
+        let manifest_bridge = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("taskbolt_bridge.py");
+        if manifest_bridge.exists() {
+            std::fs::copy(&manifest_bridge, &bridge_dst)
+                .map_err(|e| format!("Copy bridge from manifest failed: {e}"))?;
+        } else {
+            return Err("taskbolt_bridge.py not found anywhere".to_string());
+        }
+    }
+
+    // Python executable
     let python = if cfg!(windows) {
         engine_dir.join(".venv").join("Scripts").join("python.exe")
     } else {
@@ -60,9 +135,9 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
-        .current_dir(&engine_dir)
+        .current_dir(engine_dir)
         .spawn()
-        .map_err(|e| format!("Failed to start engine: {e}"))?;
+        .map_err(|e| format!("Engine spawn failed: {e}\n  Python: {python_exe}\n  Bridge: {}", bridge_dst.display()))?;
 
     let stdin = child.stdin.take().ok_or("No stdin")?;
     let stdout = child.stdout.take().ok_or("No stdout")?;
@@ -105,7 +180,6 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
         }
     });
 
-    // Stderr
     if let Some(stderr) = stderr {
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
@@ -123,15 +197,12 @@ pub fn start_engine(taskbolt_dir: &Path) -> Result<EngineHandle, String> {
     })
 }
 
-/// Send a message to the engine using cloned channel parts.
-/// This avoids holding a MutexGuard across an await point.
 pub async fn send_to_engine_parts(
     stdin_tx: &tokio::sync::mpsc::UnboundedSender<String>,
     response_tx: &Arc<tokio::sync::Mutex<Option<oneshot::Sender<String>>>>,
     message: &str,
 ) -> Result<String, String> {
     let (tx, rx) = oneshot::channel();
-
     {
         let mut guard = response_tx.lock().await;
         *guard = Some(tx);
