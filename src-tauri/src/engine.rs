@@ -84,7 +84,7 @@ pub fn start_engine(engine_dir: &PathBuf, taskbolt_dir: &std::path::Path) -> Res
             .map_err(|e| format!("Write embedded bridge failed: {e}"))?;
     }
 
-    // Python executable
+    // Python executable — prefer Python 3.12 on Windows (3.13+ has proactor bugs)
     let python = if cfg!(windows) {
         engine_dir.join(".venv").join("Scripts").join("python.exe")
     } else {
@@ -94,7 +94,13 @@ pub fn start_engine(engine_dir: &PathBuf, taskbolt_dir: &std::path::Path) -> Res
     let python_exe = if python.exists() {
         python.to_string_lossy().to_string()
     } else if cfg!(windows) {
-        "python".to_string()
+        // Try Python 3.12 first (avoids 3.13+ proactor bug)
+        let py312 = PathBuf::from(r"C:\Users\H-P\AppData\Local\Programs\Python\Python312\python.exe");
+        if py312.exists() {
+            py312.to_string_lossy().to_string()
+        } else {
+            "python".to_string()
+        }
     } else {
         "python3".to_string()
     };

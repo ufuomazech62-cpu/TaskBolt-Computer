@@ -258,20 +258,30 @@ class TaskBoltBridge:
         self.auto_configure()
         self.log_status("Bridge listening...")
 
-        reader = asyncio.StreamReader()
-        protocol = asyncio.StreamReaderProtocol(reader)
-        await asyncio.get_event_loop().connect_read_pipe(
-            lambda: protocol, sys.stdin.buffer
-        )
+        # Use thread-based stdin reader — works on all platforms including Windows
+        queue = asyncio.Queue()
+
+        def stdin_reader():
+            """Read lines from stdin in a background thread."""
+            try:
+                for line in sys.stdin:
+                    line = line.strip()
+                    if line:
+                        asyncio.run_coroutine_threadsafe(queue.put(line), loop)
+            except Exception:
+                pass
+            finally:
+                asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+
+        loop = asyncio.get_event_loop()
+        import threading
+        threading.Thread(target=stdin_reader, daemon=True).start()
 
         while True:
             try:
-                line = await reader.readline()
-                if not line:
+                line = await queue.get()
+                if line is None:
                     break
-                line = line.decode("utf-8", errors="replace").strip()
-                if not line:
-                    continue
 
                 try:
                     msg = json.loads(line)
@@ -310,6 +320,10 @@ def main():
         help="TaskBolt data directory",
     )
     args = parser.parse_args()
+
+    # Fix Windows Python 3.8+ asyncio proactor bug with piped stdin
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     bridge = TaskBoltBridge(args.taskbolt_dir)
     asyncio.run(bridge.run())
