@@ -278,9 +278,13 @@ function App() {
     } catch { /* ignore */ }
   }
 
-  const saveThreads = (t: TaskThread[]) => {
-    localStorage.setItem('tb_threads', JSON.stringify(t))
-    setThreads(t)
+  const saveThreads = (t: TaskThread[] | ((prev: TaskThread[]) => TaskThread[])) => {
+    const updater = typeof t === 'function' ? t : () => t
+    setThreads(prev => {
+      const next = updater(prev)
+      localStorage.setItem('tb_threads', JSON.stringify(next))
+      return next
+    })
   }
 
   const loadSkills = () => {
@@ -332,16 +336,19 @@ function App() {
   }
 
   const addMessage = (threadId: string, msg: Message) => {
-    const updated = threads.map(t => {
-      if (t.id !== threadId) return t
-      return {
-        ...t,
-        messages: [...t.messages, msg],
-        updatedAt: Date.now(),
-        title: t.messages.length === 0 ? msg.content.slice(0, 50) : t.title,
-      }
+    setThreads(prev => {
+      const updated = prev.map(t => {
+        if (t.id !== threadId) return t
+        return {
+          ...t,
+          messages: [...t.messages, msg],
+          updatedAt: Date.now(),
+          title: t.messages.length === 0 ? msg.content.slice(0, 50) : t.title,
+        }
+      })
+      localStorage.setItem('tb_threads', JSON.stringify(updated))
+      return updated
     })
-    saveThreads(updated)
   }
 
   // ── Onboarding ───────────────────────────────────────
@@ -362,7 +369,9 @@ function App() {
     }
   }
 
-  // ── Send Message ─────────────────────────────────────
+  // ── Send Message (routes AI through Vercel SaaS) ─────
+  const VERCEL_API = `${SAAS_URL}/api/ai/chat`
+
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return
 
@@ -386,23 +395,100 @@ function App() {
     setIsStreaming(true)
 
     try {
-      if (!setupDone) {
-        await invoke<string>('auto_setup')
-        setSetupDone(true)
-        localStorage.setItem('tb_setup_done', 'true')
+      // Build messages for AI — include conversation history
+      const aiMessages = [
+        { role: "system", content: "You are TaskBolt, an intelligent AI assistant that sets up, configures, and fixes computers. Be direct, practical, and actionable. Provide exact commands the user can copy-paste. For Windows, prefer PowerShell and native tools. Explain what you're doing and why." },
+        ...thread.messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
+        { role: "user", content: userMsg.content },
+      ]
+
+      // Stream from Vercel SaaS backend — API key lives on server only
+      const response = await fetch(VERCEL_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
+        },
+        body: JSON.stringify({
+          messages: aiMessages,
+          model: "qwen3.6-flash",
+          stream: true,
+        }),
+      })
+
+      if (!response.ok) {
+        const err = await response.text()
+        throw new Error(err.slice(0, 200))
       }
-      const response = await invoke<string>('send_message', { content: userMsg.content })
-      const parsed = response.includes('===RESPONSE===') ? response.split('===RESPONSE===') : ['', response]
+
+      // Create assistant message placeholder for streaming
       const assistantMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: parsed[1]?.trim() || response,
-        thinking: parsed[0]?.trim() || undefined,
+        content: '',
+        thinking: '',
         timestamp: Date.now(),
       }
       addMessage(thread.id, assistantMsg)
+
+      // Helper to update the streaming message in place (not append)
+      const updateStreamingMsg = (content: string, thinking: string) => {
+        setThreads(prev => {
+          const updated = prev.map(t => {
+            if (t.id !== thread.id) return t
+            return {
+              ...t,
+              messages: t.messages.map(m =>
+                m.id === assistantMsg.id ? { ...m, content, thinking } : m
+              ),
+            }
+          })
+          localStorage.setItem('tb_threads', JSON.stringify(updated))
+          return updated
+        })
+      }
+
+      // Read SSE stream
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
+      let fullThinking = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed || !trimmed.startsWith('data:')) continue
+            const data = trimmed.slice(5).trim()
+            if (data === '[DONE]') break
+
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.error) {
+                updateStreamingMsg(`Error: ${parsed.error}`, fullThinking)
+                break
+              }
+              if (parsed.type === 'thinking' && parsed.content) {
+                fullThinking += parsed.content
+                updateStreamingMsg(fullContent, fullThinking)
+              } else if (parsed.type === 'content' && parsed.content) {
+                fullContent += parsed.content
+                updateStreamingMsg(fullContent, fullThinking)
+              }
+            } catch { /* skip malformed SSE */ }
+          }
+        }
+      }
     } catch (err: unknown) {
-      const msg = typeof err === 'string' ? err : 'Request failed'
+      const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Request failed')
       addMessage(thread.id, {
         id: crypto.randomUUID(),
         role: 'system',
@@ -732,9 +818,11 @@ function App() {
 
         <div className="sidebar-footer">
           <button className="sidebar-btn" onClick={() => setSkillsOpen(!skillsOpen)}>🧩 Skills</button>
-          <button className="sidebar-btn" onClick={() => setAppState('settings')}>⚙️ Settings</button>
           {isLoggedIn ? (
-            <div className="user-avatar">{authUser?.display_name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}</div>
+            <div className="user-row">
+              <div className="user-avatar" title={authUser?.display_name || authUser?.email || 'User'}>{authUser?.display_name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}</div>
+              <button className="sidebar-btn sidebar-settings" onClick={() => setAppState('settings')} title="Settings">⚙️</button>
+            </div>
           ) : (
             <button className="sidebar-btn sidebar-signin" onClick={() => setAppState('signin')}>🔑 Sign In</button>
           )}

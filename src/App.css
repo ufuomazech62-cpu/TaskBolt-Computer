@@ -310,6 +310,13 @@ body {
 }
 .sidebar-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .sidebar-signin { color: var(--accent); font-weight: 500; }
+.user-row {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0;
+}
+.user-row .user-avatar { flex-shrink: 0; }
+.user-row .sidebar-settings {
+  flex: 1; text-align: left; margin: 0; padding: 0.3rem 0.5rem;
+}
 .user-avatar {
   width: 28px; height: 28px; border-radius: 50%;
   background: var(--accent-gradient); color: var(--text-inverse);
