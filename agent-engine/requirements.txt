@@ -1,0 +1,3 @@
+# TaskBolt Agent Engine - Dependencies
+# Minimal - uses only stdlib + urllib (built into Python)
+# No external packages needed!

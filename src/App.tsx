@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
+import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
 
 // ── Types ──────────────────────────────────────────────
@@ -9,6 +10,7 @@ interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   thinking?: string
+  toolCalls?: { name: string; args: Record<string, unknown>; result?: string }[]
   timestamp: number
 }
 
@@ -369,8 +371,9 @@ function App() {
     }
   }
 
-  // ── Send Message (routes AI through Vercel SaaS) ─────
-  const VERCEL_API = `${SAAS_URL}/api/ai/chat`
+  // ── Send Message (via local agent engine) ────────────
+  // Agent runs locally, calls Vercel only for AI API (key stays on server)
+  // Agent can execute commands, install software, manage files — full Hermes-style automation
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return
@@ -393,15 +396,11 @@ function App() {
     }
 
     let threadId: string
-    let messagesForAI: Message[] = []
 
     if (activeThread) {
-      // Add message to existing thread
       threadId = activeThread.id
-      messagesForAI = activeThread.messages
       addMessage(threadId, userMsg)
     } else {
-      // Create thread AND add user message atomically — no race condition
       const newThread: TaskThread = {
         id: crypto.randomUUID(),
         title: userContent.slice(0, 50),
@@ -418,109 +417,94 @@ function App() {
       })
     }
 
-    try {
-      // Build messages for AI — include conversation history
-      const aiMessages = [
-        { role: "system", content: "You are TaskBolt, an intelligent AI assistant that sets up, configures, and fixes computers. Be direct, practical, and actionable. Provide exact commands the user can copy-paste. For Windows, prefer PowerShell and native tools. Explain what you're doing and why." },
-        ...messagesForAI.slice(-20).map(m => ({ role: m.role, content: m.content })),
-        { role: "user", content: userMsg.content },
-      ]
+    // Create assistant message placeholder
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      toolCalls: [],
+      timestamp: Date.now(),
+    }
+    addMessage(threadId, assistantMsg)
 
-      // Stream from Vercel SaaS backend — API key lives on server only
-      const response = await fetch(VERCEL_API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authToken ? `Bearer ${authToken}` : "",
-        },
-        body: JSON.stringify({
-          messages: aiMessages,
-          model: "qwen3.6-flash",
-          stream: true,
-        }),
-      })
+    // Track streaming state
+    let fullContent = ''
+    let fullThinking = ''
+    const toolCalls: { name: string; args: Record<string, unknown>; result?: string }[] = []
 
-      if (!response.ok) {
-        const err = await response.text()
-        throw new Error(err.slice(0, 200))
-      }
-
-      // Create assistant message placeholder for streaming
-      const assistantMsg: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: '',
-        thinking: '',
-        timestamp: Date.now(),
-      }
-      addMessage(threadId, assistantMsg)
-
-      // Helper to update the streaming message in place (not append)
-      const updateStreamingMsg = (content: string, thinking: string) => {
-        setThreads(prev => {
-          const updated = prev.map(t => {
-            if (t.id !== threadId) return t
-            return {
-              ...t,
-              messages: t.messages.map(m =>
-                m.id === assistantMsg.id ? { ...m, content, thinking } : m
-              ),
-            }
-          })
-          localStorage.setItem('tb_threads', JSON.stringify(updated))
-          return updated
-        })
-      }
-
-      // Read SSE stream
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let fullContent = ''
-      let fullThinking = ''
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed || !trimmed.startsWith('data:')) continue
-            const data = trimmed.slice(5).trim()
-            if (data === '[DONE]') break
-
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.error) {
-                updateStreamingMsg(`Error: ${parsed.error}`, fullThinking)
-                break
-              }
-              if (parsed.type === 'thinking' && parsed.content) {
-                fullThinking += parsed.content
-                updateStreamingMsg(fullContent, fullThinking)
-              } else if (parsed.type === 'content' && parsed.content) {
-                fullContent += parsed.content
-                updateStreamingMsg(fullContent, fullThinking)
-              }
-            } catch { /* skip malformed SSE */ }
+    const updateMsg = () => {
+      setThreads(prev => {
+        const updated = prev.map(t => {
+          if (t.id !== threadId) return t
+          return {
+            ...t,
+            messages: t.messages.map(m =>
+              m.id === assistantMsg.id
+                ? { ...m, content: fullContent, thinking: fullThinking, toolCalls: [...toolCalls] }
+                : m
+            ),
           }
-        }
-      }
-    } catch (err: unknown) {
-      const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Request failed')
-      addMessage(threadId, {
-        id: crypto.randomUUID(),
-        role: 'system',
-        content: `Error: ${msg}`,
-        timestamp: Date.now(),
+        })
+        localStorage.setItem('tb_threads', JSON.stringify(updated))
+        return updated
       })
-    } finally {
+    }
+
+    // Listen for agent events from Tauri
+    const unlisten = await listen<string>('agent-event', (event) => {
+      try {
+        const data = JSON.parse(event.payload)
+        switch (data.type) {
+          case 'thinking':
+            fullThinking += data.content || ''
+            updateMsg()
+            break
+          case 'content':
+            fullContent += data.content || ''
+            updateMsg()
+            break
+          case 'tool_start':
+            toolCalls.push({ name: data.name, args: data.args || {} })
+            updateMsg()
+            break
+          case 'tool_result':
+            // Update last tool call with result
+            if (toolCalls.length > 0) {
+              toolCalls[toolCalls.length - 1].result = data.result || ''
+            }
+            updateMsg()
+            break
+          case 'error':
+            fullContent += `\n\n⚠️ Error: ${data.content}`
+            updateMsg()
+            break
+          case 'done':
+            setIsStreaming(false)
+            unlisten()
+            break
+          case 'status':
+            // Agent status messages (e.g., "ready")
+            break
+        }
+      } catch {
+        // skip malformed events
+      }
+    })
+
+    try {
+      // Send message to local agent engine via Tauri
+      await invoke('send_message', {
+        content: userContent,
+        threadId,
+        authToken: authToken || '',
+      })
+    } catch (err: unknown) {
+      const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Agent failed')
+      fullContent = `Error: ${msg}`
+      updateMsg()
       setIsStreaming(false)
+      unlisten()
     }
   }
 
@@ -1146,6 +1130,32 @@ function App() {
                       </summary>
                       <pre>{msg.thinking}</pre>
                     </details>
+                  )}
+                  {msg.toolCalls && msg.toolCalls.length > 0 && (
+                    <div className="tool-calls">
+                      {msg.toolCalls.map((tc, i) => (
+                        <details key={i} className="tool-call-block">
+                          <summary>
+                            <span className="tool-call-icon">⚙️</span>
+                            <span className="tool-call-name">{tc.name}</span>
+                            {tc.result === undefined && <span className="tool-call-running">running...</span>}
+                            {tc.result !== undefined && <span className="tool-call-done">✓</span>}
+                          </summary>
+                          <div className="tool-call-detail">
+                            <div className="tool-call-args">
+                              <strong>Args:</strong>
+                              <pre>{JSON.stringify(tc.args, null, 2)}</pre>
+                            </div>
+                            {tc.result !== undefined && (
+                              <div className="tool-call-result">
+                                <strong>Result:</strong>
+                                <pre>{tc.result.slice(0, 1000)}{tc.result.length > 1000 ? '...' : ''}</pre>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
                   )}
                   <div className="message-text">{renderMarkdown(msg.content)}</div>
                 </div>

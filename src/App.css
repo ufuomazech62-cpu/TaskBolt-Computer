@@ -1087,6 +1087,92 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.15);
 }
 
+/* Tool Calls */
+.tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.tool-call-block {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  overflow: hidden;
+}
+
+.tool-call-block summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-secondary);
+}
+
+.tool-call-block summary:hover {
+  background: var(--bg-hover);
+}
+
+.tool-call-icon {
+  font-size: 0.75rem;
+}
+
+.tool-call-name {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.tool-call-running {
+  color: var(--accent);
+  font-size: 0.72rem;
+  animation: pulse 1.5s infinite;
+}
+
+.tool-call-done {
+  color: var(--success, #22c55e);
+  font-weight: 600;
+}
+
+.tool-call-detail {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-call-detail strong {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tool-call-detail pre {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  background: var(--bg-secondary);
+  padding: 6px 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 2px 0 0;
+  color: var(--text-primary);
+}
+
+.tool-call-result pre {
+  border-left: 2px solid var(--accent);
+}
+
 /* Markdown Styling */
 .md-h2 {
   font-size: 1.1rem;
