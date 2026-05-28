@@ -41,11 +41,14 @@ fn find_python() -> String {
         }
     }
 
-    // 2. Try Python 3.12 explicit path on Windows
+    // 2. Try common Windows Python installations
     if cfg!(windows) {
-        let py312 = PathBuf::from(r"C:\Users\H-P\AppData\Local\Programs\Python\Python312\python.exe");
-        if py312.exists() {
-            return py312.to_string_lossy().to_string();
+        for version in &["Python313", "Python312", "Python311", "Python310"] {
+            let py = PathBuf::from(format!(r"C:\Users\{}\AppData\Local\Programs\Python\{}\python.exe",
+                std::env::var("USERNAME").unwrap_or_default(), version));
+            if py.exists() {
+                return py.to_string_lossy().to_string();
+            }
         }
     }
 

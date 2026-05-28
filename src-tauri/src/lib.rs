@@ -41,11 +41,27 @@ async fn auto_setup(state: State<'_, AppState>) -> Result<String, String> {
 
 #[tauri::command]
 async fn send_message(state: State<'_, AppState>, content: String) -> Result<String, String> {
+    // Auto-start engine if not already running (handles stale localStorage from old versions)
+    {
+        let mut guard = state.engine.lock().await;
+        if guard.is_none() {
+            let home = dirs::home_dir()
+                .ok_or_else(|| "Could not find home directory".to_string())?;
+            let taskbolt_dir = home.join(".taskbolt");
+            std::fs::create_dir_all(&taskbolt_dir).ok();
+            for sub in &["config", "data", "sessions", "skills", "logs"] {
+                std::fs::create_dir_all(taskbolt_dir.join(sub)).ok();
+            }
+            let handle = engine::start_engine(&taskbolt_dir)?;
+            *guard = Some(handle);
+        }
+    }
+
     let (stdin_tx, response_tx) = {
         let guard = state.engine.lock().await;
         let handle = guard
             .as_ref()
-            .ok_or_else(|| "Engine not started. Run auto_setup first.".to_string())?;
+            .ok_or_else(|| "Engine not started.".to_string())?;
         (handle.stdin_tx(), handle.response_tx())
     };
 
