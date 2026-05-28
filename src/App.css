@@ -1231,6 +1231,7 @@ body {
   max-width: 808px;
   width: 100%;
   margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .input-wrapper {

@@ -381,24 +381,48 @@ function App() {
       return
     }
 
-    let thread = activeThread
-    if (!thread) thread = createThread(input.slice(0, 50))
+    const userContent = input.trim()
+    setInput('')
+    setIsStreaming(true)
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: input.trim(),
+      content: userContent,
       timestamp: Date.now(),
     }
-    addMessage(thread.id, userMsg)
-    setInput('')
-    setIsStreaming(true)
+
+    let threadId: string
+    let messagesForAI: Message[] = []
+
+    if (activeThread) {
+      // Add message to existing thread
+      threadId = activeThread.id
+      messagesForAI = activeThread.messages
+      addMessage(threadId, userMsg)
+    } else {
+      // Create thread AND add user message atomically — no race condition
+      const newThread: TaskThread = {
+        id: crypto.randomUUID(),
+        title: userContent.slice(0, 50),
+        messages: [userMsg],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      threadId = newThread.id
+      setActiveThreadId(threadId)
+      setThreads(prev => {
+        const updated = [newThread, ...prev]
+        localStorage.setItem('tb_threads', JSON.stringify(updated))
+        return updated
+      })
+    }
 
     try {
       // Build messages for AI — include conversation history
       const aiMessages = [
         { role: "system", content: "You are TaskBolt, an intelligent AI assistant that sets up, configures, and fixes computers. Be direct, practical, and actionable. Provide exact commands the user can copy-paste. For Windows, prefer PowerShell and native tools. Explain what you're doing and why." },
-        ...thread.messages.slice(-20).map(m => ({ role: m.role, content: m.content })),
+        ...messagesForAI.slice(-20).map(m => ({ role: m.role, content: m.content })),
         { role: "user", content: userMsg.content },
       ]
 
@@ -429,13 +453,13 @@ function App() {
         thinking: '',
         timestamp: Date.now(),
       }
-      addMessage(thread.id, assistantMsg)
+      addMessage(threadId, assistantMsg)
 
       // Helper to update the streaming message in place (not append)
       const updateStreamingMsg = (content: string, thinking: string) => {
         setThreads(prev => {
           const updated = prev.map(t => {
-            if (t.id !== thread.id) return t
+            if (t.id !== threadId) return t
             return {
               ...t,
               messages: t.messages.map(m =>
@@ -489,7 +513,7 @@ function App() {
       }
     } catch (err: unknown) {
       const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Request failed')
-      addMessage(thread.id, {
+      addMessage(threadId, {
         id: crypto.randomUUID(),
         role: 'system',
         content: `Error: ${msg}`,
