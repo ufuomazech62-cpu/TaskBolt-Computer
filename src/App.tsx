@@ -622,16 +622,54 @@ function App() {
     return groups.filter(g => g.items.length > 0)
   }
 
-  // ── Simple markdown renderer ──
+  // ── Markdown renderer with table/column support ──
+  const parseMarkdownTable = (lines: string[]): React.ReactNode | null => {
+    if (lines.length < 2) return null
+    const parseRow = (line: string) => line.split('|').slice(1, -1).map(c => c.trim())
+    const headers = parseRow(lines[0])
+    const separator = lines[1]
+    if (!separator.match(/^[\s|:-]+$/)) return null
+
+    const rows = lines.slice(2).map(parseRow)
+    return (
+      <div className="md-table-wrap">
+        <table className="md-table">
+          <thead>
+            <tr>{headers.map((h, i) => <th key={i}>{renderInline(h)}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((row, ri) => (
+              <tr key={ri}>{row.map((cell, ci) => <td key={ci}>{renderInline(cell)}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
   const renderMarkdown = (text: string) => {
     const parts: React.ReactNode[] = []
     const lines = text.split('\n')
     let inCodeBlock = false
     let codeBlockContent = ''
     let codeBlockLang = ''
+    let tableBuffer: string[] = []
+
+    const flushTable = () => {
+      if (tableBuffer.length > 0) {
+        const table = parseMarkdownTable(tableBuffer)
+        if (table) {
+          parts.push(<div key={`tbl-${parts.length}`}>{table}</div>)
+        } else {
+          tableBuffer.forEach((l, i) => parts.push(<span key={`tblraw-${parts.length}-${i}`}>{renderInline(l)}{'\n'}</span>))
+        }
+        tableBuffer = []
+      }
+    }
 
     lines.forEach((line, i) => {
       if (line.startsWith('```')) {
+        flushTable()
         if (!inCodeBlock) {
           inCodeBlock = true
           codeBlockLang = line.slice(3).trim()
@@ -647,6 +685,14 @@ function App() {
         return
       }
 
+      // Table detection: line starts with |
+      if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+        tableBuffer.push(line.trim())
+        return
+      } else {
+        flushTable()
+      }
+
       // Headers
       if (line.startsWith('### ')) {
         parts.push(<h4 key={i} className="md-h4">{renderInline(line.slice(4))}</h4>)
@@ -655,11 +701,25 @@ function App() {
       } else if (line.startsWith('# ')) {
         parts.push(<h2 key={i} className="md-h2">{renderInline(line.slice(2))}</h2>)
       }
+      // Blockquote
+      else if (line.startsWith('> ')) {
+        parts.push(<blockquote key={i} className="md-blockquote">{renderInline(line.slice(2))}</blockquote>)
+      }
+      // Horizontal rule
+      else if (line.match(/^[-*_]{3,}\s*$/)) {
+        parts.push(<hr key={i} className="md-hr" />)
+      }
       // List items
       else if (line.match(/^[\-\*] /)) {
         parts.push(<div key={i} className="md-li">{renderInline(line.slice(2))}</div>)
       } else if (line.match(/^\d+\. /)) {
         parts.push(<div key={i} className="md-li md-ol">{renderInline(line.replace(/^\d+\. /, ''))}</div>)
+      }
+      // Checkbox
+      else if (line.match(/^[\-\*] \[[ x]\] /)) {
+        const checked = line.match(/\[x\]/)
+        const text = line.replace(/^[\-\*] \[[ x]\] /, '')
+        parts.push(<div key={i} className="md-li md-checkbox">{checked ? '☑' : '☐'} {renderInline(text)}</div>)
       }
       // Empty line
       else if (line.trim() === '') {
@@ -671,6 +731,8 @@ function App() {
       }
     })
 
+    flushTable()
+
     if (inCodeBlock && codeBlockContent) {
       parts.push(<pre key="cb-final" className="md-code-block"><code>{codeBlockContent}</code></pre>)
     }
@@ -680,8 +742,8 @@ function App() {
 
   const renderInline = (text: string): React.ReactNode => {
     const parts: React.ReactNode[] = []
-    // Match **bold**, `code`, and regular text
-    const regex = /(\*\*(.+?)\*\*)|(`([^`]+)`)/g
+    // Match **bold**, *italic*, ~~strikethrough~~, `code`, [links](url), and regular text
+    const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(~~(.+?)~~)|(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))/g
     let lastIndex = 0
     let match
 
@@ -692,7 +754,13 @@ function App() {
       if (match[2]) {
         parts.push(<strong key={match.index}>{match[2]}</strong>)
       } else if (match[4]) {
-        parts.push(<code key={match.index} className="md-inline-code">{match[4]}</code>)
+        parts.push(<em key={match.index}>{match[4]}</em>)
+      } else if (match[6]) {
+        parts.push(<del key={match.index}>{match[6]}</del>)
+      } else if (match[8]) {
+        parts.push(<code key={match.index} className="md-inline-code">{match[8]}</code>)
+      } else if (match[10]) {
+        parts.push(<a key={match.index} href={match[11]} target="_blank" rel="noopener noreferrer" className="md-link">{match[10]}</a>)
       }
       lastIndex = match.index + match[0].length
     }
@@ -1118,15 +1186,20 @@ function App() {
         ) : (
           <div className="messages-container">
             {activeThread.messages.map(msg => (
-              <div key={msg.id} className={`message ${msg.role}`}>
-                {msg.role === 'assistant' && (
-                  <div className="message-avatar assistant-avatar"><IconZap size={14} /></div>
-                )}
-                <div className="message-body">
+              <div key={msg.id} className={`msg msg-${msg.role}`}>
+                <div className="msg-sender">
+                  {msg.role === 'assistant' ? (
+                    <span className="msg-sender-name sender-ai"><IconZap size={12} /> TaskBolt</span>
+                  ) : (
+                    <span className="msg-sender-name sender-user">{authUser?.display_name || authUser?.email || 'You'}</span>
+                  )}
+                  <span className="msg-time">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <div className="msg-body">
                   {msg.thinking && (
                     <details className="thinking-block">
                       <summary>
-                        <IconChevronRight size={12} /> Thinking process
+                        <IconChevronRight size={12} /> Reasoning
                       </summary>
                       <pre>{msg.thinking}</pre>
                     </details>
@@ -1134,22 +1207,21 @@ function App() {
                   {msg.toolCalls && msg.toolCalls.length > 0 && (
                     <div className="tool-calls">
                       {msg.toolCalls.map((tc, i) => (
-                        <details key={i} className="tool-call-block">
+                        <details key={i} className="tool-call-block" open={tc.result === undefined}>
                           <summary>
-                            <span className="tool-call-icon">⚙️</span>
+                            <span className="tool-call-status">{tc.result === undefined ? <span className="tc-spinner" /> : <span className="tc-check">✓</span>}</span>
                             <span className="tool-call-name">{tc.name}</span>
-                            {tc.result === undefined && <span className="tool-call-running">running...</span>}
-                            {tc.result !== undefined && <span className="tool-call-done">✓</span>}
+                            {tc.result !== undefined && <span className="tool-call-badge">done</span>}
                           </summary>
                           <div className="tool-call-detail">
-                            <div className="tool-call-args">
-                              <strong>Args:</strong>
+                            <div className="tool-call-section">
+                              <span className="tool-call-label">Input</span>
                               <pre>{JSON.stringify(tc.args, null, 2)}</pre>
                             </div>
                             {tc.result !== undefined && (
-                              <div className="tool-call-result">
-                                <strong>Result:</strong>
-                                <pre>{tc.result.slice(0, 1000)}{tc.result.length > 1000 ? '...' : ''}</pre>
+                              <div className="tool-call-section">
+                                <span className="tool-call-label">Output</span>
+                                <pre>{tc.result.slice(0, 2000)}{tc.result.length > 2000 ? '\n...' : ''}</pre>
                               </div>
                             )}
                           </div>
@@ -1157,20 +1229,21 @@ function App() {
                       ))}
                     </div>
                   )}
-                  <div className="message-text">{renderMarkdown(msg.content)}</div>
+                  <div className="msg-text">{renderMarkdown(msg.content)}</div>
                 </div>
-                {msg.role === 'user' && (
-                  <div className="message-avatar user-avatar">
-                    {authUser?.display_name?.charAt(0) || authUser?.email?.charAt(0) || <IconUser size={14} />}
-                  </div>
-                )}
               </div>
             ))}
             {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.content === '' && (
-              <div className="message assistant">
-                <div className="message-avatar assistant-avatar"><IconZap size={14} /></div>
-                <div className="message-body">
-                  <div className="typing-indicator"><span /><span /><span /></div>
+              <div className="msg msg-assistant">
+                <div className="msg-sender">
+                  <span className="msg-sender-name sender-ai"><IconZap size={12} /> TaskBolt</span>
+                </div>
+                <div className="msg-body">
+                  <div className="typing-indicator">
+                    <div className="typing-bar">
+                      <span /><span /><span />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
