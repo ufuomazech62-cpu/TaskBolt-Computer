@@ -49,7 +49,7 @@ interface MCPServer {
 }
 
 type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin'
-type SettingsTab = 'general' | 'account' | 'skills' | 'mcp' | 'advanced'
+type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp' | 'advanced'
 
 // ── SaaS Backend ────────────────────────────────────
 const SAAS_URL = 'https://taskbolt-saas.vercel.app'
@@ -110,6 +110,15 @@ function App() {
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([])
   const [newMcpName, setNewMcpName] = useState('')
   const [newMcpUrl, setNewMcpUrl] = useState('')
+
+  // Billing & Usage
+  const [billingStatus, setBillingStatus] = useState<any>(null)
+  const [billingPlans, setBillingPlans] = useState<any[]>([])
+  const [billingLoading, setBillingLoading] = useState(false)
+  const [usageData, setUsageData] = useState<any>(null)
+  const [usagePeriod, setUsagePeriod] = useState('month')
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const [version, setVersion] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -516,6 +525,119 @@ function App() {
   }
 
   // ── MCP ──────────────────────────────────────────────
+
+  // ── Billing API calls ────────────────────────────────
+  const authHeaders = (): HeadersInit => ({
+    'Content-Type': 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  })
+
+  const fetchBillingStatus = async () => {
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/status`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.ok) setBillingStatus(data)
+    } catch { /* ignore */ }
+  }
+
+  const fetchBillingPlans = async () => {
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/plans`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.ok) setBillingPlans(data.plans || [])
+    } catch { /* ignore */ }
+  }
+
+  const fetchUsage = async (period: string = usagePeriod) => {
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/usage?period=${period}`, { headers: authHeaders() })
+      const data = await res.json()
+      if (data.ok) setUsageData(data)
+    } catch { /* ignore */ }
+  }
+
+  const subscribeToPlan = async (planId: string) => {
+    setBillingLoading(true)
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/subscribe`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ plan_id: planId, email: authUser?.email, name: authUser?.display_name }),
+      })
+      const data = await res.json()
+      if (data.ok && data.payment_url) {
+        window.open(data.payment_url, '_blank', 'width=500,height=700')
+      } else {
+        alert(data.error || 'Failed to initiate payment')
+      }
+    } catch {
+      alert('Network error')
+    } finally {
+      setBillingLoading(false)
+    }
+  }
+
+  const claimDailyCredits = async () => {
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/claim-daily`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        fetchBillingStatus()
+      } else {
+        alert(data.error || 'Failed to claim daily credits')
+      }
+    } catch { /* ignore */ }
+  }
+
+  const cancelSubscription = async () => {
+    if (!confirm('Cancel your subscription? Remaining credits stay available.')) return
+    try {
+      const res = await fetch(`${SAAS_URL}/api/billing/cancel`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      const data = await res.json()
+      if (data.ok) fetchBillingStatus()
+    } catch { /* ignore */ }
+  }
+
+  const deleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`${SAAS_URL}/api/account/delete`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ confirm: 'DELETE' }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        handleSignOut()
+        localStorage.clear()
+        setAppState('onboarding')
+      }
+    } catch { /* ignore */ } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  // Fetch billing data when settings opens
+  useEffect(() => {
+    if (appState === 'settings' && isLoggedIn) {
+      fetchBillingStatus()
+      fetchBillingPlans()
+    }
+  }, [appState, settingsTab])
+
+  useEffect(() => {
+    if (settingsTab === 'usage' && isLoggedIn) {
+      fetchUsage(usagePeriod)
+    }
+  }, [settingsTab, usagePeriod])
+
   const addMCPServer = () => {
     if (!newMcpName.trim() || !newMcpUrl.trim()) return
     const server: MCPServer = {
@@ -917,7 +1039,7 @@ function App() {
           </div>
           <div className="settings-body">
             <div className="settings-tabs">
-              {(['general', 'account', 'skills', 'mcp', 'advanced'] as SettingsTab[]).map(tab => (
+              {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'advanced'] as SettingsTab[]).map(tab => (
                 <button key={tab} className={`tab-btn ${settingsTab === tab ? 'active' : ''}`} onClick={() => setSettingsTab(tab)}>
                   {tab === 'mcp' ? 'MCP' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -942,16 +1064,215 @@ function App() {
               <div className="settings-section">
                 <h3>Account</h3>
                 {isLoggedIn ? (
-                  <div className="account-info">
-                    <div className="account-avatar">{authUser?.display_name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}</div>
-                    <div className="account-details">
-                      <strong>{authUser?.display_name || 'User'}</strong>
-                      <span className="text-muted">{authUser?.email || `Telegram: ${authUser?.telegram_id}`}</span>
+                  <>
+                    <div className="account-info">
+                      <div className="account-avatar">{authUser?.display_name?.charAt(0) || authUser?.email?.charAt(0) || 'U'}</div>
+                      <div className="account-details">
+                        <strong>{authUser?.display_name || 'User'}</strong>
+                        <span className="text-muted">{authUser?.email || `Telegram: ${authUser?.telegram_id}`}</span>
+                      </div>
+                      <button className="btn-secondary" onClick={handleSignOut}>Sign Out</button>
                     </div>
-                    <button className="btn-secondary" onClick={handleSignOut}>Sign Out</button>
-                  </div>
+
+                    <div className="danger-zone" style={{ marginTop: '2rem' }}>
+                      <h3 style={{ color: 'var(--danger)' }}>Danger Zone</h3>
+                      <p className="setting-desc">Permanently delete your account and all data. This cannot be undone.</p>
+                      <input
+                        type="text"
+                        placeholder='Type DELETE to confirm'
+                        value={deleteConfirm}
+                        onChange={e => setDeleteConfirm(e.target.value)}
+                        className="input-field"
+                        style={{ marginBottom: '0.5rem' }}
+                      />
+                      <button
+                        className="btn-danger"
+                        disabled={deleteConfirm !== 'DELETE' || deleteLoading}
+                        onClick={deleteAccount}
+                      >
+                        {deleteLoading ? 'Deleting...' : 'Delete My Account'}
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <button className="btn-primary" onClick={() => setAppState('signin')}>Sign In</button>
+                )}
+              </div>
+            )}
+
+            {settingsTab === 'billing' && (
+              <div className="settings-section">
+                <h3>Subscription</h3>
+
+                {/* Current Plan */}
+                {billingStatus?.subscription ? (
+                  <div className="billing-current-plan">
+                    <div className="plan-card active">
+                      <div className="plan-card-header">
+                        <span className="plan-name">{billingStatus.subscription.plan.charAt(0).toUpperCase() + billingStatus.subscription.plan.slice(1)}</span>
+                        <span className="plan-price">${billingStatus.subscription.price_usd}/mo</span>
+                      </div>
+                      <div className="plan-card-body">
+                        <div className="plan-stat">
+                          <span className="plan-stat-label">Credits Balance</span>
+                          <span className="plan-stat-value">{billingStatus.credits.balance.toLocaleString()}</span>
+                        </div>
+                        <div className="plan-stat">
+                          <span className="plan-stat-label">Monthly Allocation</span>
+                          <span className="plan-stat-value">{billingStatus.subscription.credits_monthly.toLocaleString()}</span>
+                        </div>
+                        <div className="plan-stat">
+                          <span className="plan-stat-label">Daily Bonus</span>
+                          <span className="plan-stat-value">{billingStatus.subscription.credits_daily_bonus}/day</span>
+                        </div>
+                        <div className="plan-stat">
+                          <span className="plan-stat-label">Expires</span>
+                          <span className="plan-stat-value">{new Date(billingStatus.subscription.ends_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="plan-card-actions">
+                        {billingStatus.credits.can_claim_daily && (
+                          <button className="btn-primary btn-sm" onClick={claimDailyCredits}>
+                            Claim {billingStatus.credits.daily_bonus_amount} Daily Credits
+                          </button>
+                        )}
+                        <button className="btn-secondary btn-sm" onClick={cancelSubscription}>Cancel Plan</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="no-plan-notice">
+                    <p>You don't have an active subscription. Choose a plan below to start.</p>
+                  </div>
+                )}
+
+                {/* Daily claim when no sub but has credits */}
+                {!billingStatus?.subscription && billingStatus?.credits?.can_claim_daily && (
+                  <button className="btn-primary" style={{ marginBottom: '1rem' }} onClick={claimDailyCredits}>
+                    Claim Daily Credits
+                  </button>
+                )}
+
+                <h3 style={{ marginTop: '1.5rem' }}>Plans</h3>
+                <div className="plans-grid">
+                  {billingPlans.map(plan => (
+                    <div key={plan.id} className={`plan-card ${billingStatus?.subscription?.plan === plan.id ? 'current' : ''}`}>
+                      <div className="plan-card-header">
+                        <span className="plan-name">{plan.name}</span>
+                        <span className="plan-price">${plan.price_usd}/mo</span>
+                      </div>
+                      <p className="plan-desc">{plan.description}</p>
+                      <ul className="plan-features">
+                        {plan.features.map((f: string, i: number) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                      <button
+                        className={`btn-primary btn-sm ${billingStatus?.subscription?.plan === plan.id ? 'btn-disabled' : ''}`}
+                        onClick={() => subscribeToPlan(plan.id)}
+                        disabled={billingLoading || billingStatus?.subscription?.plan === plan.id}
+                      >
+                        {billingStatus?.subscription?.plan === plan.id ? 'Current Plan' : billingLoading ? 'Processing...' : 'Subscribe'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {settingsTab === 'usage' && (
+              <div className="settings-section">
+                <h3>Usage</h3>
+
+                {/* Period Selector */}
+                <div className="usage-period-tabs">
+                  {['today', 'week', 'month'].map(p => (
+                    <button
+                      key={p}
+                      className={`period-btn ${usagePeriod === p ? 'active' : ''}`}
+                      onClick={() => setUsagePeriod(p)}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {usageData ? (
+                  <>
+                    {/* Stats Grid */}
+                    <div className="usage-stats-grid">
+                      <div className="usage-stat-card">
+                        <span className="usage-stat-label">Total Tokens</span>
+                        <span className="usage-stat-value">{usageData.stats.total_tokens.toLocaleString()}</span>
+                      </div>
+                      <div className="usage-stat-card">
+                        <span className="usage-stat-label">Prompt Tokens</span>
+                        <span className="usage-stat-value">{usageData.stats.prompt_tokens.toLocaleString()}</span>
+                      </div>
+                      <div className="usage-stat-card">
+                        <span className="usage-stat-label">Completion Tokens</span>
+                        <span className="usage-stat-value">{usageData.stats.completion_tokens.toLocaleString()}</span>
+                      </div>
+                      <div className="usage-stat-card">
+                        <span className="usage-stat-label">Credits Used</span>
+                        <span className="usage-stat-value">{usageData.stats.credits_used.toLocaleString()}</span>
+                      </div>
+                      <div className="usage-stat-card">
+                        <span className="usage-stat-label">Requests</span>
+                        <span className="usage-stat-value">{usageData.stats.requests}</span>
+                      </div>
+                    </div>
+
+                    {/* Model Breakdown */}
+                    {usageData.models && usageData.models.length > 0 && (
+                      <div style={{ marginTop: '1.5rem' }}>
+                        <h4>By Model</h4>
+                        <div className="usage-table">
+                          <div className="usage-table-header">
+                            <span>Model</span>
+                            <span>Tokens</span>
+                            <span>Credits</span>
+                            <span>Requests</span>
+                          </div>
+                          {usageData.models.map((m: any, i: number) => (
+                            <div key={i} className="usage-table-row">
+                              <span className="font-mono">{m.model}</span>
+                              <span>{m.tokens.toLocaleString()}</span>
+                              <span>{m.credits.toLocaleString()}</span>
+                              <span>{m.requests}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent Transactions */}
+                    {usageData.transactions && usageData.transactions.length > 0 && (
+                      <div style={{ marginTop: '1.5rem' }}>
+                        <h4>Recent Transactions</h4>
+                        <div className="usage-table">
+                          <div className="usage-table-header">
+                            <span>Type</span>
+                            <span>Credits</span>
+                            <span>Amount</span>
+                            <span>Status</span>
+                            <span>Date</span>
+                          </div>
+                          {usageData.transactions.slice(0, 10).map((t: any, i: number) => (
+                            <div key={i} className="usage-table-row">
+                              <span>{t.type.replace('_', ' ')}</span>
+                              <span>{t.credits.toLocaleString()}</span>
+                              <span>{t.amount_usd ? `$${t.amount_usd}` : '—'}</span>
+                              <span className={`status-badge status-${t.status}`}>{t.status}</span>
+                              <span className="text-muted">{new Date(t.created_at).toLocaleDateString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted" style={{ textAlign: 'center', padding: '2rem' }}>Loading usage data...</p>
                 )}
               </div>
             )}
