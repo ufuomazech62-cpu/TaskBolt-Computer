@@ -199,7 +199,7 @@ function App() {
     setEmailLoading(true)
     setEmailError('')
     try {
-      const res = await fetch(`${SAAS_URL}/api/auth/email/send`, {
+      const res = await fetch(`${SAAS_URL}/api/auth/email?action=send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput }),
@@ -235,7 +235,7 @@ function App() {
     setEmailLoading(true)
     setEmailError('')
     try {
-      const res = await fetch(`${SAAS_URL}/api/auth/email/verify`, {
+      const res = await fetch(`${SAAS_URL}/api/auth/email?action=verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, code: emailCode }),
@@ -266,7 +266,7 @@ function App() {
   // ── Telegram QR ──────────────────────────────────────
   const startTelegramQR = async () => {
     try {
-      const res = await fetch(`${SAAS_URL}/api/auth/telegram/qr`)
+      const res = await fetch(`${SAAS_URL}/api/auth/telegram?action=qr`)
       const data = await res.json()
       if (data.ok) {
         setTgQR({ token: data.token, deeplink: data.deeplink })
@@ -274,7 +274,7 @@ function App() {
         // Poll for completion
         tgPollRef.current = setInterval(async () => {
           try {
-            const check = await fetch(`${SAAS_URL}/api/auth/telegram/check?token=${data.token}`)
+            const check = await fetch(`${SAAS_URL}/api/auth/telegram?action=check&token=${data.token}`)
             const d = await check.json()
             if (d.ok && d.token) {
               handleAuthSuccess(d.token, d.user)
@@ -542,7 +542,7 @@ function App() {
 
   const fetchBillingStatus = async () => {
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/status`, { headers: authHeaders() })
+      const res = await fetch(`${SAAS_URL}/api/billing?action=status`, { headers: authHeaders() })
       const data = await res.json()
       if (data.ok) setBillingStatus(data)
     } catch { /* ignore */ }
@@ -550,7 +550,7 @@ function App() {
 
   const fetchCreditPacks = async () => {
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/packs`, { headers: authHeaders() })
+      const res = await fetch(`${SAAS_URL}/api/billing?action=packs`, { headers: authHeaders() })
       const data = await res.json()
       if (data.ok) setCreditPacks(data.packs || [])
     } catch { /* ignore */ }
@@ -558,7 +558,7 @@ function App() {
 
   const fetchUsage = async (period: string = usagePeriod) => {
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/usage?period=${period}`, { headers: authHeaders() })
+      const res = await fetch(`${SAAS_URL}/api/billing?action=usage&period=${period}`, { headers: authHeaders() })
       const data = await res.json()
       if (data.ok) setUsageData(data)
     } catch { /* ignore */ }
@@ -567,7 +567,7 @@ function App() {
   const purchasePack = async (packId: string) => {
     setBillingLoading(true)
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/purchase`, {
+      const res = await fetch(`${SAAS_URL}/api/billing?action=purchase`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ pack_id: packId }),
@@ -618,7 +618,7 @@ function App() {
     if (deleteConfirm !== 'DELETE') return
     setDeleteLoading(true)
     try {
-      const res = await fetch(`${SAAS_URL}/api/account/delete`, {
+      const res = await fetch(`${SAAS_URL}/api/account?action=delete`, {
         method: 'DELETE',
         headers: authHeaders(),
         body: JSON.stringify({ confirm: 'DELETE' }),

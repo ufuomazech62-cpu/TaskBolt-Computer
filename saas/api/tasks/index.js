@@ -1,41 +1,52 @@
+const { requireAuth, jsonResponse } = require("../_auth");
 const { sql, initDB } = require("../_db");
-const jwt = require("jsonwebtoken");
-
-const JWT_SECRET = process.env.JWT_SECRET || "taskbolt-jwt-secret-change-in-prod";
-
-function getUser(req) {
-  const auth = (req.headers.authorization || "").replace("Bearer ", "");
-  if (!auth) return null;
-  try { return jwt.verify(auth, JWT_SECRET); } catch { return null; }
-}
 
 module.exports = async function handler(req, res) {
-  try { await initDB(); } catch (e) { return res.status(500).json({ error: "DB init failed" }); }
   if (req.method === "OPTIONS") return res.status(200).end();
+  await initDB();
 
-  const user = getUser(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const user = requireAuth(req);
+  if (!user) return jsonResponse(res, { error: "Unauthorized" }, 401);
 
+  const id = req.query.id; // If present, operate on single task
+
+  // --- Single task operations (when ?id= is provided) ---
+  if (id) {
+    if (req.method === "GET") {
+      const tasks = await sql`SELECT * FROM tasks WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid`;
+      if (!tasks.length) return jsonResponse(res, { error: "Not found" }, 404);
+      return jsonResponse(res, { ok: true, task: tasks[0] });
+    }
+    if (req.method === "PUT" || req.method === "PATCH") {
+      const { title, messages } = req.body || {};
+      const tasks = await sql`UPDATE tasks SET title = COALESCE(${title || null}, title), messages = COALESCE(${JSON.stringify(messages || null)}::jsonb, messages), updated_at = NOW() WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid RETURNING *`;
+      if (!tasks.length) return jsonResponse(res, { error: "Not found" }, 404);
+      return jsonResponse(res, { ok: true, task: tasks[0] });
+    }
+    if (req.method === "DELETE") {
+      await sql`DELETE FROM tasks WHERE id = ${id}::uuid AND user_id = ${user.id}::uuid`;
+      return jsonResponse(res, { ok: true });
+    }
+    return jsonResponse(res, { error: "Method not allowed" }, 405);
+  }
+
+  // --- List/Create tasks (no ?id=) ---
   if (req.method === "GET") {
     const q = req.query.q || "";
     let tasks;
     if (q) {
-      tasks = await sql`SELECT * FROM tasks WHERE user_id = ${user.sub} AND title ILIKE ${"%" + q + "%"} ORDER BY updated_at DESC LIMIT 50`;
+      tasks = await sql`SELECT * FROM tasks WHERE user_id = ${user.id}::uuid AND title ILIKE ${"%" + q + "%"} ORDER BY updated_at DESC LIMIT 50`;
     } else {
-      tasks = await sql`SELECT * FROM tasks WHERE user_id = ${user.sub} ORDER BY updated_at DESC LIMIT 50`;
+      tasks = await sql`SELECT * FROM tasks WHERE user_id = ${user.id}::uuid ORDER BY updated_at DESC LIMIT 50`;
     }
-    return res.json({ ok: true, tasks });
+    return jsonResponse(res, { ok: true, tasks });
   }
 
   if (req.method === "POST") {
-    const { title, messages } = req.body;
-    const tasks = await sql`
-      INSERT INTO tasks (user_id, title, messages)
-      VALUES (${user.sub}, ${title || "New Task"}, ${JSON.stringify(messages || [])})
-      RETURNING *
-    `;
-    return res.json({ ok: true, task: tasks[0] });
+    const { title, messages } = req.body || {};
+    const tasks = await sql`INSERT INTO tasks (user_id, title, messages) VALUES (${user.id}::uuid, ${title || "New Task"}, ${JSON.stringify(messages || [])}::jsonb) RETURNING *`;
+    return jsonResponse(res, { ok: true, task: tasks[0] });
   }
 
-  res.status(405).json({ error: "Method not allowed" });
+  return jsonResponse(res, { error: "Method not allowed" }, 405);
 };
