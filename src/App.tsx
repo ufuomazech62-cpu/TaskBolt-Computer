@@ -582,32 +582,23 @@ function App() {
         body: JSON.stringify({ pack_id: packId }),
       })
       const data = await res.json()
+      console.log('[purchasePack] response:', data)
       if (data.ok && data.payment_url) {
-        // Open Dodo checkout in popup
-        const popup = window.open(data.payment_url, 'dodo_checkout', 'width=500,height=750,scrollbars=yes')
-        // Listen for payment completion message from callback
-        const msgHandler = (e: MessageEvent) => {
-          if (e.data?.type === 'payment_complete') {
-            window.removeEventListener('message', msgHandler)
-            fetchBillingStatus()
-            fetchCreditPacks()
-          }
-        }
-        window.addEventListener('message', msgHandler)
-        // Also poll billing status every 5 seconds for 60 seconds (in case webhook fires)
+        // Open Dodo checkout in system browser (window.open blocked in Tauri)
+        await open(data.payment_url)
+        // Poll billing status every 5 seconds for 90 seconds waiting for webhook
         let polls = 0
         const pollInterval = setInterval(async () => {
           polls++
-          if (polls > 12 || (popup && popup.closed)) {
-            clearInterval(pollInterval)
-            fetchBillingStatus()
-          }
+          await fetchBillingStatus()
+          if (polls >= 18) clearInterval(pollInterval)
         }, 5000)
       } else {
-        alert(data.error || 'Failed to initiate payment')
+        alert(data.error || 'Failed to initiate payment. Please try again.')
       }
-    } catch {
-      alert('Network error')
+    } catch (err) {
+      console.error('[purchasePack] error:', err)
+      alert('Network error — check your connection and try again.')
     } finally {
       setBillingLoading(false)
     }
@@ -1151,27 +1142,6 @@ function App() {
                         disabled={billingLoading || pack.available === false}
                       >
                         {billingLoading ? 'Processing...' : pack.available === false ? 'Unavailable' : `Buy — $${pack.price_usd}`}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <h3 style={{ marginTop: '2rem' }}>Quick Top-Up</h3>
-                <p className="setting-desc">Need more credits fast? Buy the same packs instantly.</p>
-                <div className="plans-grid plans-grid-compact">
-                  {creditPacks.map(pack => (
-                    <div key={`topup-${pack.id}`} className="plan-card plan-card-topup">
-                      <div className="plan-card-header">
-                        <span className="plan-name">{pack.name}</span>
-                        <span className="plan-price">${pack.price_usd}</span>
-                      </div>
-                      <div className="plan-credits">{pack.credits?.toLocaleString()} credits</div>
-                      <button
-                        className="btn-primary btn-sm"
-                        onClick={() => purchasePack(pack.id)}
-                        disabled={billingLoading || pack.available === false}
-                      >
-                        {billingLoading ? 'Processing...' : `Buy — $${pack.price_usd}`}
                       </button>
                     </div>
                   ))}
