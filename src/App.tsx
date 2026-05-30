@@ -1155,6 +1155,27 @@ function App() {
                     </div>
                   ))}
                 </div>
+
+                <h3 style={{ marginTop: '2rem' }}>Quick Top-Up</h3>
+                <p className="setting-desc">Need more credits fast? Buy the same packs instantly.</p>
+                <div className="plans-grid plans-grid-compact">
+                  {creditPacks.map(pack => (
+                    <div key={`topup-${pack.id}`} className="plan-card plan-card-topup">
+                      <div className="plan-card-header">
+                        <span className="plan-name">{pack.name}</span>
+                        <span className="plan-price">${pack.price_usd}</span>
+                      </div>
+                      <div className="plan-credits">{pack.credits?.toLocaleString()} credits</div>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={() => purchasePack(pack.id)}
+                        disabled={billingLoading || pack.available === false}
+                      >
+                        {billingLoading ? 'Processing...' : `Buy — $${pack.price_usd}`}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
