@@ -5,7 +5,7 @@ const { sql, initDB } = require("../_db");
 const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
 const SAAS_URL = "https://taskbolt-saas.vercel.app";
 
-// One-time credit packs (4 tiers)
+// One-time credit packs (4 tiers, pay-as-you-go)
 // 1 credit = 200 tokens
 const PACKS = [
   { id: "lite",  name: "Lite",  price_usd: 6,   price_cents: 600,   credits: 5000,   tokens: 1000000,  description: "1M tokens - Casual exploration" },
@@ -14,16 +14,7 @@ const PACKS = [
   { id: "max",   name: "Max",   price_usd: 150, price_cents: 15000, credits: 200000, tokens: 40000000, description: "40M tokens - Enterprise workloads" },
 ];
 
-// Quick top-ups (for when credits run out)
-const TOPUPS = [
-  { id: "topup_s",  name: "Quick Boost",   price_usd: 5,  price_cents: 500,  credits: 3000,  tokens: 600000 },
-  { id: "topup_m",  name: "Power Boost",   price_usd: 15, price_cents: 1500, credits: 10000, tokens: 2000000 },
-  { id: "topup_l",  name: "Mega Boost",    price_usd: 40, price_cents: 4000, credits: 30000, tokens: 6000000 },
-];
-
 const PACKS_MAP = Object.fromEntries(PACKS.map(p => [p.id, { credits: p.credits }]));
-const TOPUPS_MAP = Object.fromEntries(TOPUPS.map(t => [t.id, { credits: t.credits }]));
-const ALL_MAP = { ...PACKS_MAP, ...TOPUPS_MAP };
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -38,8 +29,7 @@ module.exports = async function handler(req, res) {
     const productMap = {};
     dodoProducts.forEach(p => { productMap[p.pack_id] = p.dodo_product_id; });
     const packs = PACKS.map(p => ({ ...p, dodo_product_id: productMap[p.id] || null, available: !!productMap[p.id] }));
-    const topups = TOPUPS.map(t => ({ ...t, dodo_product_id: productMap[t.id] || null, available: !!productMap[t.id] }));
-    return jsonResponse(res, { ok: true, packs, topups });
+    return jsonResponse(res, { ok: true, packs });
   }
 
   // --- STATUS (GET ?action=status) ---
@@ -91,7 +81,7 @@ module.exports = async function handler(req, res) {
     const user = requireAuth(req);
     if (!user) return jsonResponse(res, { error: "Unauthorized" }, 401);
     const { pack_id } = req.body || {};
-    const item = PACKS.find(p => p.id === pack_id) || TOPUPS.find(t => t.id === pack_id);
+    const item = PACKS.find(p => p.id === pack_id);
     if (!item) return jsonResponse(res, { error: "Invalid pack" }, 400);
     const dodoKey = process.env.DODO_PAYMENTS_API_KEY;
     if (!dodoKey) return jsonResponse(res, { error: "Payment system not configured" }, 500);
@@ -133,7 +123,7 @@ module.exports = async function handler(req, res) {
     const creditsStr = meta.credits;
     const paymentId = pd.payment_id || event.payment_id;
     if (!userId || !packId) return res.status(200).json({ ok: true, message: "No metadata" });
-    const item = ALL_MAP[packId];
+    const item = PACKS_MAP[packId];
     const credits = creditsStr ? parseInt(creditsStr, 10) : (item ? item.credits : 0);
     if (!credits) return res.status(200).json({ ok: true, message: "Invalid credits" });
     if (txId) { const ex = await sql`SELECT status FROM transactions WHERE id=${txId}::uuid`; if (ex.length && ex[0].status === "completed") return res.status(200).json({ ok: true, message: "Already processed" }); }
@@ -159,7 +149,7 @@ module.exports = async function handler(req, res) {
     if (auth !== `Bearer ${adminSecret}` && auth !== `Bearer ${dodoKey}`) return jsonResponse(res, { error: "Unauthorized" }, 401);
     if (!dodoKey) return jsonResponse(res, { error: "DODO_PAYMENTS_API_KEY not configured" }, 500);
     await sql`CREATE TABLE IF NOT EXISTS dodo_products (pack_id TEXT PRIMARY KEY, dodo_product_id TEXT NOT NULL, name TEXT, price_cents INTEGER, created_at TIMESTAMP DEFAULT NOW())`;
-    const allItems = [...PACKS, ...TOPUPS];
+    const allItems = PACKS;
     const results = [];
     for (const item of allItems) {
       const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${item.id}`;

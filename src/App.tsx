@@ -561,7 +561,7 @@ function App() {
     try {
       const res = await fetch(`${SAAS_URL}/api/billing?action=packs`, { headers: authHeaders() })
       const data = await res.json()
-      if (data.ok) setCreditPacks([...(data.packs || []), ...(data.topups || [])])
+      if (data.ok) setCreditPacks(data.packs || [])
     } catch { /* ignore */ }
   }
 
@@ -1155,31 +1155,6 @@ function App() {
                     </div>
                   ))}
                 </div>
-
-                {creditPacks.length > 0 && (
-                  <>
-                    <h3 style={{ marginTop: '2rem' }}>Quick Top-Ups</h3>
-                    <p className="setting-desc">Need more credits fast? Grab a boost.</p>
-                    <div className="plans-grid plans-grid-compact">
-                      {creditPacks.filter((p: any) => p.id.startsWith('topup')).map((topup: any) => (
-                        <div key={topup.id} className="plan-card plan-card-topup">
-                          <div className="plan-card-header">
-                            <span className="plan-name">{topup.name}</span>
-                            <span className="plan-price">${topup.price_usd}</span>
-                          </div>
-                          <div className="plan-credits">{topup.credits?.toLocaleString()} credits</div>
-                          <button
-                            className="btn-primary btn-sm"
-                            onClick={() => purchasePack(topup.id)}
-                            disabled={billingLoading || topup.available === false}
-                          >
-                            {billingLoading ? 'Processing...' : `Buy — $${topup.price_usd}`}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             )}
 
