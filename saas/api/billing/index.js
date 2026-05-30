@@ -5,15 +5,25 @@ const { sql, initDB } = require("../_db");
 const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
 const SAAS_URL = "https://taskbolt-saas.vercel.app";
 
-const PACKS_DEF = [
-  { id: "starter",  name: "Starter",  price_usd: 5,   price_cents: 500,   credits: 1000,  tokens: 200000,  description: "200K tokens — Light usage" },
-  { id: "basic",    name: "Basic",    price_usd: 15,  price_cents: 1500,  credits: 4000,  tokens: 800000,  description: "800K tokens — Regular use" },
-  { id: "standard", name: "Standard", price_usd: 30,  price_cents: 3000,  credits: 10000, tokens: 2000000, description: "2M tokens — Power users" },
-  { id: "pro",      name: "Pro",      price_usd: 75,  price_cents: 7500,  credits: 30000, tokens: 6000000, description: "6M tokens — Heavy workloads" },
-  { id: "business", name: "Business", price_usd: 150, price_cents: 15000, credits: 70000, tokens: 14000000, description: "14M tokens — Teams & enterprise" },
+// One-time credit packs (4 tiers)
+// 1 credit = 200 tokens
+const PACKS = [
+  { id: "lite",  name: "Lite",  price_usd: 6,   price_cents: 600,   credits: 5000,   tokens: 1000000,  description: "1M tokens - Casual exploration" },
+  { id: "core",  name: "Core",  price_usd: 24,  price_cents: 2400,  credits: 25000,  tokens: 5000000,  description: "5M tokens - Daily workflows" },
+  { id: "scale", name: "Scale", price_usd: 60,  price_cents: 6000,  credits: 75000,  tokens: 15000000, description: "15M tokens - Complex tasks" },
+  { id: "max",   name: "Max",   price_usd: 150, price_cents: 15000, credits: 200000, tokens: 40000000, description: "40M tokens - Enterprise workloads" },
 ];
 
-const PACKS_MAP = { starter:{credits:1000}, basic:{credits:4000}, standard:{credits:10000}, pro:{credits:30000}, business:{credits:70000} };
+// Quick top-ups (for when credits run out)
+const TOPUPS = [
+  { id: "topup_s",  name: "Quick Boost",   price_usd: 5,  price_cents: 500,  credits: 3000,  tokens: 600000 },
+  { id: "topup_m",  name: "Power Boost",   price_usd: 15, price_cents: 1500, credits: 10000, tokens: 2000000 },
+  { id: "topup_l",  name: "Mega Boost",    price_usd: 40, price_cents: 4000, credits: 30000, tokens: 6000000 },
+];
+
+const PACKS_MAP = Object.fromEntries(PACKS.map(p => [p.id, { credits: p.credits }]));
+const TOPUPS_MAP = Object.fromEntries(TOPUPS.map(t => [t.id, { credits: t.credits }]));
+const ALL_MAP = { ...PACKS_MAP, ...TOPUPS_MAP };
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -27,8 +37,9 @@ module.exports = async function handler(req, res) {
     const dodoProducts = await sql`SELECT pack_id, dodo_product_id FROM dodo_products`;
     const productMap = {};
     dodoProducts.forEach(p => { productMap[p.pack_id] = p.dodo_product_id; });
-    const packs = PACKS_DEF.map(p => ({ ...p, dodo_product_id: productMap[p.id] || null, available: !!productMap[p.id] }));
-    return jsonResponse(res, { ok: true, packs });
+    const packs = PACKS.map(p => ({ ...p, dodo_product_id: productMap[p.id] || null, available: !!productMap[p.id] }));
+    const topups = TOPUPS.map(t => ({ ...t, dodo_product_id: productMap[t.id] || null, available: !!productMap[t.id] }));
+    return jsonResponse(res, { ok: true, packs, topups });
   }
 
   // --- STATUS (GET ?action=status) ---
@@ -39,8 +50,26 @@ module.exports = async function handler(req, res) {
     const credits = cred[0] || { balance: 0, total_allocated: 0, total_used: 0 };
     const todayUsage = await sql`SELECT COALESCE(SUM(total_tokens),0) as tokens, COALESCE(SUM(credits_deducted),0) as credits FROM usage_logs WHERE user_id = ${user.id}::uuid AND created_at >= CURRENT_DATE`;
     const monthUsage = await sql`SELECT COALESCE(SUM(total_tokens),0) as tokens, COALESCE(SUM(credits_deducted),0) as credits FROM usage_logs WHERE user_id = ${user.id}::uuid AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`;
-    const purchases = await sql`SELECT credits, amount_ngn as amount_usd, status, created_at FROM transactions WHERE user_id = ${user.id}::uuid AND type = 'purchase' ORDER BY created_at DESC LIMIT 5`;
-    return jsonResponse(res, { ok: true, credits: { balance: credits.balance, total_allocated: credits.total_allocated, total_used: credits.total_used }, usage: { today: { tokens: Number(todayUsage[0]?.tokens||0), credits: Number(todayUsage[0]?.credits||0) }, this_month: { tokens: Number(monthUsage[0]?.tokens||0), credits: Number(monthUsage[0]?.credits||0) } }, recent_purchases: purchases.map(p => ({ credits: p.credits, amount_usd: p.amount_usd ? Number(p.amount_usd) : null, status: p.status, created_at: p.created_at })) });
+    const transactions = await sql`SELECT credits, amount_ngn as amount_usd, status, type, created_at FROM transactions WHERE user_id = ${user.id}::uuid ORDER BY created_at DESC LIMIT 5`;
+    return jsonResponse(res, {
+      ok: true,
+      credits: { balance: credits.balance, total_allocated: credits.total_allocated, total_used: credits.total_used },
+      usage: {
+        today: { tokens: Number(todayUsage[0]?.tokens||0), credits: Number(todayUsage[0]?.credits||0) },
+        this_month: { tokens: Number(monthUsage[0]?.tokens||0), credits: Number(monthUsage[0]?.credits||0) }
+      },
+      transactions: transactions.map(t => ({ credits: t.credits, amount_usd: t.amount_usd ? Number(t.amount_usd) : null, status: t.status, type: t.type, created_at: t.created_at })),
+      rateLimited: credits.balance <= 0,
+    });
+  }
+
+  // --- CHECK (GET ?action=check) — fast rate limit check ---
+  if (action === "check" && req.method === "GET") {
+    const user = requireAuth(req);
+    if (!user) return jsonResponse(res, { error: "Unauthorized" }, 401);
+    const cred = await sql`SELECT balance FROM credits WHERE user_id = ${user.id}::uuid`;
+    const balance = cred[0]?.balance || 0;
+    return jsonResponse(res, { ok: true, balance, rateLimited: balance <= 0 });
   }
 
   // --- USAGE (GET ?action=usage) ---
@@ -57,24 +86,24 @@ module.exports = async function handler(req, res) {
     return jsonResponse(res, { ok: true, period, stats: { prompt_tokens: Number(stats[0]?.prompt_tokens||0), completion_tokens: Number(stats[0]?.completion_tokens||0), total_tokens: Number(stats[0]?.total_tokens||0), credits_used: Number(stats[0]?.credits_used||0), requests: Number(stats[0]?.requests||0) }, models: models.map(m => ({ model: m.model, tokens: Number(m.tokens), credits: Number(m.credits), requests: Number(m.requests) })), transactions: transactions.map(t => ({ type: t.type, plan: t.plan, amount_usd: t.amount_usd ? Number(t.amount_usd) : null, credits: t.credits, status: t.status, created_at: t.created_at })) });
   }
 
-  // --- PURCHASE (POST ?action=purchase) ---
+  // --- PURCHASE (POST ?action=purchase) --- works for both packs and topups
   if (action === "purchase" && req.method === "POST") {
     const user = requireAuth(req);
     if (!user) return jsonResponse(res, { error: "Unauthorized" }, 401);
     const { pack_id } = req.body || {};
-    const pack = PACKS_DEF.find(p => p.id === pack_id);
-    if (!pack) return jsonResponse(res, { error: "Invalid pack" }, 400);
+    const item = PACKS.find(p => p.id === pack_id) || TOPUPS.find(t => t.id === pack_id);
+    if (!item) return jsonResponse(res, { error: "Invalid pack" }, 400);
     const dodoKey = process.env.DODO_PAYMENTS_API_KEY;
     if (!dodoKey) return jsonResponse(res, { error: "Payment system not configured" }, 500);
     const prod = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${pack_id}`;
     if (!prod.length || !prod[0].dodo_product_id) return jsonResponse(res, { error: "Pack not available" }, 400);
-    const tx = await sql`INSERT INTO transactions (user_id, type, credits, amount_ngn, status, metadata) VALUES (${user.id}::uuid, 'purchase', ${pack.credits}, ${pack.price_usd}, 'pending', ${JSON.stringify({ pack_id, provider: 'dodo' })}::jsonb) RETURNING id`;
+    const tx = await sql`INSERT INTO transactions (user_id, type, credits, amount_ngn, status, metadata) VALUES (${user.id}::uuid, 'purchase', ${item.credits}, ${item.price_usd}, 'pending', ${JSON.stringify({ pack_id, provider: 'dodo' })}::jsonb) RETURNING id`;
     const txId = tx[0].id;
     try {
-      const resp = await fetch(`${DODO_API}/checkouts`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ product_cart: [{ product_id: prod[0].dodo_product_id, quantity: 1 }], customer: { email: user.email || "user@taskbolt.com" }, returnURL: `${SAAS_URL}/api/billing?action=callback`, cancelURL: `${SAAS_URL}/api/billing?action=callback&cancelled=true`, metadata: { user_id: user.id, pack_id, transaction_id: txId, credits: pack.credits.toString() }, minimalAddress: true, featureFlags: { allowPhoneNumberCollection: false, requirePhoneNumber: false, allowCustomerEditingCity: false, allowCustomerEditingStreet: false, allowCustomerEditingZipcode: false, allowCustomerEditingCountry: false, allowCustomerEditingState: false, allowCustomerEditingName: false, allowCustomerEditingEmail: false, allowCustomerEditingBusinessName: false, allowCustomerEditingTaxID: false } }) });
+      const resp = await fetch(`${DODO_API}/checkouts`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ product_cart: [{ product_id: prod[0].dodo_product_id, quantity: 1 }], customer: { email: user.email || "user@taskbolt.com" }, returnURL: `${SAAS_URL}/api/billing?action=callback`, cancelURL: `${SAAS_URL}/api/billing?action=callback&cancelled=true`, metadata: { user_id: user.id, pack_id, transaction_id: txId, credits: item.credits.toString() }, minimalAddress: true, featureFlags: { allowPhoneNumberCollection: false, requirePhoneNumber: false, allowCustomerEditingCity: false, allowCustomerEditingStreet: false, allowCustomerEditingZipcode: false, allowCustomerEditingCountry: false, allowCustomerEditingState: false, allowCustomerEditingName: false, allowCustomerEditingEmail: false, allowCustomerEditingBusinessName: false, allowCustomerEditingTaxID: false } }) });
       const data = await resp.json();
       if (!data.session_id || !data.checkout_url) { await sql`UPDATE transactions SET status='failed' WHERE id=${txId}::uuid`; return jsonResponse(res, { error: data.message || "Checkout failed" }, 400); }
-      return jsonResponse(res, { ok: true, payment_url: data.checkout_url, session_id: data.session_id, pack: pack_id, credits: pack.credits, amount_usd: pack.price_usd });
+      return jsonResponse(res, { ok: true, payment_url: data.checkout_url, session_id: data.session_id, pack: pack_id, credits: item.credits, amount_usd: item.price_usd });
     } catch (e) {
       await sql`UPDATE transactions SET status='error', metadata=${JSON.stringify({error:e.message})}::jsonb WHERE id=${txId}::uuid`;
       return jsonResponse(res, { error: "Payment service unavailable" }, 502);
@@ -104,8 +133,8 @@ module.exports = async function handler(req, res) {
     const creditsStr = meta.credits;
     const paymentId = pd.payment_id || event.payment_id;
     if (!userId || !packId) return res.status(200).json({ ok: true, message: "No metadata" });
-    const pack = PACKS_MAP[packId];
-    const credits = creditsStr ? parseInt(creditsStr, 10) : (pack ? pack.credits : 0);
+    const item = ALL_MAP[packId];
+    const credits = creditsStr ? parseInt(creditsStr, 10) : (item ? item.credits : 0);
     if (!credits) return res.status(200).json({ ok: true, message: "Invalid credits" });
     if (txId) { const ex = await sql`SELECT status FROM transactions WHERE id=${txId}::uuid`; if (ex.length && ex[0].status === "completed") return res.status(200).json({ ok: true, message: "Already processed" }); }
     const existing = await sql`SELECT id FROM credits WHERE user_id=${userId}::uuid`;
@@ -130,20 +159,21 @@ module.exports = async function handler(req, res) {
     if (auth !== `Bearer ${adminSecret}` && auth !== `Bearer ${dodoKey}`) return jsonResponse(res, { error: "Unauthorized" }, 401);
     if (!dodoKey) return jsonResponse(res, { error: "DODO_PAYMENTS_API_KEY not configured" }, 500);
     await sql`CREATE TABLE IF NOT EXISTS dodo_products (pack_id TEXT PRIMARY KEY, dodo_product_id TEXT NOT NULL, name TEXT, price_cents INTEGER, created_at TIMESTAMP DEFAULT NOW())`;
+    const allItems = [...PACKS, ...TOPUPS];
     const results = [];
-    for (const pack of PACKS_DEF) {
-      const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${pack.id}`;
-      if (existing.length) { results.push({ pack_id: pack.id, dodo_product_id: existing[0].dodo_product_id, status: "exists" }); continue; }
+    for (const item of allItems) {
+      const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${item.id}`;
+      if (existing.length) { results.push({ pack_id: item.id, dodo_product_id: existing[0].dodo_product_id, status: "exists" }); continue; }
       try {
-        const resp = await fetch(`${DODO_API}/products`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: `TaskBolt ${pack.name} - ${pack.credits.toLocaleString()} Credits`, description: `${pack.description}. One-time credit pack for TaskBolt AI Desktop Agent.`, tax_category: "digital_products", price: { currency: "USD", discount: 0, price: pack.price_cents, purchasing_power_parity: false, type: "one_time_price" }, metadata: { pack_id: pack.id, credits: pack.credits.toString(), source: "taskbolt" } }) });
+        const resp = await fetch(`${DODO_API}/products`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: `TaskBolt ${item.name} - ${item.credits.toLocaleString()} Credits`, description: `${item.description}. One-time credit pack for TaskBolt AI Desktop Agent.`, tax_category: "digital_products", price: { currency: "USD", discount: 0, price: item.price_cents, purchasing_power_parity: false, type: "one_time_price" }, metadata: { pack_id: item.id, credits: item.credits.toString(), source: "taskbolt" } }) });
         const data = await resp.json();
         const pid = data.product_id || data.id;
-        if (pid) { await sql`INSERT INTO dodo_products (pack_id, dodo_product_id, name, price_cents) VALUES (${pack.id}, ${pid}, ${pack.name}, ${pack.price_cents}) ON CONFLICT (pack_id) DO UPDATE SET dodo_product_id = ${pid}`; results.push({ pack_id: pack.id, dodo_product_id: pid, status: "created" }); }
-        else { results.push({ pack_id: pack.id, error: data.message || "Unknown", status: "failed" }); }
-      } catch (e) { results.push({ pack_id: pack.id, error: e.message, status: "error" }); }
+        if (pid) { await sql`INSERT INTO dodo_products (pack_id, dodo_product_id, name, price_cents) VALUES (${item.id}, ${pid}, ${item.name}, ${item.price_cents}) ON CONFLICT (pack_id) DO UPDATE SET dodo_product_id = ${pid}`; results.push({ pack_id: item.id, dodo_product_id: pid, status: "created" }); }
+        else { results.push({ pack_id: item.id, error: data.message || "Unknown", status: "failed" }); }
+      } catch (e) { results.push({ pack_id: item.id, error: e.message, status: "error" }); }
     }
     return jsonResponse(res, { ok: results.every(r => r.status !== "failed" && r.status !== "error"), results });
   }
 
-  return jsonResponse(res, { error: "Unknown action. Use: packs, status, usage, purchase, webhook, callback, init" }, 400);
+  return jsonResponse(res, { error: "Unknown action" }, 400);
 };

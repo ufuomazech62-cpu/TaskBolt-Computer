@@ -115,6 +115,7 @@ function App() {
   const [billingStatus, setBillingStatus] = useState<any>(null)
   const [creditPacks, setCreditPacks] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
+  const [showRateLimitPopup, setShowRateLimitPopup] = useState(false)
   const [usageData, setUsageData] = useState<any>(null)
   const [usagePeriod, setUsagePeriod] = useState('month')
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -492,6 +493,14 @@ function App() {
             updateMsg()
             break
           case 'error':
+            // Check if this is a rate limit error
+            if (data.content?.includes('No credits remaining') || data.content?.includes('rateLimited')) {
+              setShowRateLimitPopup(true)
+              setIsStreaming(false)
+              setAgentStatus('idle')
+              unlisten()
+              return
+            }
             fullContent += `\n\n⚠️ Error: ${data.content}`
             updateMsg()
             break
@@ -552,7 +561,7 @@ function App() {
     try {
       const res = await fetch(`${SAAS_URL}/api/billing?action=packs`, { headers: authHeaders() })
       const data = await res.json()
-      if (data.ok) setCreditPacks(data.packs || [])
+      if (data.ok) setCreditPacks([...(data.packs || []), ...(data.topups || [])])
     } catch { /* ignore */ }
   }
 
@@ -1125,8 +1134,8 @@ function App() {
                   </div>
                 </div>
 
-                <h3 style={{ marginTop: '1.5rem' }}>Buy Credits</h3>
-                <p className="setting-desc">Credits never expire. 1 credit = 200 tokens.</p>
+                <h3 style={{ marginTop: '1.5rem' }}>Credit Packs</h3>
+                <p className="setting-desc">One-time purchase. Credits never expire. 1 credit = 200 tokens.</p>
                 <div className="plans-grid">
                   {creditPacks.map(pack => (
                     <div key={pack.id} className="plan-card">
@@ -1146,6 +1155,31 @@ function App() {
                     </div>
                   ))}
                 </div>
+
+                {creditPacks.length > 0 && (
+                  <>
+                    <h3 style={{ marginTop: '2rem' }}>Quick Top-Ups</h3>
+                    <p className="setting-desc">Need more credits fast? Grab a boost.</p>
+                    <div className="plans-grid plans-grid-compact">
+                      {creditPacks.filter((p: any) => p.id.startsWith('topup')).map((topup: any) => (
+                        <div key={topup.id} className="plan-card plan-card-topup">
+                          <div className="plan-card-header">
+                            <span className="plan-name">{topup.name}</span>
+                            <span className="plan-price">${topup.price_usd}</span>
+                          </div>
+                          <div className="plan-credits">{topup.credits?.toLocaleString()} credits</div>
+                          <button
+                            className="btn-primary btn-sm"
+                            onClick={() => purchasePack(topup.id)}
+                            disabled={billingLoading || topup.available === false}
+                          >
+                            {billingLoading ? 'Processing...' : `Buy — $${topup.price_usd}`}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -1600,6 +1634,25 @@ function App() {
             <div className="confirm-modal-actions">
               <button className="btn-secondary" onClick={() => setDeleteThreadConfirm(null)}>Cancel</button>
               <button className="btn-danger" onClick={() => { deleteThread(deleteThreadConfirm); setDeleteThreadConfirm(null) }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rate Limit Popup */}
+      {showRateLimitPopup && (
+        <div className="modal-overlay" onClick={() => setShowRateLimitPopup(false)}>
+          <div className="rate-limit-modal" onClick={e => e.stopPropagation()}>
+            <div className="rate-limit-icon">⚡</div>
+            <h2>You're out of credits</h2>
+            <p>Buy a credit pack or top-up to continue using TaskBolt.</p>
+            <div className="rate-limit-options">
+              <button className="btn-primary" onClick={() => { setShowRateLimitPopup(false); setAppState('settings'); setSettingsTab('billing') }}>
+                Buy Credits
+              </button>
+              <button className="btn-secondary" onClick={() => setShowRateLimitPopup(false)}>
+                Later
+              </button>
             </div>
           </div>
         </div>

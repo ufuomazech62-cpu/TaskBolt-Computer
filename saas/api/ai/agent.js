@@ -26,7 +26,8 @@ module.exports = async function handler(req, res) {
     return jsonResponse(res, {
       error: "No credits remaining",
       credits: 0,
-      message: "Please subscribe to a plan or claim your daily bonus.",
+      rateLimited: true,
+      message: "You've used all your credits. Upgrade your plan or buy a top-up to continue.",
     }, 402);
   }
 
