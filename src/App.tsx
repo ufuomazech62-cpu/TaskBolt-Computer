@@ -1514,14 +1514,19 @@ function App() {
           <div className="messages-container">
             {activeThread.messages.map(msg => (
               <div key={msg.id} className={`msg msg-${msg.role}`}>
-                <div className="msg-icon">
+                <div className="msg-avatar">
                   {msg.role === 'assistant' ? (
-                    <div className="msg-icon-ai"><IconZap size={14} /></div>
+                    <span className="msg-avatar-ai">⚡</span>
                   ) : (
-                    <div className="msg-icon-user"><IconUser size={14} /></div>
+                    <span className="msg-avatar-user">
+                      {authUser?.display_name?.charAt(0)?.toUpperCase() || authUser?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
                   )}
                 </div>
                 <div className="msg-body">
+                  <div className="msg-sender">
+                    {msg.role === 'assistant' ? 'TaskBolt' : (authUser?.display_name || authUser?.email || 'You')}
+                  </div>
                   {msg.thinking && (
                     <details className="thinking-block">
                       <summary>
@@ -1561,10 +1566,11 @@ function App() {
             ))}
             {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.content === '' && (
               <div className="msg msg-assistant">
-                <div className="msg-icon">
-                  <div className="msg-icon-ai"><IconZap size={14} /></div>
+                <div className="msg-avatar">
+                  <span className="msg-avatar-ai">⚡</span>
                 </div>
                 <div className="msg-body">
+                  <div className="msg-sender">TaskBolt</div>
                   <div className="agent-status-indicator">
                     {agentStatus === 'thinking' && (
                       <><span className="status-dot thinking" /> Thinking...</>
