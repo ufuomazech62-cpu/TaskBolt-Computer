@@ -102,43 +102,63 @@ module.exports = async function handler(req, res) {
 
   // --- WEBHOOK (POST ?action=webhook) ---
   if (action === "webhook" && req.method === "POST") {
-    const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || "";
-    if (webhookSecret) {
-      const wid = req.headers["webhook-id"] || "", wts = req.headers["webhook-timestamp"] || "", wsig = req.headers["webhook-signature"] || "";
-      if (!wid || !wts || !wsig) return res.status(401).json({ error: "Missing headers" });
-      const ts = parseInt(wts, 10);
-      if (Math.abs(Math.floor(Date.now()/1000) - ts) > 300) return res.status(401).json({ error: "Expired" });
-      const sk = webhookSecret.startsWith("whsec_") ? webhookSecret.slice(6) : webhookSecret;
-      const sb = Buffer.from(sk, "base64");
-      const sc = `${wid}.${wts}.${rawBody}`;
-      const exp = `v1 ${crypto.createHmac("sha256", sb).update(sc).digest("base64")}`;
-      if (!wsig.split(" ").some(s => s.trim() === exp)) return res.status(401).json({ error: "Invalid signature" });
+    try {
+      const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+      const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || "";
+      if (webhookSecret) {
+        const wid = req.headers["webhook-id"] || "", wts = req.headers["webhook-timestamp"] || "", wsig = req.headers["webhook-signature"] || "";
+        if (!wid || !wts || !wsig) return res.status(401).json({ error: "Missing headers" });
+        const ts = parseInt(wts, 10);
+        if (Math.abs(Math.floor(Date.now()/1000) - ts) > 300) return res.status(401).json({ error: "Expired" });
+        const sk = webhookSecret.startsWith("whsec_") ? webhookSecret.slice(6) : webhookSecret;
+        const sb = Buffer.from(sk, "base64");
+        const sc = `${wid}.${wts}.${rawBody}`;
+        const exp = `v1 ${crypto.createHmac("sha256", sb).update(sc).digest("base64")}`;
+        if (!wsig.split(" ").some(s => s.trim() === exp)) return res.status(401).json({ error: "Invalid signature" });
+      }
+      const event = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      console.log("[webhook] event type:", event.type, "data:", JSON.stringify(event).slice(0, 500));
+      if (event.type !== "payment.succeeded") return res.status(200).json({ ok: true, message: "Ignored" });
+      const pd = event.data || {};
+      const meta = pd.metadata || event.metadata || {};
+      const userId = meta.user_id, packId = meta.pack_id, txId = meta.transaction_id;
+      const creditsStr = meta.credits;
+      const paymentId = pd.payment_id || event.payment_id;
+      if (!userId || !packId) return res.status(200).json({ ok: true, message: "No metadata" });
+      const item = PACKS_MAP[packId];
+      const credits = creditsStr ? parseInt(creditsStr, 10) : (item ? item.credits : 0);
+      if (!credits) return res.status(200).json({ ok: true, message: "Invalid credits" });
+      // Check if already processed
+      if (txId) {
+        try {
+          const ex = await sql`SELECT status FROM transactions WHERE id=${txId}::uuid`;
+          if (ex.length && ex[0].status === "completed") return res.status(200).json({ ok: true, message: "Already processed" });
+        } catch (e) { console.error("[webhook] tx check error:", e.message); }
+      }
+      // Add credits
+      const existing = await sql`SELECT id FROM credits WHERE user_id=${userId}::uuid`;
+      if (existing.length === 0) {
+        await sql`INSERT INTO credits (user_id, balance, total_allocated, total_used) VALUES (${userId}::uuid, ${credits}, ${credits}, 0)`;
+      } else {
+        await sql`UPDATE credits SET balance=balance+${credits}, total_allocated=total_allocated+${credits}, updated_at=NOW() WHERE user_id=${userId}::uuid`;
+      }
+      // Mark transaction complete
+      if (txId) {
+        try { await sql`UPDATE transactions SET status='completed', flutterwave_ref=${paymentId||'dodo-'+Date.now()} WHERE id=${txId}::uuid`; } catch (e) { console.error("[webhook] tx update error:", e.message); }
+      }
+      console.log(`[webhook] SUCCESS: added ${credits} credits to user ${userId}`);
+      return res.status(200).json({ ok: true, message: `Credits added: ${credits}` });
+    } catch (err) {
+      console.error("[webhook] FATAL:", err.message, err.stack);
+      return res.status(500).json({ error: "Webhook processing failed", detail: err.message });
     }
-    const event = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    if (event.type !== "payment.succeeded") return res.status(200).json({ ok: true, message: "Ignored" });
-    const pd = event.data || {};
-    const meta = pd.metadata || event.metadata || {};
-    const userId = meta.user_id, packId = meta.pack_id, txId = meta.transaction_id;
-    const creditsStr = meta.credits;
-    const paymentId = pd.payment_id || event.payment_id;
-    if (!userId || !packId) return res.status(200).json({ ok: true, message: "No metadata" });
-    const item = PACKS_MAP[packId];
-    const credits = creditsStr ? parseInt(creditsStr, 10) : (item ? item.credits : 0);
-    if (!credits) return res.status(200).json({ ok: true, message: "Invalid credits" });
-    if (txId) { const ex = await sql`SELECT status FROM transactions WHERE id=${txId}::uuid`; if (ex.length && ex[0].status === "completed") return res.status(200).json({ ok: true, message: "Already processed" }); }
-    const existing = await sql`SELECT id FROM credits WHERE user_id=${userId}::uuid`;
-    if (existing.length === 0) { await sql`INSERT INTO credits (user_id, balance, total_allocated, total_used) VALUES (${userId}::uuid, ${credits}, ${credits}, 0)`; }
-    else { await sql`UPDATE credits SET balance=balance+${credits}, total_allocated=total_allocated+${credits}, updated_at=NOW() WHERE user_id=${userId}::uuid`; }
-    if (txId) { await sql`UPDATE transactions SET status='completed', flutterwave_ref=${paymentId||'dodo-'+Date.now()} WHERE id=${txId}::uuid`; }
-    return res.status(200).json({ ok: true, message: `Credits added: ${credits}` });
   }
 
   // --- CALLBACK (GET ?action=callback) ---
   if (action === "callback" && req.method === "GET") {
     const { cancelled } = req.query;
-    if (cancelled === "true") return res.send(`<!DOCTYPE html><html><head><title>Cancelled</title><style>body{font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0a0a0a;color:#fff;text-align:center}.c{padding:3rem;border-radius:16px;background:#1a1a1a;max-width:400px}h2{margin:0 0 1rem}p{color:#888}</style></head><body><div class="c"><h2>Payment Cancelled</h2><p>No charges made. Close this window.</p><script>setTimeout(()=>window.close(),2000);</script></div></body></html>`);
-    return res.send(`<!DOCTYPE html><html><head><title>Success</title><style>body{font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0a0a0a;color:#fff;text-align:center}.c{padding:3rem;border-radius:16px;background:#1a1a1a;max-width:420px}h2{color:#4ade80;margin:0 0 .5rem}.cr{font-size:2.5rem;font-weight:700;margin:1rem 0;background:linear-gradient(135deg,#4ade80,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent}p{color:#888;margin:.5rem 0}.n{font-size:.85rem;color:#666;margin-top:1.5rem}.sp{width:24px;height:24px;border:3px solid #333;border-top-color:#4ade80;border-radius:50%;animation:s .8s linear infinite;margin:1rem auto}@keyframes s{to{transform:rotate(360deg)}}</style></head><body><div class="c"><h2>✓ Payment Processing...</h2><p>Credits will appear in your account shortly.</p><div class="sp"></div><p class="n">Close this window and return to TaskBolt.</p><script>if(window.opener){window.opener.postMessage({type:'payment_complete'},'*');}setTimeout(()=>window.close(),5000);</script></div></body></html>`);
+    if (cancelled === "true") return res.setHeader("Content-Type", "text/html").status(200).send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cancelled | TaskBolt</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fafafa;color:#1a1a1a;text-align:center}.c{padding:3rem;border-radius:20px;background:white;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,.06);max-width:400px;width:90%}.logo{font-size:2rem;margin-bottom:1rem}h2{font-size:1.3rem;margin-bottom:.5rem;color:#666}p{color:#999;font-size:.9rem;margin-top:.5rem}.btn{display:inline-block;margin-top:1.5rem;padding:12px 24px;background:#f0f0f0;border:none;border-radius:10px;color:#333;font-weight:600;cursor:pointer;text-decoration:none;font-size:.88rem}.btn:hover{background:#e5e5e5}</style></head><body><div class="c"><div class="logo">⚡</div><h2>Payment Cancelled</h2><p>No charges were made. You can close this tab.</p><a class="btn" href="#" onclick="window.close()">Close Tab</a></div></body></html>`);
+    return res.setHeader("Content-Type", "text/html").status(200).send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Successful | TaskBolt</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fafafa;color:#1a1a1a;text-align:center}.c{padding:3rem;border-radius:20px;background:white;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,.06);max-width:420px;width:90%}.logo{font-size:2rem;margin-bottom:1rem}.check{width:56px;height:56px;border-radius:50%;background:#f0fdf4;border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:1.5rem}h2{font-size:1.3rem;color:#16a34a;margin-bottom:.5rem}p{color:#666;font-size:.9rem;margin:.3rem 0}.status{margin-top:1.5rem;padding:12px;background:#f7f7f7;border-radius:10px;font-size:.82rem;color:#888}.sp{width:20px;height:20px;border:2px solid #e5e5e5;border-top-color:#22c55e;border-radius:50%;animation:s .8s linear infinite;margin:0 auto .5rem}@keyframes s{to{transform:rotate(360deg)}}.btn{display:inline-block;margin-top:1.5rem;padding:12px 24px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:none;border-radius:10px;color:white;font-weight:600;cursor:pointer;text-decoration:none;font-size:.88rem}.btn:hover{opacity:.9}</style></head><body><div class="c"><div class="logo">⚡</div><div class="check">✓</div><h2>Payment Successful!</h2><p>Your credits are being added to your account.</p><div class="status"><div class="sp"></div>Credits will appear in TaskBolt shortly.<br>You can close this tab.</div><a class="btn" href="#" onclick="window.close()">Done — Close Tab</a></div></body></html>`);
   }
 
   // --- INIT PRODUCTS (POST ?action=init) ---

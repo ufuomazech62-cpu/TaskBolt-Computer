@@ -115,6 +115,7 @@ function App() {
   const [billingStatus, setBillingStatus] = useState<any>(null)
   const [creditPacks, setCreditPacks] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
+  const [loadingPackId, setLoadingPackId] = useState<string | null>(null)
   const [showRateLimitPopup, setShowRateLimitPopup] = useState(false)
   const [usageData, setUsageData] = useState<any>(null)
   const [usagePeriod, setUsagePeriod] = useState('month')
@@ -574,33 +575,24 @@ function App() {
   }
 
   const purchasePack = async (packId: string) => {
-    setBillingLoading(true)
+    setLoadingPackId(packId)
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing?action=purchase`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ pack_id: packId }),
-      })
-      const data = await res.json()
-      console.log('[purchasePack] response:', data)
-      if (data.ok && data.payment_url) {
-        // Open Dodo checkout in system browser (window.open blocked in Tauri)
-        await open(data.payment_url)
-        // Poll billing status every 5 seconds for 90 seconds waiting for webhook
-        let polls = 0
-        const pollInterval = setInterval(async () => {
-          polls++
-          await fetchBillingStatus()
-          if (polls >= 18) clearInterval(pollInterval)
-        }, 5000)
-      } else {
-        alert(data.error || 'Failed to initiate payment. Please try again.')
-      }
+      // Open our branded checkout page (which then redirects to payment)
+      const token = localStorage.getItem('tb_auth_token') || authToken
+      const checkoutUrl = `${SAAS_URL}/api/checkout?pack=${packId}&token=${token}`
+      await open(checkoutUrl)
+      // Aggressive polling: every 3 seconds for 2 minutes waiting for webhook
+      let polls = 0
+      const pollInterval = setInterval(async () => {
+        polls++
+        await fetchBillingStatus()
+        if (polls >= 40) clearInterval(pollInterval)
+      }, 3000)
     } catch (err) {
       console.error('[purchasePack] error:', err)
-      alert('Network error — check your connection and try again.')
+      alert('Could not open checkout. Please try again.')
     } finally {
-      setBillingLoading(false)
+      setLoadingPackId(null)
     }
   }
 
@@ -1139,9 +1131,9 @@ function App() {
                       <button
                         className="btn-primary btn-sm"
                         onClick={() => purchasePack(pack.id)}
-                        disabled={billingLoading || pack.available === false}
+                        disabled={loadingPackId !== null || pack.available === false}
                       >
-                        {billingLoading ? 'Processing...' : pack.available === false ? 'Unavailable' : `Buy — $${pack.price_usd}`}
+                        {loadingPackId === pack.id ? 'Opening checkout...' : loadingPackId !== null ? 'Wait...' : pack.available === false ? 'Unavailable' : `Buy — $${pack.price_usd}`}
                       </button>
                     </div>
                   ))}

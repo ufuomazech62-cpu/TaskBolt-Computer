@@ -5,3 +5,4 @@ src-tauri/target/
 .hermes/
 .env
 hermes-engine/
+.vercel
