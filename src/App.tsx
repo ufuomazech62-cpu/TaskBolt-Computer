@@ -113,12 +113,16 @@ function App() {
 
   // Billing & Usage
   const [billingStatus, setBillingStatus] = useState<any>(null)
-  const [billingPlans, setBillingPlans] = useState<any[]>([])
+  const [creditPacks, setCreditPacks] = useState<any[]>([])
   const [billingLoading, setBillingLoading] = useState(false)
   const [usageData, setUsageData] = useState<any>(null)
   const [usagePeriod, setUsagePeriod] = useState('month')
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteThreadConfirm, setDeleteThreadConfirm] = useState<string | null>(null)
+  const [agentStatus, setAgentStatus] = useState<'idle' | 'thinking' | 'executing' | 'typing'>('idle')
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [version, setVersion] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -467,21 +471,24 @@ function App() {
         switch (data.type) {
           case 'thinking':
             fullThinking += data.content || ''
+            setAgentStatus('thinking')
             updateMsg()
             break
           case 'content':
             fullContent += data.content || ''
+            setAgentStatus('typing')
             updateMsg()
             break
           case 'tool_start':
             toolCalls.push({ name: data.name, args: data.args || {} })
+            setAgentStatus('executing')
             updateMsg()
             break
           case 'tool_result':
-            // Update last tool call with result
             if (toolCalls.length > 0) {
               toolCalls[toolCalls.length - 1].result = data.result || ''
             }
+            setAgentStatus('typing')
             updateMsg()
             break
           case 'error':
@@ -490,10 +497,10 @@ function App() {
             break
           case 'done':
             setIsStreaming(false)
+            setAgentStatus('idle')
             unlisten()
             break
           case 'status':
-            // Agent status messages (e.g., "ready")
             break
         }
       } catch {
@@ -513,6 +520,7 @@ function App() {
       fullContent = `Error: ${msg}`
       updateMsg()
       setIsStreaming(false)
+      setAgentStatus('idle')
       unlisten()
     }
   }
@@ -540,11 +548,11 @@ function App() {
     } catch { /* ignore */ }
   }
 
-  const fetchBillingPlans = async () => {
+  const fetchCreditPacks = async () => {
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/plans`, { headers: authHeaders() })
+      const res = await fetch(`${SAAS_URL}/api/billing/packs`, { headers: authHeaders() })
       const data = await res.json()
-      if (data.ok) setBillingPlans(data.plans || [])
+      if (data.ok) setCreditPacks(data.packs || [])
     } catch { /* ignore */ }
   }
 
@@ -556,13 +564,13 @@ function App() {
     } catch { /* ignore */ }
   }
 
-  const subscribeToPlan = async (planId: string) => {
+  const purchasePack = async (packId: string) => {
     setBillingLoading(true)
     try {
-      const res = await fetch(`${SAAS_URL}/api/billing/subscribe`, {
+      const res = await fetch(`${SAAS_URL}/api/billing/purchase`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ plan_id: planId, email: authUser?.email, name: authUser?.display_name }),
+        body: JSON.stringify({ pack_id: packId, email: authUser?.email }),
       })
       const data = await res.json()
       if (data.ok && data.payment_url) {
@@ -577,31 +585,14 @@ function App() {
     }
   }
 
-  const claimDailyCredits = async () => {
-    try {
-      const res = await fetch(`${SAAS_URL}/api/billing/claim-daily`, {
-        method: 'POST',
-        headers: authHeaders(),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        fetchBillingStatus()
-      } else {
-        alert(data.error || 'Failed to claim daily credits')
-      }
-    } catch { /* ignore */ }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setUploadedFiles(prev => [...prev, ...files])
+    e.target.value = ''
   }
 
-  const cancelSubscription = async () => {
-    if (!confirm('Cancel your subscription? Remaining credits stay available.')) return
-    try {
-      const res = await fetch(`${SAAS_URL}/api/billing/cancel`, {
-        method: 'POST',
-        headers: authHeaders(),
-      })
-      const data = await res.json()
-      if (data.ok) fetchBillingStatus()
-    } catch { /* ignore */ }
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const deleteAccount = async () => {
@@ -624,13 +615,13 @@ function App() {
     }
   }
 
-  // Fetch billing data when settings opens
+  // Fetch billing data when settings opens or tasks view
   useEffect(() => {
-    if (appState === 'settings' && isLoggedIn) {
+    if (isLoggedIn) {
       fetchBillingStatus()
-      fetchBillingPlans()
+      if (appState === 'settings') fetchCreditPacks()
     }
-  }, [appState, settingsTab])
+  }, [appState, settingsTab, isLoggedIn])
 
   useEffect(() => {
     if (settingsTab === 'usage' && isLoggedIn) {
@@ -1041,7 +1032,7 @@ function App() {
             <div className="settings-tabs">
               {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'advanced'] as SettingsTab[]).map(tab => (
                 <button key={tab} className={`tab-btn ${settingsTab === tab ? 'active' : ''}`} onClick={() => setSettingsTab(tab)}>
-                  {tab === 'mcp' ? 'MCP' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === 'mcp' ? 'MCP' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
@@ -1102,77 +1093,36 @@ function App() {
 
             {settingsTab === 'billing' && (
               <div className="settings-section">
-                <h3>Subscription</h3>
-
-                {/* Current Plan */}
-                {billingStatus?.subscription ? (
-                  <div className="billing-current-plan">
-                    <div className="plan-card active">
-                      <div className="plan-card-header">
-                        <span className="plan-name">{billingStatus.subscription.plan.charAt(0).toUpperCase() + billingStatus.subscription.plan.slice(1)}</span>
-                        <span className="plan-price">₦{(billingStatus.subscription.price_usd * 1650).toLocaleString()}/mo</span>
-                      </div>
-                      <div className="plan-card-body">
-                        <div className="plan-stat">
-                          <span className="plan-stat-label">Credits Balance</span>
-                          <span className="plan-stat-value">{billingStatus.credits.balance.toLocaleString()}</span>
-                        </div>
-                        <div className="plan-stat">
-                          <span className="plan-stat-label">Monthly Allocation</span>
-                          <span className="plan-stat-value">{billingStatus.subscription.credits_monthly.toLocaleString()}</span>
-                        </div>
-                        <div className="plan-stat">
-                          <span className="plan-stat-label">Daily Bonus</span>
-                          <span className="plan-stat-value">{billingStatus.subscription.credits_daily_bonus > 0 ? `${billingStatus.subscription.credits_daily_bonus}/day` : 'None'}</span>
-                        </div>
-                        <div className="plan-stat">
-                          <span className="plan-stat-label">Expires</span>
-                          <span className="plan-stat-value">{new Date(billingStatus.subscription.ends_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <div className="plan-card-actions">
-                        {billingStatus.credits.can_claim_daily && (
-                          <button className="btn-primary btn-sm" onClick={claimDailyCredits}>
-                            Claim {billingStatus.credits.daily_bonus_amount} Daily Credits
-                          </button>
-                        )}
-                        <button className="btn-secondary btn-sm" onClick={cancelSubscription}>Cancel Plan</button>
-                      </div>
-                    </div>
+                <h3>Credits</h3>
+                <div className="credits-overview">
+                  <div className="credits-balance-card">
+                    <span className="credits-label">Current Balance</span>
+                    <span className="credits-amount">{billingStatus?.credits?.balance?.toLocaleString() || '0'}</span>
+                    <span className="credits-sub">≈ {((billingStatus?.credits?.balance || 0) * 200 / 1000000).toFixed(1)}M tokens</span>
                   </div>
-                ) : (
-                  <div className="no-plan-notice">
-                    <p>You don't have an active subscription. Choose a plan below to start.</p>
+                  <div className="credits-used-card">
+                    <span className="credits-label">Total Used</span>
+                    <span className="credits-amount">{billingStatus?.credits?.total_used?.toLocaleString() || '0'}</span>
                   </div>
-                )}
+                </div>
 
-                {/* Daily claim when no sub but has credits */}
-                {!billingStatus?.subscription && billingStatus?.credits?.can_claim_daily && (
-                  <button className="btn-primary" style={{ marginBottom: '1rem' }} onClick={claimDailyCredits}>
-                    Claim Daily Credits
-                  </button>
-                )}
-
-                <h3 style={{ marginTop: '1.5rem' }}>Plans</h3>
+                <h3 style={{ marginTop: '1.5rem' }}>Buy Credits</h3>
+                <p className="setting-desc">Credits never expire. 1 credit = 200 tokens.</p>
                 <div className="plans-grid">
-                  {billingPlans.map(plan => (
-                    <div key={plan.id} className={`plan-card ${billingStatus?.subscription?.plan === plan.id ? 'current' : ''}`}>
+                  {creditPacks.map(pack => (
+                    <div key={pack.id} className="plan-card">
                       <div className="plan-card-header">
-                        <span className="plan-name">{plan.name}</span>
-                        <span className="plan-price">₦{plan.price_ngn?.toLocaleString()}</span>
+                        <span className="plan-name">{pack.name}</span>
+                        <span className="plan-price">₦{pack.price_ngn?.toLocaleString()}</span>
                       </div>
-                      <p className="plan-desc">{plan.description}</p>
-                      <ul className="plan-features">
-                        {plan.features.map((f: string, i: number) => (
-                          <li key={i}>{f}</li>
-                        ))}
-                      </ul>
+                      <p className="plan-desc">{pack.description}</p>
+                      <div className="plan-credits">{pack.credits?.toLocaleString()} credits</div>
                       <button
-                        className={`btn-primary btn-sm ${billingStatus?.subscription?.plan === plan.id ? 'btn-disabled' : ''}`}
-                        onClick={() => subscribeToPlan(plan.id)}
-                        disabled={billingLoading || billingStatus?.subscription?.plan === plan.id}
+                        className="btn-primary btn-sm"
+                        onClick={() => purchasePack(pack.id)}
+                        disabled={billingLoading}
                       >
-                        {billingStatus?.subscription?.plan === plan.id ? 'Current Plan' : billingLoading ? 'Processing...' : `Subscribe — ₦${plan.price_ngn?.toLocaleString()}`}
+                        {billingLoading ? 'Processing...' : `Buy — ₦${pack.price_ngn?.toLocaleString()}`}
                       </button>
                     </div>
                   ))}
@@ -1262,7 +1212,7 @@ function App() {
                             <div key={i} className="usage-table-row">
                               <span>{t.type.replace('_', ' ')}</span>
                               <span>{t.credits.toLocaleString()}</span>
-                              <span>{t.amount_usd ? `$${t.amount_usd}` : '—'}</span>
+                              <span>{t.amount_ngn ? `₦${t.amount_ngn.toLocaleString()}` : '—'}</span>
                               <span className={`status-badge status-${t.status}`}>{t.status}</span>
                               <span className="text-muted">{new Date(t.created_at).toLocaleDateString()}</span>
                             </div>
@@ -1399,7 +1349,7 @@ function App() {
                     <div key={thread.id} className={`thread-item ${thread.id === activeThreadId ? 'active' : ''}`} onClick={() => setActiveThreadId(thread.id)}>
                       <IconMessageSquare size={14} />
                       <span className="thread-title">{thread.title}</span>
-                      <button className="thread-delete" onClick={e => { e.stopPropagation(); deleteThread(thread.id) }} title="Delete">
+                      <button className="thread-delete" onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(thread.id) }} title="Delete">
                         <IconX size={12} />
                       </button>
                     </div>
@@ -1483,12 +1433,19 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        {!isLoggedIn && (
-          <div className="auth-banner">
-            <span>Sign in to use TaskBolt AI</span>
+        {/* Top Nav Bar */}
+        <div className="top-nav-bar">
+          {!isLoggedIn && (
             <button className="btn-signin-banner" onClick={() => setAppState('signin')}>Sign In</button>
-          </div>
-        )}
+          )}
+          {isLoggedIn && (
+            <div className="nav-credits" onClick={() => { setAppState('settings'); setSettingsTab('billing') }} title="Buy credits">
+              <span className="nav-credits-icon">⚡</span>
+              <span className="nav-credits-amount">{billingStatus?.credits?.balance?.toLocaleString() || '0'}</span>
+              <span className="nav-credits-buy">+ Buy</span>
+            </div>
+          )}
+        </div>
 
         {!activeThread ? (
           <div className="empty-state">
@@ -1508,13 +1465,12 @@ function App() {
           <div className="messages-container">
             {activeThread.messages.map(msg => (
               <div key={msg.id} className={`msg msg-${msg.role}`}>
-                <div className="msg-sender">
+                <div className="msg-icon">
                   {msg.role === 'assistant' ? (
-                    <span className="msg-sender-name sender-ai"><IconZap size={12} /> TaskBolt</span>
+                    <div className="msg-icon-ai"><IconZap size={14} /></div>
                   ) : (
-                    <span className="msg-sender-name sender-user">{authUser?.display_name || authUser?.email || 'You'}</span>
+                    <div className="msg-icon-user"><IconUser size={14} /></div>
                   )}
-                  <span className="msg-time">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="msg-body">
                   {msg.thinking && (
@@ -1556,14 +1512,20 @@ function App() {
             ))}
             {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.content === '' && (
               <div className="msg msg-assistant">
-                <div className="msg-sender">
-                  <span className="msg-sender-name sender-ai"><IconZap size={12} /> TaskBolt</span>
+                <div className="msg-icon">
+                  <div className="msg-icon-ai"><IconZap size={14} /></div>
                 </div>
                 <div className="msg-body">
-                  <div className="typing-indicator">
-                    <div className="typing-bar">
-                      <span /><span /><span />
-                    </div>
+                  <div className="agent-status-indicator">
+                    {agentStatus === 'thinking' && (
+                      <><span className="status-dot thinking" /> Thinking...</>
+                    )}
+                    {agentStatus === 'executing' && (
+                      <><span className="status-dot executing" /> Executing task...</>
+                    )}
+                    {(agentStatus === 'typing' || agentStatus === 'idle') && (
+                      <div className="typing-indicator"><div className="typing-bar"><span /><span /><span /></div></div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1574,7 +1536,21 @@ function App() {
 
         {/* Input Area */}
         <div className="input-area">
+          {uploadedFiles.length > 0 && (
+            <div className="uploaded-files-bar">
+              {uploadedFiles.map((f, i) => (
+                <span key={i} className="uploaded-file-chip">
+                  📎 {f.name}
+                  <button onClick={() => removeUploadedFile(i)}><IconX size={10} /></button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="input-wrapper">
+            <button className="upload-btn" onClick={() => fileInputRef.current?.click()} title="Attach files">
+              <IconPlus size={18} />
+            </button>
+            <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileUpload} />
             <textarea
               ref={inputRef}
               value={input}
@@ -1595,6 +1571,20 @@ function App() {
           <p className="input-hint">TaskBolt uses AI to set up and configure your computer</p>
         </div>
       </div>
+
+      {/* Delete Thread Confirmation Modal */}
+      {deleteThreadConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteThreadConfirm(null)}>
+          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+            <h3>Delete Task?</h3>
+            <p>This will permanently delete this task and all its messages. This cannot be undone.</p>
+            <div className="confirm-modal-actions">
+              <button className="btn-secondary" onClick={() => setDeleteThreadConfirm(null)}>Cancel</button>
+              <button className="btn-danger" onClick={() => { deleteThread(deleteThreadConfirm); setDeleteThreadConfirm(null) }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

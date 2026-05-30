@@ -3,12 +3,12 @@ const { sql, initDB } = require("../_db");
 
 const PAYSTACK_BASE = "https://api.paystack.co";
 
-// Plan pricing in NGN (kobo = smallest unit, multiply by 100)
-const PLANS = {
-  starter:    { price_usd: 6,   price_ngn: 9900,    credits_monthly: 5000,   daily: 0    },
-  pro:        { price_usd: 20,  price_ngn: 33000,   credits_monthly: 20000,  daily: 200  },
-  business:   { price_usd: 100, price_ngn: 165000,  credits_monthly: 100000, daily: 1000 },
-  enterprise: { price_usd: 200, price_ngn: 330000,  credits_monthly: 200000, daily: 2000 },
+const PACKS = {
+  starter:  { price_ngn: 1500,  credits: 1000  },
+  basic:    { price_ngn: 5000,  credits: 4000  },
+  standard: { price_ngn: 10000, credits: 10000 },
+  pro:      { price_ngn: 25000, credits: 30000 },
+  business: { price_ngn: 50000, credits: 70000 },
 };
 
 module.exports = async function handler(req, res) {
@@ -20,29 +20,23 @@ module.exports = async function handler(req, res) {
 
   await initDB();
 
-  const { plan_id, email } = req.body;
-  const plan = PLANS[plan_id];
-  if (!plan) return jsonResponse(res, { error: "Invalid plan" }, 400);
+  const { pack_id, email } = req.body;
+  const pack = PACKS[pack_id];
+  if (!pack) return jsonResponse(res, { error: "Invalid pack" }, 400);
 
   const paystackKey = process.env.PAYSTACK_SECRET_KEY;
   if (!paystackKey) return jsonResponse(res, { error: "Payment system not configured" }, 500);
 
-  // Cancel any existing active subscription
-  await sql`
-    UPDATE subscriptions SET status = 'cancelled', cancelled_at = NOW(), updated_at = NOW()
-    WHERE user_id = ${user.id}::uuid AND status = 'active'
-  `;
-
-  // Create pending transaction record
+  // Create pending transaction
   const tx = await sql`
-    INSERT INTO transactions (user_id, type, plan, amount_usd, credits, status)
-    VALUES (${user.id}::uuid, 'subscription', ${plan_id}, ${plan.price_usd}, ${plan.credits_monthly}, 'pending')
+    INSERT INTO transactions (user_id, type, credits, status)
+    VALUES (${user.id}::uuid, 'purchase', ${pack.credits}, 'pending')
     RETURNING id
   `;
 
-  // Build Paystack initialization payload
+  // Initialize Paystack transaction
   const reference = `tb-${user.id}-${Date.now()}`;
-  const amountInKobo = plan.price_ngn * 100; // Paystack uses kobo
+  const amountInKobo = pack.price_ngn * 100;
 
   const payload = {
     email: email || user.email || "user@taskbolt.com",
@@ -52,11 +46,12 @@ module.exports = async function handler(req, res) {
     callback_url: "https://taskbolt-saas.vercel.app/api/billing/callback",
     metadata: {
       user_id: user.id,
-      plan_id: plan_id,
+      pack_id: pack_id,
       transaction_id: tx[0].id,
+      credits: pack.credits,
       custom_fields: [
-        { display_name: "Plan", variable_name: "plan", value: plan_id },
-        { display_name: "Credits", variable_name: "credits", value: plan.credits_monthly.toString() },
+        { display_name: "Pack", variable_name: "pack", value: pack_id },
+        { display_name: "Credits", variable_name: "credits", value: pack.credits.toString() },
       ],
     },
   };
@@ -82,10 +77,9 @@ module.exports = async function handler(req, res) {
       ok: true,
       payment_url: data.data.authorization_url,
       reference: reference,
-      access_code: data.data.access_code,
-      plan: plan_id,
-      amount_ngn: plan.price_ngn,
-      amount_usd: plan.price_usd,
+      pack: pack_id,
+      credits: pack.credits,
+      amount_ngn: pack.price_ngn,
     });
   } catch (e) {
     await sql`UPDATE transactions SET status = 'error', metadata = ${JSON.stringify({ error: e.message })}::jsonb WHERE id = ${tx[0].id}::uuid`;
