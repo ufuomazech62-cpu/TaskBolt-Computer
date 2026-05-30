@@ -1,97 +1,23 @@
 const crypto = require("crypto");
 const { sql, initDB } = require("../_db");
 
+const PAYSTACK_BASE = "https://api.paystack.co";
+
 const PLANS = {
-  starter:    { price: 6,   credits_monthly: 5000,   daily: 200  },
-  pro:        { price: 20,  credits_monthly: 20000,  daily: 200  },
-  business:   { price: 100, credits_monthly: 100000, daily: 1000 },
-  enterprise: { price: 200, credits_monthly: 200000, daily: 2000 },
+  starter:    { price_usd: 6,   price_ngn: 9900,    credits_monthly: 5000,   daily: 0    },
+  pro:        { price_usd: 20,  price_ngn: 33000,   credits_monthly: 20000,  daily: 200  },
+  business:   { price_usd: 100, price_ngn: 165000,  credits_monthly: 100000, daily: 1000 },
+  enterprise: { price_usd: 200, price_ngn: 330000,  credits_monthly: 200000, daily: 2000 },
 };
 
-module.exports = async function handler(req, res) {
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  // Flutterwave can send GET (redirect) or POST (webhook)
-  const isWebhook = req.method === "POST";
-  const isRedirect = req.method === "GET";
-
-  if (!isWebhook && !isRedirect) {
-    return res.status(405).json({ error: "POST or GET only" });
-  }
-
-  await initDB();
-  const secretHash = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "";
-
-  let userId, planId, txId, flwRef;
-
-  if (isWebhook) {
-    // Verify webhook signature
-    if (secretHash) {
-      const signature = req.headers["verif-hash"] || "";
-      const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-      const hash = crypto.createHmac("sha256", secretHash).update(rawBody).digest("hex");
-      if (signature !== hash) {
-        return res.status(401).json({ error: "Invalid signature" });
-      }
-    }
-
-    const event = req.body;
-    if (event?.event !== "charge.completed" || event?.data?.status !== "successful") {
-      return res.status(200).json({ ok: true, message: "Ignored" });
-    }
-
-    const data = event.data;
-    const meta = data.meta || {};
-    userId = meta.user_id;
-    planId = meta.plan_id;
-    txId = meta.transaction_id;
-    flwRef = data.flw_ref;
-  }
-
-  if (isRedirect) {
-    // Redirect from Flutterwave — verify transaction via API
-    const { tx_ref, status, transaction_id: flwTxId } = req.query;
-    if (!tx_ref) return res.status(400).send("Missing tx_ref");
-
-    const flwKey = process.env.FLUTTERWAVE_SECRET_KEY;
-    if (!flwKey) return res.status(500).send("Server error");
-
-    // Verify the transaction
-    try {
-      const verifyResp = await fetch(`https://api.flutterwave.com/v3/transactions/${flwTxId}/verify`, {
-        headers: { Authorization: `Bearer ${flwKey}` },
-      });
-      const verifyData = await verifyResp.json();
-      if (verifyData.status !== "success" || verifyData.data?.status !== "successful") {
-        return res.status(400).send("Payment not successful");
-      }
-      const meta = verifyData.data.meta || {};
-      userId = meta.user_id;
-      planId = meta.plan_id;
-      txId = meta.transaction_id;
-      flwRef = verifyData.data.flw_ref;
-    } catch (e) {
-      return res.status(500).send("Verification failed");
-    }
-  }
-
-  if (!userId || !planId) {
-    return isRedirect
-      ? res.status(400).send("Missing payment metadata")
-      : res.status(200).json({ ok: true, message: "No metadata" });
-  }
-
+async function activateSubscription(userId, planId, flwRef) {
   const plan = PLANS[planId];
-  if (!plan) {
-    return isRedirect
-      ? res.status(400).send("Invalid plan")
-      : res.status(200).json({ ok: true, message: "Invalid plan" });
-  }
+  if (!plan) return false;
 
   // Activate subscription
   await sql`
     INSERT INTO subscriptions (user_id, plan, status, credits_monthly, credits_daily_bonus, price_usd, flutterwave_sub_id, ends_at)
-    VALUES (${userId}::uuid, ${planId}, 'active', ${plan.credits_monthly}, ${plan.daily}, ${plan.price}, ${flwRef || ''}, NOW() + INTERVAL '30 days')
+    VALUES (${userId}::uuid, ${planId}, 'active', ${plan.credits_monthly}, ${plan.daily}, ${plan.price_usd}, ${flwRef || ''}, NOW() + INTERVAL '30 days')
     ON CONFLICT DO NOTHING
   `;
 
@@ -113,17 +39,70 @@ module.exports = async function handler(req, res) {
     `;
   }
 
+  return true;
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  await initDB();
+
+  // Verify Paystack webhook signature
+  const secret = process.env.PAYSTACK_SECRET_KEY || "";
+  if (secret) {
+    const signature = req.headers["x-paystack-signature"] || "";
+    // Paystack sends raw body — we need to hash it
+    const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    const hash = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
+    if (signature !== hash) {
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+  }
+
+  const event = req.body;
+
+  // Only process charge.success events
+  if (event?.event !== "charge.success") {
+    return res.status(200).json({ ok: true, message: "Ignored non-success event" });
+  }
+
+  const data = event.data;
+  const metadata = data.metadata || {};
+  const userId = metadata.user_id;
+  const planId = metadata.plan_id;
+  const txId = metadata.transaction_id;
+  const reference = data.reference;
+
+  if (!userId || !planId) {
+    return res.status(200).json({ ok: true, message: "No metadata" });
+  }
+
+  // Verify the transaction with Paystack API
+  const paystackKey = process.env.PAYSTACK_SECRET_KEY;
+  if (paystackKey) {
+    try {
+      const verifyResp = await fetch(`${PAYSTACK_BASE}/transaction/verify/${reference}`, {
+        headers: { Authorization: `Bearer ${paystackKey}` },
+      });
+      const verifyData = await verifyResp.json();
+      if (!verifyData.status || verifyData.data?.status !== "success") {
+        return res.status(200).json({ ok: true, message: "Verification failed" });
+      }
+    } catch {
+      // Continue anyway — webhook signature already verified
+    }
+  }
+
+  // Activate subscription
+  const success = await activateSubscription(userId, planId, reference);
+
   // Mark transaction complete
   if (txId) {
     await sql`
-      UPDATE transactions SET status = 'completed', flutterwave_ref = ${flwRef || ''}, created_at = NOW()
+      UPDATE transactions SET status = 'completed', flutterwave_ref = ${reference || ''}, created_at = NOW()
       WHERE id = ${txId}::uuid
     `;
-  }
-
-  if (isRedirect) {
-    // Redirect back to app
-    return res.redirect(302, "taskbolt://billing/success?plan=" + planId);
   }
 
   return res.status(200).json({ ok: true, message: "Subscription activated" });

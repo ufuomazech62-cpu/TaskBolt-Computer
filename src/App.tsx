@@ -1110,7 +1110,7 @@ function App() {
                     <div className="plan-card active">
                       <div className="plan-card-header">
                         <span className="plan-name">{billingStatus.subscription.plan.charAt(0).toUpperCase() + billingStatus.subscription.plan.slice(1)}</span>
-                        <span className="plan-price">${billingStatus.subscription.price_usd}/mo</span>
+                        <span className="plan-price">₦{(billingStatus.subscription.price_usd * 1650).toLocaleString()}/mo</span>
                       </div>
                       <div className="plan-card-body">
                         <div className="plan-stat">
@@ -1123,7 +1123,7 @@ function App() {
                         </div>
                         <div className="plan-stat">
                           <span className="plan-stat-label">Daily Bonus</span>
-                          <span className="plan-stat-value">{billingStatus.subscription.credits_daily_bonus}/day</span>
+                          <span className="plan-stat-value">{billingStatus.subscription.credits_daily_bonus > 0 ? `${billingStatus.subscription.credits_daily_bonus}/day` : 'None'}</span>
                         </div>
                         <div className="plan-stat">
                           <span className="plan-stat-label">Expires</span>
@@ -1159,7 +1159,7 @@ function App() {
                     <div key={plan.id} className={`plan-card ${billingStatus?.subscription?.plan === plan.id ? 'current' : ''}`}>
                       <div className="plan-card-header">
                         <span className="plan-name">{plan.name}</span>
-                        <span className="plan-price">${plan.price_usd}/mo</span>
+                        <span className="plan-price">₦{plan.price_ngn?.toLocaleString()}</span>
                       </div>
                       <p className="plan-desc">{plan.description}</p>
                       <ul className="plan-features">
@@ -1172,7 +1172,7 @@ function App() {
                         onClick={() => subscribeToPlan(plan.id)}
                         disabled={billingLoading || billingStatus?.subscription?.plan === plan.id}
                       >
-                        {billingStatus?.subscription?.plan === plan.id ? 'Current Plan' : billingLoading ? 'Processing...' : 'Subscribe'}
+                        {billingStatus?.subscription?.plan === plan.id ? 'Current Plan' : billingLoading ? 'Processing...' : `Subscribe — ₦${plan.price_ngn?.toLocaleString()}`}
                       </button>
                     </div>
                   ))}
