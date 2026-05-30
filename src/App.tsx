@@ -570,11 +570,30 @@ function App() {
       const res = await fetch(`${SAAS_URL}/api/billing/purchase`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ pack_id: packId, email: authUser?.email }),
+        body: JSON.stringify({ pack_id: packId }),
       })
       const data = await res.json()
       if (data.ok && data.payment_url) {
-        window.open(data.payment_url, '_blank', 'width=500,height=700')
+        // Open Dodo checkout in popup
+        const popup = window.open(data.payment_url, 'dodo_checkout', 'width=500,height=750,scrollbars=yes')
+        // Listen for payment completion message from callback
+        const msgHandler = (e: MessageEvent) => {
+          if (e.data?.type === 'payment_complete') {
+            window.removeEventListener('message', msgHandler)
+            fetchBillingStatus()
+            fetchCreditPacks()
+          }
+        }
+        window.addEventListener('message', msgHandler)
+        // Also poll billing status every 5 seconds for 60 seconds (in case webhook fires)
+        let polls = 0
+        const pollInterval = setInterval(async () => {
+          polls++
+          if (polls > 12 || (popup && popup.closed)) {
+            clearInterval(pollInterval)
+            fetchBillingStatus()
+          }
+        }, 5000)
       } else {
         alert(data.error || 'Failed to initiate payment')
       }
@@ -1113,16 +1132,16 @@ function App() {
                     <div key={pack.id} className="plan-card">
                       <div className="plan-card-header">
                         <span className="plan-name">{pack.name}</span>
-                        <span className="plan-price">₦{pack.price_ngn?.toLocaleString()}</span>
+                        <span className="plan-price">${pack.price_usd}</span>
                       </div>
                       <p className="plan-desc">{pack.description}</p>
                       <div className="plan-credits">{pack.credits?.toLocaleString()} credits</div>
                       <button
                         className="btn-primary btn-sm"
                         onClick={() => purchasePack(pack.id)}
-                        disabled={billingLoading}
+                        disabled={billingLoading || pack.available === false}
                       >
-                        {billingLoading ? 'Processing...' : `Buy — ₦${pack.price_ngn?.toLocaleString()}`}
+                        {billingLoading ? 'Processing...' : pack.available === false ? 'Unavailable' : `Buy — $${pack.price_usd}`}
                       </button>
                     </div>
                   ))}
@@ -1212,7 +1231,7 @@ function App() {
                             <div key={i} className="usage-table-row">
                               <span>{t.type.replace('_', ' ')}</span>
                               <span>{t.credits.toLocaleString()}</span>
-                              <span>{t.amount_ngn ? `₦${t.amount_ngn.toLocaleString()}` : '—'}</span>
+                              <span>{t.amount_usd ? `$${t.amount_usd}` : '—'}</span>
                               <span className={`status-badge status-${t.status}`}>{t.status}</span>
                               <span className="text-muted">{new Date(t.created_at).toLocaleDateString()}</span>
                             </div>

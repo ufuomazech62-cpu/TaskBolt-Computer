@@ -68,6 +68,15 @@ async function initDB() {
     metadata JSONB DEFAULT '{}', created_at TIMESTAMP DEFAULT NOW()
   )`;
 
+  // Dodo Payments product mapping
+  await sql`CREATE TABLE IF NOT EXISTS dodo_products (
+    pack_id TEXT PRIMARY KEY,
+    dodo_product_id TEXT NOT NULL,
+    name TEXT,
+    price_cents INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
+
   // Memory table for AI context
   await sql`CREATE TABLE IF NOT EXISTS memories (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

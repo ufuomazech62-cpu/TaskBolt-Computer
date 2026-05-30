@@ -26,6 +26,14 @@ module.exports = async function handler(req, res) {
     FROM usage_logs WHERE user_id = ${user.id}::uuid AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
   `;
 
+  // Recent purchases
+  const purchases = await sql`
+    SELECT credits, amount_ngn as amount_usd, status, created_at
+    FROM transactions
+    WHERE user_id = ${user.id}::uuid AND type = 'purchase'
+    ORDER BY created_at DESC LIMIT 5
+  `;
+
   return jsonResponse(res, {
     ok: true,
     credits: {
@@ -37,5 +45,11 @@ module.exports = async function handler(req, res) {
       today: { tokens: Number(todayUsage[0]?.tokens || 0), credits: Number(todayUsage[0]?.credits || 0) },
       this_month: { tokens: Number(monthUsage[0]?.tokens || 0), credits: Number(monthUsage[0]?.credits || 0) },
     },
+    recent_purchases: purchases.map(p => ({
+      credits: p.credits,
+      amount_usd: p.amount_usd ? Number(p.amount_usd) : null,
+      status: p.status,
+      created_at: p.created_at,
+    })),
   });
 };

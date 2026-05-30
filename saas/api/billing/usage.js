@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
 
   // Recent transactions
   const transactions = await sql`
-    SELECT type, plan, amount_ngn, credits, status, created_at
+    SELECT type, plan, amount_ngn as amount_usd, credits, status, created_at
     FROM transactions
     WHERE user_id = ${user.id}::uuid
     ORDER BY created_at DESC LIMIT 20
@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
     transactions: transactions.map(t => ({
       type: t.type,
       plan: t.plan,
-      amount_ngn: t.amount_ngn ? Number(t.amount_ngn) : null,
+      amount_usd: t.amount_usd ? Number(t.amount_usd) : null,
       credits: t.credits,
       status: t.status,
       created_at: t.created_at,
