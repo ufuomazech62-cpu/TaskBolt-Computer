@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const { requireAuth, jsonResponse } = require("../_auth");
 const { sql, initDB } = require("../_db");
 
-const DODO_API = "https://live.dodopayments.com";
+const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
 const SAAS_URL = "https://taskbolt-saas.vercel.app";
 
 const PACKS_DEF = [
@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
       const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${pack.id}`;
       if (existing.length) { results.push({ pack_id: pack.id, dodo_product_id: existing[0].dodo_product_id, status: "exists" }); continue; }
       try {
-        const resp = await fetch(`${DODO_API}/products`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: `TaskBolt ${pack.name} — ${pack.credits.toLocaleString()} Credits`, description: `${pack.description}. One-time credit pack for TaskBolt AI Desktop Agent.`, tax_category: "digital_products", price: { currency: "USD", discount: 0, price: pack.price_cents, purchasing_power_parity: false, type: "one_time_price" }, metadata: { pack_id: pack.id, credits: pack.credits.toString(), source: "taskbolt" } }) });
+        const resp = await fetch(`${DODO_API}/products`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: `TaskBolt ${pack.name} - ${pack.credits.toLocaleString()} Credits`, description: `${pack.description}. One-time credit pack for TaskBolt AI Desktop Agent.`, tax_category: "digital_products", price: { currency: "USD", discount: 0, price: pack.price_cents, purchasing_power_parity: false, type: "one_time_price" }, metadata: { pack_id: pack.id, credits: pack.credits.toString(), source: "taskbolt" } }) });
         const data = await resp.json();
         const pid = data.product_id || data.id;
         if (pid) { await sql`INSERT INTO dodo_products (pack_id, dodo_product_id, name, price_cents) VALUES (${pack.id}, ${pid}, ${pack.name}, ${pack.price_cents}) ON CONFLICT (pack_id) DO UPDATE SET dodo_product_id = ${pid}`; results.push({ pack_id: pack.id, dodo_product_id: pid, status: "created" }); }
