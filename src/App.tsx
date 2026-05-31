@@ -1716,13 +1716,27 @@ function App() {
               rows={1}
               className="main-input"
             />
-            <button
-              className={`send-btn ${input.trim() && !isStreaming && isLoggedIn ? 'active' : ''}`}
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming || !isLoggedIn}
-            >
-              {isStreaming ? <IconLoader size={16} /> : <IconSend size={16} />}
-            </button>
+            {isStreaming ? (
+              <button
+                className="stop-btn"
+                onClick={() => {
+                  setIsStreaming(false)
+                  setAgentStatus('idle')
+                  invoke('cancel_message').catch(() => {})
+                }}
+                title="Stop generating"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="12" height="12" rx="2" /></svg>
+              </button>
+            ) : (
+              <button
+                className={`send-btn ${input.trim() && isLoggedIn ? 'active' : ''}`}
+                onClick={handleSend}
+                disabled={!input.trim() || !isLoggedIn}
+              >
+                <IconSend size={16} />
+              </button>
+            )}
           </div>
           <p className="input-hint">TaskBolt uses AI to set up and configure your computer</p>
         </div>

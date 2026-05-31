@@ -1481,6 +1481,30 @@ body {
   opacity: 0.4;
 }
 
+.stop-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.stop-btn:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.stop-btn:active {
+  transform: scale(0.95);
+}
+
 .input-hint {
   text-align: center;
   color: var(--text-tertiary);
