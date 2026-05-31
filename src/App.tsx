@@ -118,7 +118,8 @@ function App() {
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null)
   const [showRateLimitPopup, setShowRateLimitPopup] = useState(false)
   const [usageData, setUsageData] = useState<any>(null)
-  const [usagePeriod, setUsagePeriod] = useState('month')
+  const [usagePeriod, setUsagePeriod] = useState('7d')
+  const [refreshing, setRefreshing] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteThreadConfirm, setDeleteThreadConfirm] = useState<string | null>(null)
@@ -574,6 +575,19 @@ function App() {
     } catch { /* ignore */ }
   }
 
+  const refreshAll = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([
+        fetchBillingStatus(),
+        fetchCreditPacks(),
+        fetchUsage(usagePeriod),
+        loadThreads(),
+      ])
+    } catch { /* ignore */ }
+    setTimeout(() => setRefreshing(false), 500)
+  }
+
   const purchasePack = async (packId: string) => {
     setLoadingPackId(packId)
     try {
@@ -720,6 +734,9 @@ function App() {
   )
   const IconChevronRight = ({ size = 14 }: { size?: number }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  )
+  const IconRefresh = ({ size = 16, spinning = false }: { size?: number; spinning?: boolean }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={spinning ? 'icon-spin' : ''}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
   )
 
   // ── Date grouping helper ──
@@ -1037,7 +1054,9 @@ function App() {
               <span>Back</span>
             </button>
             <h2>Settings</h2>
-            <div style={{ width: 70 }} />
+            <button className="btn-icon btn-refresh" onClick={refreshAll} title="Refresh" disabled={refreshing}>
+              <IconRefresh size={16} spinning={refreshing} />
+            </button>
           </div>
           <div className="settings-body">
             <div className="settings-tabs">
@@ -1104,7 +1123,12 @@ function App() {
 
             {settingsTab === 'billing' && (
               <div className="settings-section">
-                <h3>Credits</h3>
+                <div className="section-header-row">
+                  <h3>Credits</h3>
+                  <button className="btn-icon btn-refresh-sm" onClick={() => { fetchBillingStatus(); fetchCreditPacks() }} title="Refresh credits">
+                    <IconRefresh size={14} spinning={refreshing} />
+                  </button>
+                </div>
                 <div className="credits-overview">
                   <div className="credits-balance-card">
                     <span className="credits-label">Current Balance</span>
@@ -1143,7 +1167,12 @@ function App() {
 
             {settingsTab === 'usage' && (
               <div className="settings-section">
-                <h3>Usage</h3>
+                <div className="section-header-row">
+                  <h3>Usage</h3>
+                  <button className="btn-icon btn-refresh-sm" onClick={() => fetchUsage(usagePeriod)} title="Refresh usage">
+                    <IconRefresh size={14} spinning={refreshing} />
+                  </button>
+                </div>
 
                 {/* Period Selector */}
                 <div className="usage-period-tabs">
@@ -1450,10 +1479,15 @@ function App() {
             <button className="btn-signin-banner" onClick={() => setAppState('signin')}>Sign In</button>
           )}
           {isLoggedIn && (
-            <div className="nav-credits" onClick={() => { setAppState('settings'); setSettingsTab('billing') }} title="Buy credits">
-              <span className="nav-credits-icon">⚡</span>
-              <span className="nav-credits-amount">{billingStatus?.credits?.balance?.toLocaleString() || '0'}</span>
-              <span className="nav-credits-buy">+ Buy</span>
+            <div className="nav-right">
+              <div className="nav-credits" onClick={() => { setAppState('settings'); setSettingsTab('billing') }} title="Buy credits">
+                <span className="nav-credits-icon">⚡</span>
+                <span className="nav-credits-amount">{billingStatus?.credits?.balance?.toLocaleString() || '0'}</span>
+                <span className="nav-credits-buy">+ Buy</span>
+              </div>
+              <button className="btn-icon btn-refresh" onClick={refreshAll} title="Refresh" disabled={refreshing}>
+                <IconRefresh size={16} spinning={refreshing} />
+              </button>
             </div>
           )}
         </div>

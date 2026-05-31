@@ -1931,6 +1931,56 @@ body {
   margin-left: 4px;
 }
 
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-refresh,
+.btn-refresh-sm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.btn-refresh:hover,
+.btn-refresh-sm:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-refresh:disabled,
+.btn-refresh-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-refresh-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section-header-row h3 {
+  margin: 0;
+}
+
 /* ═══════════════════════════════════════════════════════
    MESSAGE ICONS (no names)
    ═══════════════════════════════════════════════════════ */

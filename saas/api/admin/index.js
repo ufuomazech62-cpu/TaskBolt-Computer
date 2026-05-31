@@ -60,6 +60,47 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, fixed: results.length, results });
     }
 
+    // --- PROCESS_TX: properly process a specific pending transaction (same logic as webhook) ---
+    if (action === "process_tx" && req.method === "POST") {
+      const { transaction_id, user_id } = req.body || {};
+      if (!transaction_id || !user_id) return res.status(400).json({ error: "transaction_id and user_id required" });
+
+      // Verify the transaction exists and is pending
+      const txRows = await sql`SELECT id, user_id, credits, status, metadata FROM transactions WHERE id = ${transaction_id}::uuid`;
+      if (txRows.length === 0) return res.status(404).json({ error: "Transaction not found" });
+      const tx = txRows[0];
+      if (tx.status === 'completed') return res.status(400).json({ error: "Transaction already completed" });
+
+      const credits = tx.credits || 0;
+
+      // Verify user exists
+      const userRows = await sql`SELECT id, email FROM users WHERE id = ${user_id}::uuid`;
+      if (userRows.length === 0) return res.status(404).json({ error: "User not found" });
+
+      // Link user_id to transaction (was null due to the bug)
+      await sql`UPDATE transactions SET user_id = ${user_id}::uuid WHERE id = ${transaction_id}::uuid`;
+
+      // Add credits (same logic as webhook)
+      const existing = await sql`SELECT id FROM credits WHERE user_id = ${user_id}::uuid`;
+      if (existing.length === 0) {
+        await sql`INSERT INTO credits (user_id, balance, total_allocated, total_used) VALUES (${user_id}::uuid, ${credits}, ${credits}, 0)`;
+      } else {
+        await sql`UPDATE credits SET balance = balance + ${credits}, total_allocated = total_allocated + ${credits}, updated_at = NOW() WHERE user_id = ${user_id}::uuid`;
+      }
+
+      // Mark transaction complete
+      await sql`UPDATE transactions SET status = 'completed' WHERE id = ${transaction_id}::uuid`;
+
+      const updated = await sql`SELECT balance, total_allocated, total_used FROM credits WHERE user_id = ${user_id}::uuid`;
+      return res.status(200).json({
+        ok: true,
+        message: `Processed: ${credits} credits added`,
+        user: userRows[0].email,
+        balance: updated[0],
+        transaction: { id: transaction_id, credits, status: 'completed' }
+      });
+    }
+
     return res.status(400).json({ error: "Unknown action. Use: status, credit, fix_pending" });
   } catch (err) {
     console.error("[admin] error:", err.message);
