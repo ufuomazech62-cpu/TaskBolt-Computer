@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       // Store token in oauth_sessions for polling
       const session = req.query.state || "";
       if (session) {
-        await sql`INSERT INTO oauth_sessions (session, token, "user", expires_at) VALUES (${session}, ${token}, ${sql.json(user)}, NOW() + INTERVAL '10 minutes') ON CONFLICT (session) DO UPDATE SET token = ${token}, "user" = ${sql.json(user)}, expires_at = NOW() + INTERVAL '10 minutes'`;
+        await sql`INSERT INTO oauth_sessions (session, token, "user", expires_at) VALUES (${session}, ${token}, ${JSON.stringify(user)}::jsonb, NOW() + INTERVAL '10 minutes') ON CONFLICT (session) DO UPDATE SET token = ${token}, "user" = ${JSON.stringify(user)}::jsonb, expires_at = NOW() + INTERVAL '10 minutes'`;
       }
 
       const html = `<!DOCTYPE html><html><head><title>Signed In</title><style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0f1117;color:#e4e4e7}div{text-align:center}h2{font-size:1.5rem;margin-bottom:0.5rem}p{color:#71717a}</style></head><body><div><h2>✅ Signed in to TaskBolt!</h2><p>You can close this window and return to the app.</p></div><script>setTimeout(()=>window.close(),2000)</script></body></html>`;
