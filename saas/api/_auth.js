@@ -4,7 +4,10 @@ function requireAuth(req) {
   const auth = req.headers["authorization"] || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;
-  return verify(token);
+  const payload = verify(token);
+  if (!payload) return null;
+  // JWT stores userId, but all endpoints use user.id — alias it
+  return { ...payload, id: payload.userId || payload.id };
 }
 
 function setCorsHeaders(res) {
