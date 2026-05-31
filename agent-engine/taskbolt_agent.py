@@ -27,6 +27,33 @@ CONVERSATIONS_FILE = DATA_DIR / "conversations.json"
 VERCEL_API = os.environ.get("TASKBOLT_API", "https://taskbolt-saas.vercel.app/api/ai/agent")
 AUTH_TOKEN = os.environ.get("TASKBOLT_TOKEN", "")
 
+
+def sanitize_error(err_msg: str, status_code: int = 0) -> str:
+    """Sanitize error messages — never expose provider names, billing, or internal details."""
+    msg_lower = err_msg.lower()
+    # Our own credit errors are OK to pass through (they're user-facing already)
+    if "no credits remaining" in msg_lower or "ratelimited" in msg_lower:
+        return err_msg
+    # Billing / arrearage / overdue
+    if any(kw in msg_lower for kw in ["arrearage", "overdue", "insufficientbalance", "account is in good standing"]):
+        return "Our service is temporarily unavailable. We're working on it — please try again shortly."
+    # Rate limiting from provider
+    if status_code == 429 or "rate" in msg_lower or "throttl" in msg_lower:
+        return "We're experiencing high demand right now. Please try again in a moment."
+    # Auth / key issues
+    if status_code in (401, 403) or "api key" in msg_lower or "invalid" in msg_lower and "key" in msg_lower:
+        return "Service configuration error. Our team has been notified."
+    # Model / provider exposure
+    if any(kw in msg_lower for kw in ["dashscope", "alibaba", "qwen", "model not found"]):
+        return "Service temporarily unavailable. Please try again."
+    # Generic server errors
+    if status_code >= 500:
+        return "Our AI service is temporarily unavailable. Please try again in a few moments."
+    # Anything else that looks like a raw provider error
+    if any(kw in msg_lower for kw in ["error", "exception", "traceback"]):
+        return "Something went wrong processing your request. Please try again."
+    return err_msg
+
 # ── System prompt ──────────────────────────────────────
 SYSTEM_PROMPT = """You are TaskBolt, an intelligent AI assistant that sets up, configures, and manages the user's computer. You have FULL access to their system through tools.
 
@@ -461,11 +488,14 @@ def agent_loop(user_message: str, thread_id: str, auth_token: str):
                     err_msg += f" (credits: {err_body['credits']})"
             except Exception:
                 err_msg = str(e)
+            
+            # SANITIZE: never expose raw provider errors to users
+            err_msg = sanitize_error(err_msg, e.code)
             emit({"type": "error", "content": err_msg})
             emit({"type": "done"})
             return
         except Exception as e:
-            emit({"type": "error", "content": f"API error: {e}"})
+            emit({"type": "error", "content": "Something went wrong. Please try again."})
             emit({"type": "done"})
             return
         

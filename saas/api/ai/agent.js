@@ -10,6 +10,38 @@ const { sql, initDB } = require("../_db");
 const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;
 
+/**
+ * Sanitize upstream API errors — never expose provider names, billing info,
+ * model details, or internal error codes to end users.
+ */
+function sanitizeUpstreamError(status, rawBody) {
+  try {
+    const parsed = JSON.parse(rawBody);
+    const code = parsed.error?.code || parsed.code || "";
+    // Rate limit / quota
+    if (status === 429 || code === "RateLimitReached" || code === "Throttling") {
+      return "We're experiencing high demand right now. Please try again in a moment.";
+    }
+    // Billing / arrearage
+    if (code === "Arrearage" || code === "InsufficientBalance" || rawBody.includes("overdue")) {
+      return "Our service is temporarily unavailable. We're working on it — please try again shortly.";
+    }
+    // Auth / key issues
+    if (status === 401 || status === 403 || code === "InvalidApiKey") {
+      return "Service configuration error. Our team has been notified.";
+    }
+    // Model not found
+    if (code === "ModelNotFound" || code === "InvalidModel") {
+      return "Service temporarily unavailable. Please try again.";
+    }
+  } catch {
+    // Not JSON — still sanitize
+  }
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
+  if (status >= 500) return "Our AI service is temporarily unavailable. Please try again in a few moments.";
+  return "Something went wrong processing your request. Please try again.";
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return jsonResponse(res, { error: "POST only" }, 405);
@@ -35,7 +67,7 @@ module.exports = async function handler(req, res) {
   if (!messages || !messages.length) return jsonResponse(res, { error: "messages required" }, 400);
 
   const apiKey = process.env.DASHSCOPE_API_KEY;
-  if (!apiKey) return jsonResponse(res, { error: "DASHSCOPE_API_KEY not configured" }, 500);
+  if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
   const useModel = model || "qwen3.6-flash";
 
@@ -62,8 +94,11 @@ module.exports = async function handler(req, res) {
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: err.slice(0, 500) });
+      const errBody = await response.text();
+      console.error("[agent] Upstream API error:", response.status, errBody.slice(0, 300));
+      // Never expose raw provider errors to users — sanitize
+      const userMessage = sanitizeUpstreamError(response.status, errBody);
+      return res.status(502).json({ error: userMessage });
     }
 
     const data = await response.json();
@@ -94,6 +129,7 @@ module.exports = async function handler(req, res) {
 
     return res.json(data);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error("[agent] Unexpected error:", e.message);
+    return res.status(500).json({ error: "An unexpected error occurred. Please try again." });
   }
 };
