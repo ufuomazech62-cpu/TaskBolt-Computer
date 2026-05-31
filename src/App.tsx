@@ -537,15 +537,16 @@ function App() {
             updateMsg()
             break
           case 'error':
-            // Check if this is a rate limit error
-            if (data.content?.includes('No credits remaining') || data.content?.includes('rateLimited')) {
+            // Check if this is a rate limit / payment error — show popup, not raw text
+            const errText = data.content || ''
+            if (errText.includes('No credits remaining') || errText.includes('rateLimited') || errText.includes('402') || errText.includes('Payment Required') || errText.includes('insufficient credits')) {
               setShowRateLimitPopup(true)
               setIsStreaming(false)
               setAgentStatus('idle')
               unlisten()
               return
             }
-            fullContent += `\n\n⚠️ Error: ${data.content}`
+            fullContent += `\n\n⚠️ ${errText}`
             updateMsg()
             break
           case 'done':
