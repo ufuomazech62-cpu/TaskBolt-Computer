@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
+import LogoSvg from './LogoSvg'
 
 // ── Types ──────────────────────────────────────────────
 interface Message {
@@ -743,9 +744,6 @@ function App() {
   // ─── Render ──────────────────────────────────────────
 
   // ── SVG Icon Components (Lucide-style) ──
-  const IconBolt = ({ size = 20 }: { size?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-  )
   const IconPlus = ({ size = 16 }: { size?: number }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   )
@@ -988,7 +986,7 @@ function App() {
       <div className="app-container">
         <div className="onboarding-screen">
           <div className="onboarding-logo">
-            <div className="logo-bolt"><IconBolt size={48} /></div>
+            <div className="logo-bolt"><LogoSvg size={64} animated /></div>
             <h1>TaskBolt</h1>
             <p className="onboarding-subtitle">AI that sets up your computer for you</p>
           </div>
@@ -1027,7 +1025,7 @@ function App() {
         <div className="signin-page">
           <div className="signin-card">
             <div className="signin-logo">
-              <div className="logo-bolt"><IconBolt size={36} /></div>
+              <div className="logo-bolt"><LogoSvg size={48} animated /></div>
               <h1>TaskBolt</h1>
               <p className="signin-subtitle">Sign in to get started</p>
             </div>
@@ -1447,7 +1445,7 @@ function App() {
           {sidebarOpen ? (
             <>
               <div className="sidebar-logo">
-                <IconBolt size={20} />
+                <LogoSvg size={22} animated />
                 <span className="logo-text">TaskBolt</span>
               </div>
               <button className="btn-icon sidebar-toggle" onClick={() => setSidebarOpen(false)} title="Collapse sidebar">
@@ -1597,7 +1595,7 @@ function App() {
 
         {!activeThread ? (
           <div className="empty-state">
-            <div className="empty-logo"><IconBolt size={40} /></div>
+            <div className="empty-logo"><LogoSvg size={48} animated /></div>
             <h2>What can I help you set up?</h2>
             <p className="empty-subtitle">Describe what you need — I'll handle the rest.</p>
             <div className="skill-suggestions">
@@ -1615,7 +1613,7 @@ function App() {
               <div key={msg.id || idx} className={`msg msg-${msg.role}`}>
                 {msg.role === 'assistant' && (
                   <div className="msg-avatar">
-                    <span className="msg-avatar-ai">⚡</span>
+                    <span className={`msg-avatar-ai logo-${agentStatus}`}><LogoSvg size={28} animated status={agentStatus} /></span>
                   </div>
                 )}
                 <div className="msg-body">
@@ -1672,7 +1670,7 @@ function App() {
             {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.role === 'user' && (
               <div className="msg msg-assistant">
                 <div className="msg-avatar">
-                  <span className="msg-avatar-ai">⚡</span>
+                  <span className={`msg-avatar-ai logo-${agentStatus}`}><LogoSvg size={28} animated status={agentStatus} /></span>
                 </div>
                 <div className="msg-body">
                   <div className="agent-status-indicator">
@@ -1763,7 +1761,7 @@ function App() {
       {showRateLimitPopup && (
         <div className="modal-overlay" onClick={() => setShowRateLimitPopup(false)}>
           <div className="rate-limit-modal" onClick={e => e.stopPropagation()}>
-            <div className="rate-limit-icon">⚡</div>
+            <div className="rate-limit-icon"><LogoSvg size={40} animated /></div>
             <h2>You're out of credits</h2>
             <p>Buy a credit pack or top-up to continue using TaskBolt.</p>
             <div className="rate-limit-options">
