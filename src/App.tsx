@@ -573,9 +573,11 @@ function App() {
       const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Agent failed')
       fullContent = `Error: ${msg}`
       updateMsg()
+    } finally {
+      // Always stop streaming when invoke resolves (done event may not fire)
       setIsStreaming(false)
       setAgentStatus('idle')
-      unlisten()
+      try { unlisten() } catch {}
     }
   }
 
