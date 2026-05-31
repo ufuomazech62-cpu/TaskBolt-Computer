@@ -573,11 +573,14 @@ function App() {
       const msg = typeof err === 'string' ? err : (err instanceof Error ? err.message : 'Agent failed')
       fullContent = `Error: ${msg}`
       updateMsg()
-    } finally {
-      // Always stop streaming when invoke resolves (done event may not fire)
       setIsStreaming(false)
       setAgentStatus('idle')
       try { unlisten() } catch {}
+    } finally {
+      // Note: invoke('send_message') returns instantly (just writes to stdin).
+      // The listener stays active until a 'done' event fires from the agent.
+      // We only reset streaming here as a safety net if invoke itself throws.
+      // Do NOT call unlisten() here — it would kill the listener before events arrive.
     }
   }
 

@@ -439,6 +439,7 @@ def agent_loop(user_message: str, thread_id: str, auth_token: str):
         
         try:
             import urllib.request
+            import urllib.error
             req = urllib.request.Request(
                 VERCEL_API,
                 data=json.dumps(payload).encode("utf-8"),
@@ -448,8 +449,24 @@ def agent_loop(user_message: str, thread_id: str, auth_token: str):
             
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            # Read the actual error body from the server
+            try:
+                err_body = json.loads(e.read().decode("utf-8"))
+                err_msg = err_body.get("error", "") or err_body.get("message", "") or str(e)
+                # Include all useful fields for frontend detection
+                if err_body.get("rateLimited"):
+                    err_msg += " rateLimited"
+                if err_body.get("credits") is not None:
+                    err_msg += f" (credits: {err_body['credits']})"
+            except Exception:
+                err_msg = str(e)
+            emit({"type": "error", "content": err_msg})
+            emit({"type": "done"})
+            return
         except Exception as e:
             emit({"type": "error", "content": f"API error: {e}"})
+            emit({"type": "done"})
             return
         
         # Check for tool calls
