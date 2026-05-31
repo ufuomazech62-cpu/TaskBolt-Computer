@@ -7,9 +7,9 @@ interface LogoSvgProps {
   className?: string
 }
 
-export default function LogoSvg({ size = 32, animated = false, status = 'idle', className = '' }: LogoSvgProps) {
+export default function LogoSvg({ size = 48, animated = false, status = 'idle', className = '' }: LogoSvgProps) {
   const uid = useId().replace(/:/g, '')
-  const animClass = animated ? `logo-${status}` : ''
+  const animClass = animated ? `logo-orb logo-${status}` : 'logo-orb'
 
   return (
     <svg
@@ -18,7 +18,8 @@ export default function LogoSvg({ size = 32, animated = false, status = 'idle', 
       viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`logo-orb ${animClass} ${className}`}
+      className={`${animClass} ${className}`}
+      style={{ overflow: 'visible' }}
     >
       <defs>
         <radialGradient id={`orb${uid}`} cx="35%" cy="25%">
@@ -46,20 +47,27 @@ export default function LogoSvg({ size = 32, animated = false, status = 'idle', 
         </filter>
       </defs>
 
-      {/* Outer glow */}
-      <circle cx="256" cy="256" r="170" fill="#FF4FAE" opacity={0.45} filter={`url(#glow${uid})`} />
-      {/* Main orb */}
-      <circle cx="256" cy="256" r="160" fill={`url(#orb${uid})`} />
-      {/* Rim */}
-      <circle cx="256" cy="256" r="160" fill="none" stroke={`url(#rim${uid})`} strokeWidth="3" opacity={0.9} />
-      {/* Glass highlight */}
-      <ellipse cx="215" cy="195" rx="95" ry="65" fill={`url(#glass${uid})`} opacity={0.7} />
-      {/* Bottom shine */}
-      <ellipse cx="250" cy="350" rx="115" ry="45" fill="white" opacity={0.12} />
-      {/* Left eye */}
-      <rect className="logo-eye" x="205" y="175" width="52" height="95" rx="26" fill="white" opacity={0.95} />
-      {/* Right eye */}
-      <rect className="logo-eye" x="295" y="165" width="52" height="95" rx="26" fill="white" opacity={0.95} />
+      {/* Head group — tilts/wags */}
+      <g className="logo-head" style={{ transformOrigin: '256px 256px' }}>
+        {/* Outer glow */}
+        <circle cx="256" cy="256" r="170" fill="#FF4FAE" opacity={0.45} filter={`url(#glow${uid})`} />
+        {/* Main orb */}
+        <circle cx="256" cy="256" r="160" fill={`url(#orb${uid})`} />
+        {/* Rim */}
+        <circle cx="256" cy="256" r="160" fill="none" stroke={`url(#rim${uid})`} strokeWidth="3" opacity={0.9} />
+        {/* Glass highlight */}
+        <ellipse cx="215" cy="195" rx="95" ry="65" fill={`url(#glass${uid})`} opacity={0.7} />
+        {/* Bottom shine */}
+        <ellipse cx="250" cy="350" rx="115" ry="45" fill="white" opacity={0.12} />
+        
+        {/* Eyes group — blinks together */}
+        <g className="logo-eyes" style={{ transformOrigin: '276px 207px' }}>
+          {/* Left eye */}
+          <ellipse className="logo-eye" cx="231" cy="222" rx="26" ry="47" fill="white" opacity={0.95} />
+          {/* Right eye */}
+          <ellipse className="logo-eye" cx="321" cy="212" rx="26" ry="47" fill="white" opacity={0.95} />
+        </g>
+      </g>
     </svg>
   )
 }
