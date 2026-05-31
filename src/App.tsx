@@ -1572,6 +1572,19 @@ function App() {
                   </div>
                 )}
                 <div className="msg-body">
+                  {msg.role === 'assistant' && isStreaming && idx === activeThread.messages.length - 1 && !msg.content && (
+                    <div className="agent-status-indicator">
+                      {agentStatus === 'thinking' && (
+                        <><span className="status-dot thinking" /> Thinking...</>
+                      )}
+                      {agentStatus === 'executing' && (
+                        <><span className="status-dot executing" /> Executing task...</>
+                      )}
+                      {(agentStatus === 'typing' || agentStatus === 'idle') && (
+                        <div className="typing-indicator"><div className="typing-bar"><span /><span /><span /></div></div>
+                      )}
+                    </div>
+                  )}
                   {msg.thinking && (
                     <details className="thinking-block">
                       <summary>
@@ -1607,16 +1620,9 @@ function App() {
                   )}
                   {msg.content && <div className="msg-text">{renderMarkdown(msg.content)}</div>}
                 </div>
-                {msg.role === 'user' && (
-                  <div className="msg-avatar">
-                    <span className="msg-avatar-user">
-                      {authUser?.display_name?.charAt(0)?.toUpperCase() || authUser?.email?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                )}
               </div>
             ))}
-            {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.role !== 'assistant' && (
+            {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.role === 'user' && (
               <div className="msg msg-assistant">
                 <div className="msg-avatar">
                   <span className="msg-avatar-ai">⚡</span>
