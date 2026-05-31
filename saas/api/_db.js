@@ -95,6 +95,15 @@ async function initDB() {
     created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
   )`;
 
+  // OAuth session polling table
+  await sql`CREATE TABLE IF NOT EXISTS oauth_sessions (
+    session TEXT PRIMARY KEY,
+    token TEXT,
+    "user" JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '10 minutes')
+  )`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_logs(user_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_credits_user ON credits(user_id)`;

@@ -104,6 +104,7 @@ function App() {
   const [tgQR, setTgQR] = useState<{ token: string; deeplink: string } | null>(null)
   const [tgPolling, setTgPolling] = useState(false)
   const tgPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const oauthPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Skills & MCP
   const [skills, setSkills] = useState<Skill[]>(CORE_SKILLS)
@@ -257,14 +258,54 @@ function App() {
     }
   }
 
-  // ── Google OAuth ─────────────────────────────────────
-  const signInGoogle = () => {
-    window.open(`${SAAS_URL}/api/auth/google`, '_blank', 'width=500,height=600')
+  // ── Google OAuth (polling-based for Tauri) ──────────
+  const signInGoogle = async () => {
+    const session = crypto.randomUUID()
+    try {
+      await open(`${SAAS_URL}/api/auth/google?session=${session}`)
+    } catch {
+      // fallback for dev
+      window.location.href = `${SAAS_URL}/api/auth/google?session=${session}`
+    }
+    // Poll for auth completion
+    let polls = 0
+    const interval = setInterval(async () => {
+      polls++
+      if (polls >= 60) { clearInterval(interval); return }
+      try {
+        const res = await fetch(`${SAAS_URL}/api/auth/google?action=poll&session=${session}`)
+        const data = await res.json()
+        if (data.ok && data.token) {
+          clearInterval(interval)
+          handleAuthSuccess(data.token, data.user)
+        }
+      } catch {}
+    }, 2000)
+    oauthPollRef.current = interval
   }
 
-  // ── GitHub OAuth ─────────────────────────────────────
-  const signInGitHub = () => {
-    window.open(`${SAAS_URL}/api/auth/github`, '_blank', 'width=500,height=600')
+  // ── GitHub OAuth (polling-based for Tauri) ──────────
+  const signInGitHub = async () => {
+    const session = crypto.randomUUID()
+    try {
+      await open(`${SAAS_URL}/api/auth/github?session=${session}`)
+    } catch {
+      window.location.href = `${SAAS_URL}/api/auth/github?session=${session}`
+    }
+    let polls = 0
+    const interval = setInterval(async () => {
+      polls++
+      if (polls >= 60) { clearInterval(interval); return }
+      try {
+        const res = await fetch(`${SAAS_URL}/api/auth/github?action=poll&session=${session}`)
+        const data = await res.json()
+        if (data.ok && data.token) {
+          clearInterval(interval)
+          handleAuthSuccess(data.token, data.user)
+        }
+      } catch {}
+    }, 2000)
+    oauthPollRef.current = interval
   }
 
   // ── Telegram QR ──────────────────────────────────────
