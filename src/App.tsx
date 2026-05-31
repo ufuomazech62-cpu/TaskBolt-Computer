@@ -120,6 +120,7 @@ function App() {
   const [usageData, setUsageData] = useState<any>(null)
   const [usagePeriod, setUsagePeriod] = useState('7d')
   const [refreshing, setRefreshing] = useState(false)
+  const [allTransactions, setAllTransactions] = useState<any[]>([])
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteThreadConfirm, setDeleteThreadConfirm] = useState<string | null>(null)
@@ -555,8 +556,31 @@ function App() {
     try {
       const res = await fetch(`${SAAS_URL}/api/billing?action=status`, { headers: authHeaders() })
       const data = await res.json()
-      if (data.ok) setBillingStatus(data)
+      if (data.ok) {
+        setBillingStatus(data)
+        if (data.transactions) setAllTransactions(data.transactions)
+      }
     } catch { /* ignore */ }
+  }
+
+  const downloadPaymentHistory = () => {
+    if (!allTransactions.length) return
+    const headers = ['Date', 'Type', 'Credits', 'Amount (USD)', 'Status']
+    const rows = allTransactions.map(t => [
+      new Date(t.created_at).toLocaleDateString(),
+      t.type || 'purchase',
+      t.credits || 0,
+      t.amount_usd || '',
+      t.status || 'pending',
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `taskbolt-payment-history-${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const fetchCreditPacks = async () => {
@@ -1162,6 +1186,38 @@ function App() {
                     </div>
                   ))}
                 </div>
+
+                {/* Payment History */}
+                <div className="payment-history-section">
+                  <div className="section-header-row">
+                    <h3 style={{ marginTop: '1.5rem' }}>Payment History</h3>
+                    {allTransactions.length > 0 && (
+                      <button className="btn-secondary btn-download" onClick={downloadPaymentHistory}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download CSV
+                      </button>
+                    )}
+                  </div>
+                  {allTransactions.length === 0 ? (
+                    <p className="setting-desc" style={{ marginTop: '0.5rem' }}>No transactions yet.</p>
+                  ) : (
+                    <div className="transaction-list">
+                      {allTransactions.map((tx, i) => (
+                        <div key={i} className={`transaction-row tx-${tx.status}`}>
+                          <div className="tx-info">
+                            <span className="tx-type">{tx.type === 'purchase' ? '💳 Purchase' : tx.type === 'admin_credit' ? '🎁 Credit' : tx.type || 'Transaction'}</span>
+                            <span className="tx-date">{new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                          <div className="tx-details">
+                            <span className="tx-credits">+{tx.credits?.toLocaleString() || 0} credits</span>
+                            {tx.amount_usd && <span className="tx-amount">${tx.amount_usd}</span>}
+                            <span className={`tx-status-badge tx-status-${tx.status}`}>{tx.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1508,21 +1564,14 @@ function App() {
           </div>
         ) : (
           <div className="messages-container">
-            {activeThread.messages.map(msg => (
-              <div key={msg.id} className={`msg msg-${msg.role}`}>
-                <div className="msg-avatar">
-                  {msg.role === 'assistant' ? (
+            {activeThread.messages.map((msg, idx) => (
+              <div key={msg.id || idx} className={`msg msg-${msg.role}`}>
+                {msg.role === 'assistant' && (
+                  <div className="msg-avatar">
                     <span className="msg-avatar-ai">⚡</span>
-                  ) : (
-                    <span className="msg-avatar-user">
-                      {authUser?.display_name?.charAt(0)?.toUpperCase() || authUser?.email?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  )}
-                </div>
-                <div className="msg-body">
-                  <div className="msg-sender">
-                    {msg.role === 'assistant' ? 'TaskBolt' : (authUser?.display_name || authUser?.email || 'You')}
                   </div>
+                )}
+                <div className="msg-body">
                   {msg.thinking && (
                     <details className="thinking-block">
                       <summary>
@@ -1556,17 +1605,23 @@ function App() {
                       ))}
                     </div>
                   )}
-                  <div className="msg-text">{renderMarkdown(msg.content)}</div>
+                  {msg.content && <div className="msg-text">{renderMarkdown(msg.content)}</div>}
                 </div>
+                {msg.role === 'user' && (
+                  <div className="msg-avatar">
+                    <span className="msg-avatar-user">
+                      {authUser?.display_name?.charAt(0)?.toUpperCase() || authUser?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
-            {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.content === '' && (
+            {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.role !== 'assistant' && (
               <div className="msg msg-assistant">
                 <div className="msg-avatar">
                   <span className="msg-avatar-ai">⚡</span>
                 </div>
                 <div className="msg-body">
-                  <div className="msg-sender">TaskBolt</div>
                   <div className="agent-status-indicator">
                     {agentStatus === 'thinking' && (
                       <><span className="status-dot thinking" /> Thinking...</>
