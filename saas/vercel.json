@@ -3,6 +3,8 @@
     "api/**/*.js": { "runtime": "@vercel/node@5.1.0" }
   },
   "rewrites": [
+    { "source": "/api/auth/callback/google", "destination": "/api/auth/google" },
+    { "source": "/api/auth/callback/github", "destination": "/api/auth/github" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
   "headers": [
