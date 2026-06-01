@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { requireAuth, jsonResponse } = require("../_auth");
 const { sql, initDB } = require("../_db");
+const { sendPaymentEmail } = require("../_email");
 
 const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
 const SAAS_URL = "https://taskbolt.space";
@@ -147,6 +148,18 @@ module.exports = async function handler(req, res) {
         try { await sql`UPDATE transactions SET status='completed', flutterwave_ref=${paymentId||'dodo-'+Date.now()} WHERE id=${txId}::uuid`; } catch (e) { console.error("[webhook] tx update error:", e.message); }
       }
       console.log(`[webhook] SUCCESS: added ${credits} credits to user ${userId}`);
+
+      // Send payment confirmation email (async, don't block response)
+      try {
+        const userRow = await sql`SELECT email, display_name FROM users WHERE id = ${userId}::uuid LIMIT 1`;
+        if (userRow.length && userRow[0].email) {
+          const pack = PACKS.find(p => p.id === packId);
+          const packName = pack ? pack.name : packId;
+          const amount = pack ? pack.price_usd : 0;
+          sendPaymentEmail(userRow[0].email, { packName, credits, amount }).catch(e => console.error("[webhook] Payment email failed:", e.message));
+        }
+      } catch (e) { console.error("[webhook] Payment email lookup failed:", e.message); }
+
       return res.status(200).json({ ok: true, message: `Credits added: ${credits}` });
     } catch (err) {
       console.error("[webhook] FATAL:", err.message, err.stack);
