@@ -22,6 +22,8 @@ module.exports = async function handler(req, res) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" href="/icon.png">
 <title>Checkout — ${pack.name} Pack | TaskBolt</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,11 +46,9 @@ body {
   background: white;
 }
 .header-logo {
-  width: 32px; height: 32px;
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  object-fit: cover;
 }
 .header-title { font-weight: 700; font-size: 1.1rem; }
 .header-sub { color: #888; font-size: 0.85rem; margin-left: auto; }
@@ -171,7 +171,7 @@ body {
 </head>
 <body>
 <div class="header">
-  <div class="header-logo">⚡</div>
+  <img class="header-logo" src="/icon.png" alt="TaskBolt">
   <span class="header-title">TaskBolt</span>
   <span class="header-sub">Secure Checkout</span>
 </div>
