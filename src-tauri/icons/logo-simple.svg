@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="orb" cx="0.35" cy="0.25" r="0.8" fx="0.35" fy="0.25">
+      <stop offset="0%" stop-color="#FFD54A"/>
+      <stop offset="20%" stop-color="#FF9A1F"/>
+      <stop offset="50%" stop-color="#FF2F92"/>
+      <stop offset="80%" stop-color="#C026FF"/>
+      <stop offset="100%" stop-color="#6D28FF"/>
+    </radialGradient>
+    <radialGradient id="highlight" cx="0.3" cy="0.2" r="0.5">
+      <stop offset="0%" stop-color="white" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Main orb body - NO border, NO ring -->
+  <circle cx="256" cy="256" r="200" fill="url(#orb)"/>
+  <!-- Top glass highlight -->
+  <ellipse cx="210" cy="180" rx="110" ry="75" fill="url(#highlight)"/>
+  <!-- Bottom subtle shine -->
+  <ellipse cx="250" cy="360" rx="130" ry="50" fill="white" opacity="0.1"/>
+  <!-- Left eye -->
+  <ellipse cx="220" cy="230" rx="30" ry="55" fill="white" opacity="0.95"/>
+  <!-- Right eye -->
+  <ellipse cx="330" cy="218" rx="30" ry="55" fill="white" opacity="0.95"/>
+</svg>

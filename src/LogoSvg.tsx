@@ -33,28 +33,12 @@ export default function LogoSvg({ size = 48, animated = false, status = 'idle', 
           <stop offset="0%" stopColor="white" stopOpacity={0.85} />
           <stop offset="100%" stopColor="white" stopOpacity={0} />
         </radialGradient>
-        <linearGradient id={`rim${uid}`}>
-          <stop offset="0%" stopColor="#FFE5B8" />
-          <stop offset="50%" stopColor="#FF6CCF" />
-          <stop offset="100%" stopColor="#A855F7" />
-        </linearGradient>
-        <filter id={`glow${uid}`}>
-          <feGaussianBlur stdDeviation="18" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
       </defs>
 
       {/* Head group — tilts/wags */}
       <g className="logo-head" style={{ transformOrigin: '256px 256px' }}>
-        {/* Outer glow */}
-        <circle cx="256" cy="256" r="170" fill="#FF4FAE" opacity={0.45} filter={`url(#glow${uid})`} />
         {/* Main orb */}
         <circle cx="256" cy="256" r="160" fill={`url(#orb${uid})`} />
-        {/* Rim */}
-        <circle cx="256" cy="256" r="160" fill="none" stroke={`url(#rim${uid})`} strokeWidth="3" opacity={0.9} />
         {/* Glass highlight */}
         <ellipse cx="215" cy="195" rx="95" ry="65" fill={`url(#glass${uid})`} opacity={0.7} />
         {/* Bottom shine */}

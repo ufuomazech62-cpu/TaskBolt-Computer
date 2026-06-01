@@ -2710,12 +2710,15 @@ body {
 }
 
 /* ── Logo Animation Classes ─────────────────────────── */
-/* Alive idle: gentle head sway + natural blink */
+/* Alive idle: real head nod side-to-side + breathing + natural blink */
 .logo-idle .logo-head {
-  animation: headSway 4s ease-in-out infinite;
+  animation: headNodAlive 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+.logo-idle .logo-orb {
+  animation: breathe 4s ease-in-out infinite;
 }
 .logo-idle .logo-eyes {
-  animation: blinkNatural 3.5s ease-in-out infinite;
+  animation: blinkAlive 5s ease-in-out infinite;
 }
 
 /* Thinking: quick head wag side-to-side + squinted eyes */
@@ -2749,10 +2752,21 @@ body {
 }
 
 /* ── Head Animations ──────────────────────────── */
-@keyframes headSway {
-  0%, 100% { transform: rotate(0deg); }
-  30% { transform: rotate(-3deg); }
-  70% { transform: rotate(3deg); }
+@keyframes headNodAlive {
+  0%   { transform: rotate(0deg); }
+  12%  { transform: rotate(-7deg); }
+  22%  { transform: rotate(-7deg); }
+  35%  { transform: rotate(7deg); }
+  45%  { transform: rotate(7deg); }
+  58%  { transform: rotate(-3deg); }
+  68%  { transform: rotate(3deg); }
+  80%  { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.025); opacity: 0.97; }
 }
 
 @keyframes headWag {
@@ -2775,9 +2789,10 @@ body {
 }
 
 /* ── Eye Blink Animations ─────────────────────── */
-@keyframes blinkNatural {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.05); }
+@keyframes blinkAlive {
+  0%, 78%, 88%, 93%, 100% { transform: scaleY(1); }
+  82% { transform: scaleY(0.05); }
+  90% { transform: scaleY(0.05); }
 }
 
 @keyframes blinkThinking {
