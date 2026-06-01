@@ -28,8 +28,8 @@ except ImportError:
 
 # Configuration
 API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = "qwen3.6-plus"
-API_KEY = os.environ.get("DASHSCOPE_API_KEY", "sk-8085275f314e41159a746b04f3fe5b7c")
+DEFAULT_MODEL = "deepseek-v4-flash"
+API_KEY = os.environ.get("DASHSCOPE_API_KEY", "sk-ws-H.HREPLP.gp4v.MEYCIQDNuGK2sFsWGvTtarP1Pb4QWwyteUTnUC2e8G-2r2eXmQIhAMlpdycwD1pShqIJCptTF_bGuIY_xp5VluEpweczNcUn")
 
 ENGINE_DIR = Path(__file__).parent
 

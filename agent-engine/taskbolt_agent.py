@@ -455,7 +455,7 @@ def agent_loop(user_message: str, thread_id: str, auth_token: str):
                 *messages
             ],
             "tools": TOOLS,
-            "model": "qwen3.6-flash",
+            "model": "deepseek-v4-flash",
             "stream": False,  # Non-streaming for tool calling
         }
         
