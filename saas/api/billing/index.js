@@ -3,7 +3,7 @@ const { requireAuth, jsonResponse } = require("../_auth");
 const { sql, initDB } = require("../_db");
 
 const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
-const SAAS_URL = "https://taskbolt-saas.vercel.app";
+const SAAS_URL = "https://taskbolt.space";
 
 // One-time credit packs (4 tiers, pay-as-you-go)
 // 1 credit = 200 tokens

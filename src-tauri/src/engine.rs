@@ -79,7 +79,7 @@ pub fn start_engine(
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .current_dir(taskbolt_dir)
-        .env("TASKBOLT_API", "https://taskbolt-saas.vercel.app/api/ai/agent")
+        .env("TASKBOLT_API", "https://taskbolt.space/api/ai/agent")
         .spawn()
         .map_err(|e| {
             format!(

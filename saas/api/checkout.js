@@ -223,7 +223,7 @@ async function handlePay() {
   }
   
   try {
-    const res = await fetch('https://taskbolt-saas.vercel.app/api/billing?action=purchase', {
+    const res = await fetch('https://taskbolt.space/api/billing?action=purchase', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ pack_id: '${pack.id}' }),

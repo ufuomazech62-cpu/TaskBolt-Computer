@@ -24,7 +24,7 @@ MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 CONVERSATIONS_FILE = DATA_DIR / "conversations.json"
 
 # ── Vercel API (auth required, key stays on server) ───
-VERCEL_API = os.environ.get("TASKBOLT_API", "https://taskbolt-saas.vercel.app/api/ai/agent")
+VERCEL_API = os.environ.get("TASKBOLT_API", "https://taskbolt.space/api/ai/agent")
 AUTH_TOKEN = os.environ.get("TASKBOLT_TOKEN", "")
 
 

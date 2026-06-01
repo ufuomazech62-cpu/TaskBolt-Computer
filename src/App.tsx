@@ -53,7 +53,7 @@ type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin'
 type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp' | 'advanced'
 
 // ── SaaS Backend ────────────────────────────────────
-const SAAS_URL = 'https://taskbolt-saas.vercel.app'
+const SAAS_URL = 'https://taskbolt.space'
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [

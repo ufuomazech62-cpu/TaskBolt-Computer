@@ -4,7 +4,7 @@ const { jsonResponse, setCorsHeaders } = require("../_auth");
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = "https://taskbolt-saas.vercel.app/api/auth/google";
+const REDIRECT_URI = "https://taskbolt.space/api/auth/google";
 
 module.exports = async (req, res) => {
   if (req.method === "OPTIONS") { setCorsHeaders(res); return res.status(200).end(); }
