@@ -120,6 +120,38 @@ body {
   mask-composite: exclude;
   pointer-events: none;
 }
+
+/* ── Animated Logo Orb ── */
+.logo-orb { transition: filter 0.4s ease; }
+@keyframes headSway {
+  0%, 100% { transform: rotate(-6deg) translateY(0); }
+  25% { transform: rotate(0deg) translateY(-3px); }
+  50% { transform: rotate(6deg) translateY(0); }
+  75% { transform: rotate(0deg) translateY(2px); }
+}
+@keyframes headWag {
+  0% { transform: rotate(-12deg) translateX(-4px); }
+  100% { transform: rotate(12deg) translateX(4px); }
+}
+@keyframes blinkNatural {
+  0%, 85%, 100% { transform: scaleY(1); }
+  90% { transform: scaleY(0.05); }
+  93% { transform: scaleY(1); }
+}
+@keyframes orbBreathe {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.03) translateY(-3px); }
+}
+@keyframes orbGlowIdle {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(109, 40, 255, 0.3)); }
+  50% { filter: drop-shadow(0 0 16px rgba(192, 38, 255, 0.6)); }
+}
+.logo-idle .logo-head { animation: headSway 4s ease-in-out infinite; }
+.logo-idle .logo-eyes { animation: blinkNatural 3s ease-in-out infinite; }
+.logo-idle { animation: orbBreathe 5s ease-in-out infinite, orbGlowIdle 4s ease-in-out infinite; }
+.logo-thinking .logo-head { animation: headWag 0.6s ease-in-out infinite alternate; }
+.logo-thinking .logo-eyes { animation: blinkNatural 1.8s ease-in-out infinite; }
+.logo-thinking { filter: drop-shadow(0 0 14px rgba(255, 47, 146, 0.6)); }
 </style>
 </head>
 
@@ -138,7 +170,32 @@ body {
   <div class="max-w-7xl mx-auto flex justify-between items-center px-8 py-6">
     <!-- Logo -->
     <a href="#" class="flex items-center gap-3">
-      <img src="/icon.png" alt="TaskBolt" class="w-9 h-9 rounded-lg">
+      <div class="logo-orb logo-idle" style="width:36px;height:36px;">
+        <svg width="36" height="36" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+          <defs>
+            <radialGradient id="navOrb" cx="35%" cy="25%">
+              <stop offset="0%" stop-color="#FFD54A"/>
+              <stop offset="20%" stop-color="#FF9A1F"/>
+              <stop offset="50%" stop-color="#FF2F92"/>
+              <stop offset="80%" stop-color="#C026FF"/>
+              <stop offset="100%" stop-color="#6D28FF"/>
+            </radialGradient>
+            <radialGradient id="navGlass" cx="30%" cy="20%">
+              <stop offset="0%" stop-color="white" stop-opacity="0.85"/>
+              <stop offset="100%" stop-color="white" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <g class="logo-head" style="transform-origin:256px 256px">
+            <circle cx="256" cy="256" r="160" fill="url(#navOrb)"/>
+            <ellipse cx="215" cy="195" rx="95" ry="65" fill="url(#navGlass)" opacity="0.7"/>
+            <ellipse cx="250" cy="350" rx="115" ry="45" fill="white" opacity="0.12"/>
+            <g class="logo-eyes" style="transform-origin:276px 207px">
+              <ellipse class="logo-eye" cx="231" cy="222" rx="26" ry="47" fill="white" opacity="0.95"/>
+              <ellipse class="logo-eye" cx="321" cy="212" rx="26" ry="47" fill="white" opacity="0.95"/>
+            </g>
+          </g>
+        </svg>
+      </div>
       <span class="font-display text-3xl tracking-tight text-foreground">TaskBolt<sup class="text-xs ml-0.5">®</sup></span>
     </a>
 
@@ -159,6 +216,33 @@ body {
 
 <!-- Hero Section -->
 <section class="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-32 pb-40 min-h-screen">
+  <!-- Big animated orb -->
+  <div class="logo-orb logo-idle" style="width:120px;height:120px;margin-bottom:32px;">
+    <svg width="120" height="120" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+      <defs>
+        <radialGradient id="heroOrb" cx="35%" cy="25%">
+          <stop offset="0%" stop-color="#FFD54A"/>
+          <stop offset="20%" stop-color="#FF9A1F"/>
+          <stop offset="50%" stop-color="#FF2F92"/>
+          <stop offset="80%" stop-color="#C026FF"/>
+          <stop offset="100%" stop-color="#6D28FF"/>
+        </radialGradient>
+        <radialGradient id="heroGlass" cx="30%" cy="20%">
+          <stop offset="0%" stop-color="white" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g class="logo-head" style="transform-origin:256px 256px">
+        <circle cx="256" cy="256" r="160" fill="url(#heroOrb)"/>
+        <ellipse cx="215" cy="195" rx="95" ry="65" fill="url(#heroGlass)" opacity="0.7"/>
+        <ellipse cx="250" cy="350" rx="115" ry="45" fill="white" opacity="0.12"/>
+        <g class="logo-eyes" style="transform-origin:276px 207px">
+          <ellipse class="logo-eye" cx="231" cy="222" rx="26" ry="47" fill="white" opacity="0.95"/>
+          <ellipse class="logo-eye" cx="321" cy="212" rx="26" ry="47" fill="white" opacity="0.95"/>
+        </g>
+      </g>
+    </svg>
+  </div>
   <h1 class="font-display text-5xl sm:text-7xl md:text-8xl leading-[0.95] tracking-[-2.46px] max-w-6xl font-normal">
     Tell Your Computer<br>What To Do.
   </h1>
