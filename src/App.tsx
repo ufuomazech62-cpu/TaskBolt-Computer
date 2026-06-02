@@ -57,14 +57,18 @@ const SAAS_URL = 'https://taskbolt.space'
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
-  // Universal — for everyone
+  // ── Quick Actions (top row) ──
   { id: 'general-task', name: 'General Task', description: 'Ask me to do anything on your computer', icon: '⚡', enabled: true, isCore: true },
   { id: 'troubleshoot', name: 'Troubleshoot', description: 'Diagnose and fix any computer problem', icon: '🔧', enabled: true, isCore: true },
+
+  // ── Everyday Essentials ──
   { id: 'install', name: 'Install Software', description: 'Find and install any application', icon: '📦', enabled: true, isCore: true },
   { id: 'fix', name: 'Fix Issues', description: 'Repair system problems automatically', icon: '🩹', enabled: true, isCore: true },
   { id: 'cleanup', name: 'Clean & Optimize', description: 'Free disk space and boost performance', icon: '🧹', enabled: true, isCore: true },
+  { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚙️', enabled: true, isCore: true },
+  { id: 'update', name: 'Update Everything', description: 'Keep your system and apps up to date', icon: '🔄', enabled: true, isCore: true },
 
-  // Productivity — office workers, students, creators
+  // ── Productivity & Office ──
   { id: 'data-analysis', name: 'Data Analysis', description: 'Analyze spreadsheets, CSVs, and datasets', icon: '📊', enabled: true, isCore: true },
   { id: 'documents', name: 'Create Documents', description: 'Write reports, summaries, and presentations', icon: '📄', enabled: true, isCore: true },
   { id: 'email', name: 'Email Assistant', description: 'Draft, organize, and manage your emails', icon: '✉️', enabled: true, isCore: true },
@@ -73,20 +77,57 @@ const CORE_SKILLS: Skill[] = [
   { id: 'writing', name: 'Writing Assistant', description: 'Edit, proofread, and improve your writing', icon: '✍️', enabled: true, isCore: true },
   { id: 'pdf-tools', name: 'PDF Tools', description: 'Merge, split, extract, and convert PDFs', icon: '📑', enabled: true, isCore: true },
   { id: 'translation', name: 'Translation', description: 'Translate documents and text to any language', icon: '🌐', enabled: true, isCore: true },
+  { id: 'presentations', name: 'Presentations', description: 'Create slide decks with content and design', icon: '🎯', enabled: true, isCore: true },
+  { id: 'meeting-notes', name: 'Meeting Notes', description: 'Summarize meetings and extract action items', icon: '📝', enabled: true, isCore: true },
+  { id: 'resume-builder', name: 'Resume & CV', description: 'Build professional resumes and cover letters', icon: '👔', enabled: true, isCore: true },
+  { id: 'invoice', name: 'Invoices & Receipts', description: 'Create invoices, track expenses, generate receipts', icon: '🧾', enabled: true, isCore: true },
 
-  // System & Security
-  { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚙️', enabled: true, isCore: true },
-  { id: 'update', name: 'Update Everything', description: 'Keep your system and apps up to date', icon: '🔄', enabled: true, isCore: true },
+  // ── Professional & Business ──
+  { id: 'legal-docs', name: 'Legal Documents', description: 'Draft contracts, NDAs, terms of service, agreements', icon: '⚖️', enabled: true, isCore: true },
+  { id: 'financial-analysis', name: 'Financial Analysis', description: 'Analyze budgets, P&L statements, cash flow, investments', icon: '💰', enabled: true, isCore: true },
+  { id: 'business-plan', name: 'Business Plans', description: 'Write business plans, market analysis, pitch decks', icon: '📈', enabled: true, isCore: true },
+  { id: 'tax-prep', name: 'Tax Preparation', description: 'Organize tax documents, calculate deductions, prepare filings', icon: '🏛️', enabled: true, isCore: true },
+  { id: 'project-mgmt', name: 'Project Management', description: 'Create project plans, Gantt charts, task breakdowns', icon: '📋', enabled: true, isCore: true },
+  { id: 'hr-assistant', name: 'HR & Recruiting', description: 'Job descriptions, interview questions, onboarding docs', icon: '👥', enabled: true, isCore: true },
+  { id: 'seo-audit', name: 'SEO & Marketing', description: 'SEO audits, keyword research, content strategy, social media', icon: '📣', enabled: true, isCore: true },
+  { id: 'competitor-analysis', name: 'Competitor Analysis', description: 'Research competitors, SWOT analysis, market positioning', icon: '🎯', enabled: true, isCore: true },
+
+  // ── Creative & Media ──
+  { id: 'image-editing', name: 'Image Editing', description: 'Batch resize, convert, watermark, and edit images', icon: '🖼️', enabled: true, isCore: true },
+  { id: 'video-tools', name: 'Video Tools', description: 'Convert, compress, trim, and merge video files', icon: '🎬', enabled: true, isCore: true },
+  { id: 'audio-tools', name: 'Audio Tools', description: 'Convert, edit, and process audio files', icon: '🎵', enabled: true, isCore: true },
+  { id: 'social-media', name: 'Social Media', description: 'Create posts, schedule content, generate captions', icon: '📱', enabled: true, isCore: true },
+  { id: 'branding', name: 'Brand Identity', description: 'Create brand guidelines, color palettes, typography', icon: '🎨', enabled: true, isCore: true },
+
+  // ── System & Security ──
   { id: 'network', name: 'Network Setup', description: 'Configure WiFi, firewall, and networking', icon: '📡', enabled: true, isCore: true },
   { id: 'security', name: 'Security Check', description: 'Scan and harden your system security', icon: '🛡️', enabled: true, isCore: true },
   { id: 'backup', name: 'Backup & Restore', description: 'Create backups and restore points', icon: '💾', enabled: true, isCore: true },
+  { id: 'privacy-audit', name: 'Privacy Audit', description: 'Check data exposure, remove traces, harden privacy', icon: '🔒', enabled: true, isCore: true },
+  { id: 'malware-scan', name: 'Malware Scan', description: 'Deep scan for malware, spyware, and suspicious processes', icon: '🦠', enabled: true, isCore: true },
 
-  // Advanced — power users & developers
+  // ── Automation & Power Tools ──
   { id: 'desktop-control', name: 'Desktop Control', description: 'Control mouse, keyboard, and automate clicks', icon: '🖱️', enabled: true, isCore: true },
   { id: 'browser', name: 'Browser Automation', description: 'Browse, scrape, and fill web forms automatically', icon: '🌍', enabled: true, isCore: true },
+  { id: 'workflow-auto', name: 'Workflow Automation', description: 'Automate repetitive tasks with scripts and macros', icon: '🔁', enabled: true, isCore: true },
+  { id: 'batch-ops', name: 'Batch Operations', description: 'Rename, convert, resize hundreds of files at once', icon: '⚡', enabled: true, isCore: true },
+  { id: 'scheduled-tasks', name: 'Scheduled Tasks', description: 'Set up cron jobs, reminders, and automated schedules', icon: '⏰', enabled: true, isCore: true },
+  { id: 'web-scraping', name: 'Web Scraping', description: 'Extract data from websites, download content, monitor pages', icon: '🕷️', enabled: true, isCore: true },
+
+  // ── Developer & IT ──
   { id: 'ai-setup', name: 'AI Agent Setup', description: 'Configure Claude, Copilot, Cursor, and more', icon: '🤖', enabled: true, isCore: true },
   { id: 'local-llm', name: 'Local LLM Setup', description: 'Install and run AI models on your computer', icon: '🧠', enabled: true, isCore: true },
   { id: 'dev-env', name: 'Development Setup', description: 'Set up Python, Node, Docker, and dev tools', icon: '💻', enabled: true, isCore: true },
+  { id: 'database-mgmt', name: 'Database Management', description: 'Set up, query, backup PostgreSQL, MySQL, SQLite', icon: '🗄️', enabled: true, isCore: true },
+  { id: 'api-testing', name: 'API Testing', description: 'Test REST APIs, generate docs, debug endpoints', icon: '🔌', enabled: true, isCore: true },
+  { id: 'git-ops', name: 'Git & Version Control', description: 'Clone repos, manage branches, resolve conflicts, deploy', icon: '🌿', enabled: true, isCore: true },
+  { id: 'server-setup', name: 'Server Setup', description: 'Configure Nginx, Docker, SSH, SSL certificates', icon: '🖥️', enabled: true, isCore: true },
+  { id: 'ci-cd', name: 'CI/CD Pipelines', description: 'Set up GitHub Actions, automated testing, deployments', icon: '🚀', enabled: true, isCore: true },
+
+  // ── Education & Learning ──
+  { id: 'study-aid', name: 'Study Assistant', description: 'Create flashcards, summaries, practice questions', icon: '📚', enabled: true, isCore: true },
+  { id: 'code-tutor', name: 'Code Tutor', description: 'Learn programming with hands-on exercises and explanations', icon: '🎓', enabled: true, isCore: true },
+  { id: 'language-learn', name: 'Language Learning', description: 'Practice conversations, vocabulary, grammar in any language', icon: '🗣️', enabled: true, isCore: true },
 ]
 
 function App() {
@@ -1562,7 +1603,7 @@ function App() {
             </button>
             {skillsOpen && (
               <div className="sidebar-skills-list">
-                {skills.filter(s => s.enabled).slice(0, 10).map(skill => (
+                {skills.filter(s => s.enabled).slice(0, 16).map(skill => (
                   <button key={skill.id} className="sidebar-skill-item" onClick={() => { setInput(skill.name); inputRef.current?.focus() }}>
                     <span className="sidebar-skill-icon">{skill.icon}</span>
                     <span>{skill.name}</span>
@@ -1642,7 +1683,7 @@ function App() {
             <h2>What can I help you with?</h2>
             <p className="empty-subtitle">From fixing your computer to writing reports — I handle it all.</p>
             <div className="skill-suggestions">
-              {skills.filter(s => s.enabled && s.isCore).slice(0, 10).map(skill => (
+              {skills.filter(s => s.enabled && s.isCore).slice(0, 16).map(skill => (
                 <button key={skill.id} className="skill-chip" onClick={() => { if (isLoggedIn) setInput(skill.name); else setAppState('signin') }}>
                   <span className="chip-icon">{skill.icon}</span>
                   {skill.name}
