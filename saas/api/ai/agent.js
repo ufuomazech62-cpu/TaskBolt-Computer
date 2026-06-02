@@ -7,7 +7,7 @@
 const { requireAuth, jsonResponse } = require("../../lib/_auth");
 const { sql, initDB } = require("../../lib/_db");
 
-const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+const API_BASE = process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;
 
 /**
@@ -69,9 +69,8 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
-  // Always use qwen-plus — ignore client model (old clients may send invalid model names)
-  const validModels = ["qwen-plus", "qwen-max", "qwen-turbo"];
-  const useModel = validModels.includes(model) ? model : "qwen-plus";
+  // DeepSeek V4 Flash was working — validate but don't override
+  const useModel = model || "deepseek-v4-flash";
 
   // Build request body with tools
   const body = {
