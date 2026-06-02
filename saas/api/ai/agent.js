@@ -69,7 +69,9 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
-  const useModel = model || "qwen-plus";
+  // Always use qwen-plus — ignore client model (old clients may send invalid model names)
+  const validModels = ["qwen-plus", "qwen-max", "qwen-turbo"];
+  const useModel = validModels.includes(model) ? model : "qwen-plus";
 
   // Build request body with tools
   const body = {
