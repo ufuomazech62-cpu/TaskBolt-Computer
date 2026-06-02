@@ -475,9 +475,12 @@ body {
   <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v0.1.0/TaskBolt_0.1.0_x64-setup.exe"
      class="liquid-glass rounded-full px-14 py-5 text-base text-foreground mt-12 cursor-pointer hover:scale-[1.03] transition-transform inline-block"
      id="cta-download">
+  <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v0.1.0/TaskBolt_0.1.0_x64-setup.exe"
+     class="liquid-glass rounded-full px-14 py-5 text-base text-foreground mt-12 cursor-pointer hover:scale-[1.03] transition-transform inline-block"
+     id="cta-download">
     Download
   </a>
-  <p class="text-xs text-muted-foreground mt-4" id="platform-info">Windows 10/11 · 3MB installer · No admin required</p>
+  <p class="text-xs text-muted-foreground mt-4" id="platform-info"></p>
 </section>
 
 <!-- Footer -->
@@ -493,30 +496,25 @@ body {
   const ua = navigator.userAgent.toLowerCase();
   const platform = navigator.platform.toLowerCase();
 
-  let os = 'windows';
   let osLabel = 'Windows';
   let downloadUrl = 'https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v0.1.0/TaskBolt_0.1.0_x64-setup.exe';
   let available = true;
 
   if (/mac/.test(ua) || /mac/.test(platform)) {
-    os = 'mac';
     osLabel = 'Mac';
     available = false;
   } else if (/linux/.test(ua) || /linux/.test(platform)) {
-    os = 'linux';
     osLabel = 'Linux';
     available = false;
   } else if (/android/.test(ua)) {
-    os = 'android';
     osLabel = 'Android';
     available = false;
   } else if (/iphone|ipad|ipod/.test(ua)) {
-    os = 'ios';
     osLabel = 'iOS';
     available = false;
   }
 
-  // Update all 3 download buttons
+  // Update download buttons
   const navBtn = document.getElementById('nav-download');
   const heroBtn = document.getElementById('hero-download');
   const ctaBtn = document.getElementById('cta-download');
@@ -525,7 +523,7 @@ body {
   if (available) {
     // Windows — full download
     [navBtn, heroBtn, ctaBtn].forEach(btn => {
-      if (btn) btn.textContent = 'Download for ' + osLabel;
+      if (btn) btn.textContent = 'Download';
     });
     if (platformInfo) platformInfo.textContent = 'Windows 10/11 · 3MB installer · No admin required';
   } else {
@@ -538,7 +536,7 @@ body {
         btn.removeAttribute('href');
         btn.addEventListener('click', function(e) {
           e.preventDefault();
-          alert('TaskBolt for ' + osLabel + ' is coming soon! We\'ll notify you when it\'s ready.');
+          alert('TaskBolt for ' + osLabel + ' is coming soon!');
         });
       }
     });
