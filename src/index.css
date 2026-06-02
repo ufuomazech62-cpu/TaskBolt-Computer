@@ -908,11 +908,12 @@ body {
 .nav-credits-icon { font-size: 0.9rem; }
 .nav-credits-amount { color: var(--text); font-weight: 600; }
 .nav-credits-buy {
-  color: var(--text-tertiary);
+  color: var(--accent-text);
   font-size: 0.75rem;
+  font-weight: 600;
   margin-left: 4px;
-  padding: 2px 8px;
-  background: rgba(255,255,255,0.06);
+  padding: 3px 10px;
+  background: var(--accent-bg);
   border-radius: var(--radius-full);
 }
 
@@ -1763,6 +1764,676 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════
+   MISSING STYLES - COMPLETE SET
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Utility Classes ── */
+.text-muted {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.font-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 0.82rem;
+}
+
+/* ── Stop Button (Cancel X) ── */
+.stop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.stop-btn:hover {
+  background: rgba(248, 113, 113, 0.25);
+  transform: scale(1.05);
+}
+
+.stop-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── New Task Button ── */
+.btn-new-task {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  margin: 8px 12px;
+  width: calc(100% - 24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-new-task:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-new-task svg {
+  flex-shrink: 0;
+}
+
+/* ── Search in Sidebar ── */
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 8px 12px;
+  width: calc(100% - 24px);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s;
+}
+
+.search-wrapper:focus-within {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-wrapper svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-family: var(--font-body);
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ── Sidebar Brand ── */
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.sidebar-toggle {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.sidebar-toggle:hover {
+  opacity: 1;
+}
+
+.sidebar-toggle-collapsed {
+  margin: auto;
+}
+
+/* ── Settings Tabs ── */
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* ── Toggle Switch ── */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  transition: all 0.3s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.toggle input:checked + .toggle-slider {
+  background: var(--accent-bg);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+  background: var(--accent-text);
+}
+
+/* ── Settings Rows ── */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-row label {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.setting-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+/* ── Account Section ── */
+.account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.account-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.account-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-details strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.danger-zone {
+  padding: 16px;
+  background: rgba(248, 113, 113, 0.05);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: var(--radius-md);
+}
+
+/* ── Section Headers ── */
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header-row h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--text);
+  margin: 0;
+}
+
+.btn-refresh-sm {
+  width: 28px;
+  height: 28px;
+}
+
+/* ── Credits Overview ── */
+.credits-overview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.credits-balance-card,
+.credits-used-card {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.credits-label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.credits-amount {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1;
+}
+
+.credits-sub {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+}
+
+/* ── Plans Grid ── */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.plan-card {
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.plan-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.plan-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-name {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.plan-price {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.plan-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.plan-credits {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  margin-top: auto;
+}
+
+/* ── Payment History ── */
+.payment-history-section {
+  margin-top: 32px;
+}
+
+.transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.transaction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tx-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tx-type {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tx-date {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+}
+
+.tx-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tx-credits {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.tx-amount {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.tx-status-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tx-status-completed {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--green);
+}
+
+.tx-status-pending {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--orange);
+}
+
+.tx-status-failed {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+}
+
+/* ── Usage Stats ── */
+.usage-period-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.period-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text);
+}
+
+.period-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  border-color: var(--accent-bg);
+}
+
+.usage-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.usage-stat-card {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage-stat-label {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.usage-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--text);
+}
+
+/* ── Usage Tables ── */
+.usage-table {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.usage-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.usage-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.usage-table-row:last-child {
+  border-bottom: none;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-success {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--green);
+}
+
+.status-error {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+}
+
+/* ── Skills Settings ── */
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.skill-row:last-child {
+  border-bottom: none;
+}
+
+.skill-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.skill-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-name {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.skill-desc {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+/* ── MCP Settings ── */
+.mcp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mcp-row:last-child {
+  border-bottom: none;
+}
+
+.mcp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mcp-info strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.mcp-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.mcp-input {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* ═══════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════ */
 
@@ -1773,4 +2444,7 @@ body {
   .empty-state h2 { font-size: 1.8rem; }
   .skill-suggestions { gap: 6px; }
   .skill-chip { padding: 8px 14px; font-size: 0.78rem; }
+  .credits-overview { grid-template-columns: 1fr; }
+  .plans-grid { grid-template-columns: 1fr; }
+  .usage-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
