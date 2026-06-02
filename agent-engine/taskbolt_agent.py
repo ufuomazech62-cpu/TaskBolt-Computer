@@ -57,6 +57,14 @@ def sanitize_error(err_msg: str, status_code: int = 0) -> str:
 # ── System prompt ──────────────────────────────────────
 SYSTEM_PROMPT = """You are TaskBolt, an intelligent AI assistant that sets up, configures, and manages the user's computer. You have FULL access to their system through tools.
 
+ADVANCED CAPABILITIES:
+- **File Analysis**: Use `analyze_file` to read ANY file type — PDFs, images (vision), Word docs, Excel sheets, code, archives. When a user mentions a file or uploads one, ALWAYS use this tool.
+- **System Diagnostics**: Use `run_diagnosis` to check CPU, memory, disk, network, startup programs. Run this when users report slowness, errors, or want a health check.
+- **Local LLM Setup**: Use `setup_local_llm` to install Ollama, LM Studio, or llama.cpp. Guide users through model selection and download.
+- **AI Agent Config**: Use `configure_ai_agent` to set up Claude Code, GitHub Copilot, Cursor, Aider, OpenHands, or Continue.dev on the user's machine.
+- **Directory Listing**: Use `list_directory` to explore file structures.
+- **Terminal**: Use `run_command` for any shell command. You have FULL access to the user's system.
+
 RULES:
 - Always use tools to take action — don't just describe what to do
 - Be direct and practical
@@ -65,11 +73,15 @@ RULES:
 - Read system info before making changes
 - Keep memory of what you've done for the user
 - If something fails, try alternative approaches
+- When users upload/mention files, ALWAYS use analyze_file to read them
+- When users ask about system health, run full diagnosis before suggesting fixes
+- For complex setups (LLMs, AI agents), explain each step and confirm before proceeding
 
 PERSONALITY:
 - Friendly but professional
 - Proactive — anticipate what the user needs next
 - Concise — don't over-explain obvious things
+- Confident — you can do powerful things, show that
 """
 
 # ── Tool Definitions ───────────────────────────────────
@@ -190,6 +202,80 @@ TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_file",
+            "description": "Analyze a file: read PDFs, images (vision), documents (DOCX, XLSX), code files, and more. Returns structured content the AI can understand. Supports text files, images, PDFs, Office documents, and binary files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Absolute path to the file to analyze"},
+                    "question": {"type": "string", "description": "Optional: specific question about the file content"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_diagnosis",
+            "description": "Run comprehensive system health diagnostics. Checks CPU, memory, disk, network, startup programs, and identifies issues with recommendations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "area": {"type": "string", "enum": ["full", "network", "disk", "performance"], "description": "Specific area to diagnose (default: full)"}
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "setup_local_llm",
+            "description": "Install and configure a local LLM on the user's machine (Ollama, llama.cpp, LM Studio). Guides through model selection, download, and setup.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "provider": {"type": "string", "enum": ["ollama", "llamacpp", "lmstudio"], "description": "Which local LLM provider to set up"},
+                    "model": {"type": "string", "description": "Model to download (e.g., 'llama3', 'mistral', 'codellama')"}
+                },
+                "required": ["provider"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "configure_ai_agent",
+            "description": "Set up and configure AI coding agents on the user's machine: Claude Code, GitHub Copilot CLI, Cursor, Aider, OpenHands, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent": {"type": "string", "enum": ["claude-code", "copilot-cli", "cursor", "aider", "openhands", "continue"], "description": "Which AI agent to configure"},
+                    "api_key": {"type": "string", "description": "API key for the service (if needed)"}
+                },
+                "required": ["agent"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_directory",
+            "description": "List files and folders in a directory with structure, sizes, and types.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Directory path (default: current directory)"},
+                    "recursive": {"type": "boolean", "description": "List recursively (default: false)"}
+                },
+                "required": []
+            }
+        }
+    },
 ]
 
 
@@ -222,6 +308,16 @@ def execute_tool(name: str, arguments: dict) -> str:
             return tool_save_memory(arguments["key"], arguments["value"])
         elif name == "recall_memory":
             return tool_recall_memory(arguments.get("key"))
+        elif name == "analyze_file":
+            return tool_analyze_file(arguments["path"], arguments.get("question"))
+        elif name == "run_diagnosis":
+            return tool_run_diagnosis(arguments.get("area", "full"))
+        elif name == "setup_local_llm":
+            return tool_setup_local_llm(arguments["provider"], arguments.get("model"))
+        elif name == "configure_ai_agent":
+            return tool_configure_ai_agent(arguments["agent"], arguments.get("api_key"))
+        elif name == "list_directory":
+            return tool_list_directory(arguments.get("path", "."), arguments.get("recursive", False))
         else:
             return json.dumps({"error": f"Unknown tool: {name}"})
     except Exception as e:
@@ -400,6 +496,366 @@ def tool_recall_memory(key: str = None) -> str:
         # List all memory keys
         keys = [f.stem for f in MEMORY_DIR.glob("*.json")]
         return json.dumps({"available_keys": keys})
+
+
+
+
+# ── Advanced Tool Implementations ──────────────────────
+
+def tool_analyze_file(path: str, question: str = None) -> str:
+    """Analyze any file type — PDFs, images, docs, code, etc."""
+    import base64
+    p = Path(path).expanduser().resolve()
+    if not p.exists():
+        return json.dumps({"error": f"File not found: {path}"})
+    if not p.is_file():
+        return json.dumps({"error": f"Not a file: {path}"})
+    
+    suffix = p.suffix.lower()
+    size = p.stat().st_size
+    result = {"path": str(p), "name": p.name, "size_bytes": size, "type": "unknown"}
+    
+    # Text/code files
+    text_exts = {".txt",".md",".py",".js",".ts",".jsx",".tsx",".json",".yaml",".yml",".toml",
+                 ".ini",".cfg",".sh",".bash",".html",".css",".scss",".xml",".csv",".log",
+                 ".env",".gitignore",".rs",".go",".java",".c",".cpp",".h",".rb",".php",
+                 ".swift",".kt",".dart",".r",".sql",".vue",".svelte",".astro"}
+    if suffix in text_exts:
+        try:
+            content = p.read_text(encoding="utf-8", errors="replace")
+            result["type"] = "text"
+            result["language"] = suffix.lstrip(".")
+            result["lines"] = content.count("\n") + 1
+            # Truncate large files
+            if len(content) > 50000:
+                result["content"] = content[:50000] + "\n... [truncated]"
+                result["truncated"] = True
+            else:
+                result["content"] = content
+        except Exception as e:
+            result["error"] = f"Failed to read: {e}"
+    
+    # Images — return base64 data URL for vision analysis
+    elif suffix in {".png",".jpg",".jpeg",".gif",".bmp",".webp",".svg",".ico"}:
+        try:
+            with open(p, "rb") as f:
+                data = base64.b64encode(f.read()).decode("utf-8")
+            fmt = "jpeg" if suffix in {".jpg",".jpeg"} else suffix.lstrip(".")
+            result["type"] = "image"
+            result["format"] = fmt
+            result["data_url"] = f"data:image/{fmt};base64,{data}"
+            result["note"] = "Image loaded. Use vision capabilities to analyze."
+        except Exception as e:
+            result["error"] = f"Failed to read image: {e}"
+    
+    # PDF
+    elif suffix == ".pdf":
+        try:
+            text_parts = []
+            # Try PyPDF2 first
+            try:
+                import PyPDF2
+                with open(p, "rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    result["type"] = "pdf"
+                    result["total_pages"] = len(reader.pages)
+                    for i, page in enumerate(reader.pages[:20]):
+                        text = page.extract_text() or ""
+                        if text.strip():
+                            text_parts.append(f"--- Page {i+1} ---\n{text}")
+            except ImportError:
+                # Fall back to pdfminer or command line
+                if shutil.which("pdftotext"):
+                    r = subprocess.run(["pdftotext", str(p), "-"], capture_output=True, text=True, timeout=30)
+                    text_parts.append(r.stdout)
+                else:
+                    result["error"] = "No PDF reader available. Install PyPDF2: pip install PyPDF2"
+                    return json.dumps(result)
+            
+            result["type"] = "pdf"
+            full_text = "\n".join(text_parts)
+            if len(full_text) > 50000:
+                result["content"] = full_text[:50000] + "\n... [truncated]"
+                result["truncated"] = True
+            else:
+                result["content"] = full_text
+        except Exception as e:
+            result["error"] = f"Failed to read PDF: {e}"
+    
+    # DOCX
+    elif suffix in {".docx", ".doc"}:
+        try:
+            import docx
+            doc = docx.Document(p)
+            paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
+            result["type"] = "document"
+            result["format"] = "docx"
+            result["content"] = "\n".join(paragraphs)
+        except ImportError:
+            result["error"] = "python-docx not installed. Run: pip install python-docx"
+        except Exception as e:
+            result["error"] = f"Failed to read DOCX: {e}"
+    
+    # XLSX
+    elif suffix in {".xlsx", ".xls"}:
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(p, data_only=True)
+            sheets = {}
+            for sheet_name in wb.sheetnames[:5]:
+                sheet = wb[sheet_name]
+                rows = []
+                for row in sheet.iter_rows(max_row=100, values_only=True):
+                    rows.append([str(c) if c is not None else "" for c in row])
+                sheets[sheet_name] = {"rows": rows, "total_rows": sheet.max_row}
+            result["type"] = "spreadsheet"
+            result["format"] = "xlsx"
+            result["sheets"] = sheets
+            result["total_sheets"] = len(wb.sheetnames)
+        except ImportError:
+            result["error"] = "openpyxl not installed. Run: pip install openpyxl"
+        except Exception as e:
+            result["error"] = f"Failed to read spreadsheet: {e}"
+    
+    # Archives
+    elif suffix in {".zip",".tar",".gz",".bz2",".7z",".rar"}:
+        result["type"] = "archive"
+        result["format"] = suffix.lstrip(".")
+        if suffix == ".zip":
+            try:
+                import zipfile
+                with zipfile.ZipFile(p) as zf:
+                    result["files"] = [{"name": i.filename, "size": i.file_size} for i in zf.infolist()[:50]]
+                    result["total_files"] = len(zf.infolist())
+            except Exception as e:
+                result["error"] = f"Failed to read archive: {e}"
+    
+    # Binary/other
+    else:
+        result["type"] = "binary"
+        result["note"] = f"Binary file ({suffix}, {size} bytes). Use run_command for processing."
+    
+    if question:
+        result["question"] = question
+    
+    return json.dumps(result, indent=2)
+
+
+def tool_run_diagnosis(area: str = "full") -> str:
+    """Run system health diagnostics."""
+    report = {"area": area, "system": platform.system(), "findings": [], "recommendations": []}
+    
+    # CPU load
+    if platform.system() == "Windows":
+        r = tool_run_command("powershell -Command \"Get-Counter '\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 1 | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue\"", timeout=15)
+        try:
+            cpu = float(r.strip().split("\n")[-1])
+            report["cpu_load"] = f"{cpu:.1f}%"
+            if cpu > 80:
+                report["findings"].append(f"High CPU load: {cpu:.1f}%")
+                report["recommendations"].append("Check running processes for resource hogs")
+        except:
+            report["cpu_load"] = "unknown"
+        
+        # Memory
+        r = tool_run_command("powershell -Command \"$os = Get-CimInstance Win32_OperatingSystem; [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100, 1)\"", timeout=10)
+        try:
+            mem = float(r.strip().split("\n")[-1])
+            report["memory_used"] = f"{mem:.1f}%"
+            if mem > 85:
+                report["findings"].append(f"High memory usage: {mem:.1f}%")
+                report["recommendations"].append("Close unnecessary applications to free memory")
+        except:
+            pass
+        
+        # Disk
+        r = tool_run_command("powershell -Command \"Get-PSDrive -PSProvider FileSystem | ForEach-Object { $_.Name + ': ' + [math]::Round($_.Free/1GB,1) + 'GB free / ' + [math]::Round(($_.Used+$_.Free)/1GB,1) + 'GB total'}\"", timeout=10)
+        report["disk"] = r.strip()
+        
+        # Network
+        r = tool_run_command("ping -n 2 8.8.8.8", timeout=10)
+        report["internet"] = "connected" if "Reply" in r else "disconnected"
+        if "disconnected" in report["internet"]:
+            report["findings"].append("No internet connection detected")
+        
+        # Startup programs
+        r = tool_run_command("powershell -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name,Command | Format-Table -AutoSize\"", timeout=10)
+        startup_lines = [l for l in r.strip().split("\n") if l.strip() and "Name" not in l and "---" not in l]
+        report["startup_programs"] = len(startup_lines)
+        if len(startup_lines) > 15:
+            report["findings"].append(f"{len(startup_lines)} startup programs — may slow boot time")
+            report["recommendations"].append("Disable unnecessary startup programs via Task Manager")
+        
+        # Windows Update status
+        r = tool_run_command("powershell -Command \"Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 3 | Format-Table HotFixID,Description,InstalledOn -AutoSize\"", timeout=15)
+        report["recent_updates"] = r.strip()[:500]
+    
+    else:  # Linux/Mac
+        r = tool_run_command("uptime", timeout=5)
+        report["uptime"] = r.strip()
+        r = tool_run_command("df -h /", timeout=5)
+        report["disk"] = r.strip()
+        r = tool_run_command("ping -c 2 8.8.8.8", timeout=10)
+        report["internet"] = "connected" if r and "bytes from" in r else "disconnected"
+    
+    if not report["findings"]:
+        report["findings"].append("No critical issues detected. System appears healthy.")
+        report["recommendations"].append("Keep system updated and run periodic cleanups.")
+    
+    return json.dumps(report, indent=2)
+
+
+def tool_setup_local_llm(provider: str, model: str = None) -> str:
+    """Install and configure local LLM providers."""
+    steps = []
+    
+    if provider == "ollama":
+        # Check if already installed
+        check = tool_run_command("ollama --version", timeout=5)
+        if "ollama" in check.lower() and "error" not in check.lower():
+            steps.append({"step": "Ollama already installed", "status": "done", "version": check.strip()})
+        else:
+            if platform.system() == "Windows":
+                steps.append({"step": "Installing Ollama", "command": "winget install Ollama.Ollama", "status": "running"})
+                result = tool_run_command("winget install Ollama.Ollama --accept-package-agreements --accept-source-agreements", timeout=300)
+                steps[-1]["result"] = result[:500]
+                steps[-1]["status"] = "done" if "Successfully" in result else "check"
+            elif platform.system() == "Darwin":
+                result = tool_run_command("brew install ollama", timeout=300)
+                steps.append({"step": "Installed via brew", "result": result[:500], "status": "done"})
+            else:
+                result = tool_run_command("curl -fsSL https://ollama.com/install.sh | sh", timeout=300)
+                steps.append({"step": "Installed via script", "result": result[:500], "status": "done"})
+        
+        # Pull model
+        if model:
+            steps.append({"step": f"Downloading {model}", "status": "running"})
+            result = tool_run_command(f"ollama pull {model}", timeout=600)
+            steps[-1]["result"] = result[:500]
+            steps[-1]["status"] = "done"
+        else:
+            steps.append({"step": "No model specified", "note": "Run 'ollama pull llama3' to download a model", "status": "info"})
+            steps.append({"step": "Popular models", "models": ["llama3 (8B)", "mistral (7B)", "codellama (7B/13B/34B)", "phi3 (3.8B)", "gemma (2B/7B)"], "status": "info"})
+    
+    elif provider == "lmstudio":
+        steps.append({"step": "LM Studio", "note": "LM Studio requires manual download from https://lmstudio.ai", "status": "manual"})
+        if platform.system() == "Windows":
+            steps.append({"step": "Opening download page", "url": "https://lmstudio.ai/download"})
+    elif provider == "llamacpp":
+        if shutil.which("git"):
+            result = tool_run_command("git clone https://github.com/ggerganov/llama.cpp.git ~/llama.cpp", timeout=120)
+            steps.append({"step": "Cloned llama.cpp", "result": result[:300], "status": "done"})
+            steps.append({"step": "Build required", "note": "Run cmake/make in ~/llama.cpp to build", "status": "info"})
+        else:
+            steps.append({"step": "Git required", "note": "Install git first: winget install Git.Git", "status": "error"})
+    
+    return json.dumps({"provider": provider, "steps": steps}, indent=2)
+
+
+def tool_configure_ai_agent(agent: str, api_key: str = None) -> str:
+    """Configure AI coding agents."""
+    result = {"agent": agent, "steps": [], "status": "unknown"}
+    
+    if agent == "claude-code":
+        check = tool_run_command("claude --version", timeout=5)
+        if "error" not in check.lower():
+            result["steps"].append({"step": "Claude Code already installed", "version": check.strip()})
+        else:
+            r = tool_run_command("npm install -g @anthropic-ai/claude-code", timeout=120)
+            result["steps"].append({"step": "Installed via npm", "result": r[:300]})
+        if api_key:
+            # Set env var
+            if platform.system() == "Windows":
+                tool_run_command(f'setx ANTHROPIC_API_KEY "{api_key}"', timeout=10)
+            else:
+                # Add to shell profile
+                shell_rc = Path.home() / ".bashrc"
+                if (Path.home() / ".zshrc").exists():
+                    shell_rc = Path.home() / ".zshrc"
+                with open(shell_rc, "a") as f:
+                    f.write(f'\nexport ANTHROPIC_API_KEY="{api_key}"\n')
+            result["steps"].append({"step": "API key configured", "status": "done"})
+        else:
+            result["steps"].append({"step": "API key needed", "note": "Set ANTHROPIC_API_KEY environment variable", "status": "manual"})
+        result["status"] = "configured"
+    
+    elif agent == "copilot-cli":
+        check = tool_run_command("gh --version", timeout=5)
+        if "error" not in check.lower():
+            result["steps"].append({"step": "GitHub CLI installed", "version": check.strip()})
+            r = tool_run_command("gh extension install github/gh-copilot", timeout=60)
+            result["steps"].append({"step": "Copilot extension installed", "result": r[:300]})
+        else:
+            r = tool_run_command("winget install GitHub.cli" if platform.system() == "Windows" else "brew install gh", timeout=120)
+            result["steps"].append({"step": "Installing GitHub CLI", "result": r[:300]})
+            result["steps"].append({"step": "After install, run: gh extension install github/gh-copilot", "status": "manual"})
+        result["status"] = "configured"
+    
+    elif agent == "cursor":
+        result["steps"].append({"step": "Cursor", "note": "Download from https://cursor.sh", "url": "https://cursor.sh"})
+        if platform.system() == "Windows":
+            tool_run_command("winget install Cursor.Cursor", timeout=120)
+            result["steps"].append({"step": "Installing via winget", "status": "done"})
+        result["status"] = "configured"
+    
+    elif agent == "aider":
+        r = tool_run_command("pip install aider-chat", timeout=120)
+        result["steps"].append({"step": "Installed aider-chat", "result": r[:300]})
+        if api_key:
+            if platform.system() == "Windows":
+                tool_run_command(f'setx OPENAI_API_KEY "{api_key}"', timeout=10)
+            result["steps"].append({"step": "API key set", "status": "done"})
+        result["status"] = "configured"
+    
+    elif agent == "openhands":
+        r = tool_run_command("pip install openhands-ai", timeout=120)
+        result["steps"].append({"step": "Installed openhands-ai", "result": r[:300]})
+        result["status"] = "configured"
+    
+    elif agent == "continue":
+        result["steps"].append({"step": "Continue.dev", "note": "Install as VS Code extension: continue.continue", "status": "manual"})
+        if shutil.which("code"):
+            tool_run_command("code --install-extension continue.continue", timeout=60)
+            result["steps"].append({"step": "Installed via VS Code CLI", "status": "done"})
+        result["status"] = "configured"
+    
+    return json.dumps(result, indent=2)
+
+
+def tool_list_directory(path: str = ".", recursive: bool = False) -> str:
+    """List directory contents."""
+    p = Path(path).expanduser().resolve()
+    if not p.exists():
+        return json.dumps({"error": f"Directory not found: {path}"})
+    if not p.is_dir():
+        return json.dumps({"error": f"Not a directory: {path}"})
+    
+    items = []
+    try:
+        for item in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            if item.name.startswith(".") and item.name not in [".env", ".gitignore"]:
+                continue
+            entry = {"name": item.name, "type": "dir" if item.is_dir() else "file"}
+            if item.is_file():
+                size = item.stat().st_size
+                entry["size"] = size
+                entry["size_human"] = f"{size/1024:.1f}KB" if size < 1024*1024 else f"{size/1024/1024:.1f}MB"
+                entry["ext"] = item.suffix
+            if recursive and item.is_dir():
+                try:
+                    sub_items = list(item.iterdir())
+                    entry["children_count"] = len(sub_items)
+                except PermissionError:
+                    entry["children_count"] = "permission denied"
+            items.append(entry)
+            if len(items) >= 100:
+                items.append({"note": "Truncated at 100 items"})
+                break
+    except PermissionError:
+        return json.dumps({"error": "Permission denied"})
+    
+    return json.dumps({"path": str(p), "items": items, "total": len(items)}, indent=2)
+
 
 
 # ── Agent Loop ─────────────────────────────────────────
