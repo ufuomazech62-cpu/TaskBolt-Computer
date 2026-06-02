@@ -95,10 +95,14 @@ module.exports = async function handler(req, res) {
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.error("[agent] Upstream API error:", response.status, errBody.slice(0, 300));
-      // Never expose raw provider errors to users — sanitize
-      const userMessage = sanitizeUpstreamError(response.status, errBody);
-      return res.status(502).json({ error: userMessage });
+      console.error("[agent] Upstream API error:", response.status, errBody.slice(0, 500));
+      console.error("[agent] API_BASE used:", API_BASE);
+      console.error("[agent] Model used:", useModel);
+      // TEMP DEBUG: return raw error to client for diagnosis
+      return res.status(502).json({ 
+        error: `DEBUG: ${response.status} - ${errBody.slice(0, 500)}`,
+        _debug: { apiBase: API_BASE, model: useModel, status: response.status }
+      });
     }
 
     const data = await response.json();
