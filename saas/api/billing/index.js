@@ -182,11 +182,19 @@ module.exports = async function handler(req, res) {
     if (auth !== `Bearer ${adminSecret}` && auth !== `Bearer ${dodoKey}`) return jsonResponse(res, { error: "Unauthorized" }, 401);
     if (!dodoKey) return jsonResponse(res, { error: "DODO_PAYMENTS_API_KEY not configured" }, 500);
     await sql`CREATE TABLE IF NOT EXISTS dodo_products (pack_id TEXT PRIMARY KEY, dodo_product_id TEXT NOT NULL, name TEXT, price_cents INTEGER, created_at TIMESTAMP DEFAULT NOW())`;
+    // Force mode: clear old products and recreate
+    const force = req.query.force === "true" || req.body?.force === true;
+    if (force) {
+      await sql`DELETE FROM dodo_products`;
+      console.log("[init] Cleared all existing products (force mode)");
+    }
     const allItems = PACKS;
     const results = [];
     for (const item of allItems) {
-      const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${item.id}`;
-      if (existing.length) { results.push({ pack_id: item.id, dodo_product_id: existing[0].dodo_product_id, status: "exists" }); continue; }
+      if (!force) {
+        const existing = await sql`SELECT dodo_product_id FROM dodo_products WHERE pack_id = ${item.id}`;
+        if (existing.length) { results.push({ pack_id: item.id, dodo_product_id: existing[0].dodo_product_id, status: "exists" }); continue; }
+      }
       try {
         const resp = await fetch(`${DODO_API}/products`, { method: "POST", headers: { "Authorization": `Bearer ${dodoKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ name: `TaskBolt ${item.name} - ${item.credits.toLocaleString()} Credits`, description: `${item.description}. One-time credit pack for TaskBolt AI Desktop Agent.`, tax_category: "digital_products", price: { currency: "USD", discount: 0, price: item.price_cents, purchasing_power_parity: false, type: "one_time_price" }, metadata: { pack_id: item.id, credits: item.credits.toString(), source: "taskbolt" } }) });
         const data = await resp.json();
