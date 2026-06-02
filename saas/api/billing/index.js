@@ -3,7 +3,7 @@ const { requireAuth, jsonResponse } = require("../_auth");
 const { sql, initDB } = require("../_db");
 const { sendPaymentEmail } = require("../_email");
 
-const DODO_API = process.env.DODO_API_URL || "https://api.dodopayments.com";
+const DODO_API = process.env.DODO_API_URL || "https://test.dodopayments.com";
 const SAAS_URL = "https://taskbolt.space";
 
 // One-time credit packs (4 tiers, pay-as-you-go)
