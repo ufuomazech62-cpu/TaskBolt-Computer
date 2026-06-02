@@ -1,6 +1,6 @@
 const { neon } = require("@neondatabase/serverless");
 const crypto = require("crypto");
-const { sendOtpEmail, sendWelcomeEmail } = require("../../_email");
+const { sendOtpEmail, sendWelcomeEmail } = require("../../../lib/_email");
 
 const sql = neon(process.env.NEON_DATABASE_URL);
 const JWT_SECRET = process.env.JWT_SECRET || "taskbolt-jwt-s3cr3t-2026";

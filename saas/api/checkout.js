@@ -1,4 +1,4 @@
-const { requireAuth } = require("./_auth");
+const { requireAuth } = require("../lib/_auth");
 
 const PACKS = [
   { id: "lite",  name: "Lite",  price_usd: 6,   credits: 5000,   tokens: "1M",  description: "Casual exploration", features: ["5,000 credits", "1M tokens", "Never expires", "All AI models"] },

@@ -1,7 +1,7 @@
 const crypto = require("crypto");
-const { requireAuth, jsonResponse } = require("../_auth");
-const { sql, initDB } = require("../_db");
-const { sendPaymentEmail } = require("../_email");
+const { requireAuth, jsonResponse } = require("../../lib/_auth");
+const { sql, initDB } = require("../../lib/_db");
+const { sendPaymentEmail } = require("../../lib/_email");
 
 const DODO_API = process.env.DODO_API_URL || "https://live.dodopayments.com";
 const SAAS_URL = "https://taskbolt.space";

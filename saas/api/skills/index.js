@@ -1,4 +1,4 @@
-const { sql, initDB } = require("../_db");
+const { sql, initDB } = require("../../lib/_db");
 const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "taskbolt-jwt-secret-change-in-prod";

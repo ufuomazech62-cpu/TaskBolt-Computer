@@ -4,8 +4,8 @@
  * 1 credit = 200 tokens
  */
 
-const { requireAuth, jsonResponse } = require("../_auth");
-const { sql, initDB } = require("../_db");
+const { requireAuth, jsonResponse } = require("../../lib/_auth");
+const { sql, initDB } = require("../../lib/_db");
 
 const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;

@@ -1,6 +1,6 @@
-const { sql, initDB } = require("../_db");
-const { sign } = require("../_jwt");
-const { jsonResponse, setCorsHeaders } = require("../_auth");
+const { sql, initDB } = require("../../lib/_db");
+const { sign } = require("../../lib/_jwt");
+const { jsonResponse, setCorsHeaders } = require("../../lib/_auth");
 
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;

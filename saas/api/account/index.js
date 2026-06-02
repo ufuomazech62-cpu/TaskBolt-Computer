@@ -1,5 +1,5 @@
-const { requireAuth, jsonResponse } = require("../_auth");
-const { sql, initDB } = require("../_db");
+const { requireAuth, jsonResponse } = require("../../lib/_auth");
+const { sql, initDB } = require("../../lib/_db");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();

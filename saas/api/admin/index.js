@@ -1,4 +1,4 @@
-const { sql, initDB } = require("../_db");
+const { sql, initDB } = require("../../lib/_db");
 
 // Admin endpoint to diagnose and fix credit issues
 module.exports = async function handler(req, res) {
