@@ -71,7 +71,7 @@ const CORE_SKILLS: Skill[] = [
 function App() {
   // ── State ────────────────────────────────────────────
   const [appState, setAppState] = useState<AppState>('onboarding')
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
@@ -492,6 +492,7 @@ function App() {
     let fullThinking = ''
     const toolCalls: { name: string; args: Record<string, unknown>; result?: string }[] = []
     let lastEventTime = Date.now()
+    let unlistenFn: (() => void) | null = null
 
     // Safety timeout: if no events for 60s, kill the stream
     const safetyTimer = setInterval(() => {
@@ -504,7 +505,7 @@ function App() {
         updateMsg()
         setIsStreaming(false)
         setAgentStatus('idle')
-        try { unlistenFn() } catch {}
+        try { unlistenFn?.() } catch {}
       }
     }, 5000)
 
@@ -527,7 +528,6 @@ function App() {
     }
 
     // Listen for agent events from Tauri
-    let unlistenFn: (() => void) | null = null
     const unlistenPromise = listen<string>('agent-event', (event) => {
       lastEventTime = Date.now()
       try {
@@ -598,7 +598,7 @@ function App() {
       setIsStreaming(false)
       setAgentStatus('idle')
       clearInterval(safetyTimer)
-      if (unlistenFn) unlistenFn()
+      ;(unlistenFn as (() => void) | null)?.()
     } finally {
       // Note: invoke('send_message') returns instantly (just writes to stdin).
       // The listener stays active until a 'done' event fires from the agent.
