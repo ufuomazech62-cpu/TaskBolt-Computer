@@ -12,8 +12,7 @@ const FROM_ADDRESS = process.env.RESEND_FROM || "TaskBolt <noreply@taskbolt.spac
 const FROM_FALLBACK = "TaskBolt <onboarding@resend.dev>";
 
 function getFromAddress() {
-  // Use custom domain if available, fall back to Resend dev address
-  return process.env.RESEND_FROM || FROM_FALLBACK;
+  return process.env.RESEND_FROM || "TaskBolt <noreply@taskbolt.space>";
 }
 
 async function sendEmail({ to, subject, html }) {
