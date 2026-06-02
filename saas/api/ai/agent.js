@@ -7,8 +7,11 @@
 const { requireAuth, jsonResponse } = require("../../lib/_auth");
 const { sql, initDB } = require("../../lib/_db");
 
-const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+const API_BASE = process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;
+
+// Valid models — if client sends invalid, fallback to qwen-plus (confirmed working with tools)
+const VALID_MODELS = ["deepseek-v4-flash", "qwen-plus", "qwen-max", "qwen-turbo"];
 
 /**
  * Sanitize upstream API errors — never expose provider names, billing info,
@@ -69,7 +72,7 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
-  const useModel = model || "deepseek-v4-flash";
+  const useModel = VALID_MODELS.includes(model) ? model : "qwen-plus";
 
   // Build request body with tools
   const body = {
@@ -83,7 +86,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/chat/completions`, {
+    // Try primary model
+    let response = await fetch(`${API_BASE}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -91,6 +95,27 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify(body),
     });
+
+    // If primary model fails with model error, retry with fallback
+    if (!response.ok && (response.status === 400 || response.status === 404)) {
+      const errBody = await response.text();
+      try {
+        const parsed = JSON.parse(errBody);
+        const code = parsed.error?.code || "";
+        if (code === "ModelNotFound" || code === "InvalidModel" || errBody.includes("model")) {
+          console.log(`[agent] Model ${useModel} failed, retrying with qwen-plus`);
+          body.model = "qwen-plus";
+          response = await fetch(`${API_BASE}/chat/completions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          });
+        }
+      } catch {}
+    }
 
     if (!response.ok) {
       const errBody = await response.text();

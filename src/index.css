@@ -1756,8 +1756,113 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════
-   ICON ANIMATIONS
+   LOGO ANIMATIONS — BIG, ALIVE, NOT MECHANICAL
    ═══════════════════════════════════════════════════════ */
+
+.logo-orb {
+  transition: filter 0.4s ease;
+}
+
+/* ── Head Movements ── */
+@keyframes headSway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+@keyframes headWag {
+  0% { transform: rotate(-8deg) translateX(-2px); }
+  100% { transform: rotate(8deg) translateX(2px); }
+}
+
+@keyframes headTilt {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  50% { transform: rotate(5deg) translateY(-3px); }
+}
+
+@keyframes headNod {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  30% { transform: translateY(4px) rotate(-2deg); }
+  60% { transform: translateY(-2px) rotate(1deg); }
+}
+
+/* ── Blink Patterns ── */
+@keyframes blinkNatural {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.05); }
+}
+
+@keyframes blinkThinking {
+  0%, 85%, 100% { transform: scaleY(1); }
+  88% { transform: scaleY(0.05); }
+  92% { transform: scaleY(1); }
+  95% { transform: scaleY(0.05); }
+}
+
+@keyframes blinkExecute {
+  0%, 80%, 100% { transform: scaleY(1); }
+  90% { transform: scaleY(0.05); }
+}
+
+@keyframes blinkTyping {
+  0%, 88%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.05); }
+}
+
+/* ── Orb Glow ── */
+@keyframes orbPulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(109, 40, 255, 0.4)); }
+  50% { filter: drop-shadow(0 0 20px rgba(109, 40, 255, 0.7)); }
+}
+
+/* ── State: Idle (gentle sway + natural blink) ── */
+.logo-idle .logo-head {
+  animation: headSway 4s ease-in-out infinite;
+}
+.logo-idle .logo-eyes {
+  animation: blinkNatural 3.5s ease-in-out infinite;
+}
+
+/* ── State: Thinking (fast wag + squinted double-blink + pink glow) ── */
+.logo-thinking .logo-head {
+  animation: headWag 0.6s ease-in-out infinite alternate;
+}
+.logo-thinking .logo-eyes {
+  animation: blinkThinking 1.8s ease-in-out infinite;
+}
+.logo-thinking .logo-orb,
+.logo-thinking {
+  filter: drop-shadow(0 0 12px rgba(255, 47, 146, 0.5));
+}
+
+/* ── State: Executing (focused tilt + quick blink + purple pulse) ── */
+.logo-executing .logo-head {
+  animation: headTilt 1.2s ease-in-out infinite;
+}
+.logo-executing .logo-eyes {
+  animation: blinkExecute 1s ease-in-out infinite;
+}
+.logo-executing {
+  animation: orbPulse 1.5s ease-in-out infinite;
+}
+
+/* ── State: Typing (happy nod + gentle blink) ── */
+.logo-typing .logo-head {
+  animation: headNod 2s ease-in-out infinite;
+}
+.logo-typing .logo-eyes {
+  animation: blinkTyping 2.5s ease-in-out infinite;
+}
+
+/* ── Avatar Glow Effects (in chat) ── */
+.ai-avatar.logo-thinking {
+  filter: drop-shadow(0 2px 16px rgba(255, 47, 146, 0.6));
+}
+.ai-avatar.logo-executing {
+  filter: drop-shadow(0 2px 20px rgba(109, 40, 255, 0.7));
+}
+.ai-avatar.logo-typing {
+  filter: drop-shadow(0 2px 14px rgba(255, 154, 31, 0.5));
+}
 
 .icon-spin {
   animation: spin 1s linear infinite;

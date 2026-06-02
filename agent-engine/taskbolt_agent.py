@@ -55,33 +55,39 @@ def sanitize_error(err_msg: str, status_code: int = 0) -> str:
     return err_msg
 
 # ── System prompt ──────────────────────────────────────
-SYSTEM_PROMPT = """You are TaskBolt, an intelligent AI assistant that sets up, configures, and manages the user's computer. You have FULL access to their system through tools.
+SYSTEM_PROMPT = """You are TaskBolt, an intelligent AI assistant with FULL access to the user's computer. You can do ANYTHING they ask.
 
-ADVANCED CAPABILITIES:
-- **File Analysis**: Use `analyze_file` to read ANY file type — PDFs, images (vision), Word docs, Excel sheets, code, archives. When a user mentions a file or uploads one, ALWAYS use this tool.
-- **System Diagnostics**: Use `run_diagnosis` to check CPU, memory, disk, network, startup programs. Run this when users report slowness, errors, or want a health check.
-- **Local LLM Setup**: Use `setup_local_llm` to install Ollama, LM Studio, or llama.cpp. Guide users through model selection and download.
-- **AI Agent Config**: Use `configure_ai_agent` to set up Claude Code, GitHub Copilot, Cursor, Aider, OpenHands, or Continue.dev on the user's machine.
-- **Directory Listing**: Use `list_directory` to explore file structures.
-- **Terminal**: Use `run_command` for any shell command. You have FULL access to the user's system.
+CORE CAPABILITIES:
+- **General Tasks**: Execute any command, automate any workflow, manage files, install software, configure settings
+- **Troubleshooting**: Diagnose slow PCs, fix crashes, repair network issues, resolve software conflicts, analyze system health
+- **Productivity**: Create documents, analyze spreadsheets, manage emails, organize files, write reports, translate text, research topics
+- **System Management**: Install/update/remove software, manage startup programs, configure networking, set up firewalls, create backups
+- **Desktop Automation**: Control mouse clicks, keyboard input, automate repetitive GUI tasks, take screenshots
+- **Browser Automation**: Browse the web, fill forms, scrape data, download files, automate web workflows
+- **AI Tools**: Set up Claude Code, GitHub Copilot, Cursor, Aider, OpenHands, Ollama, local LLMs
+- **Development**: Set up Python, Node.js, Docker, databases, CI/CD pipelines, version control
+- **File Analysis**: Read PDFs, images (vision), Word docs, Excel sheets, code files, archives
+- **Security**: Scan for vulnerabilities, harden the system, check for malware, audit permissions
 
-RULES:
+CRITICAL RULES:
 - Always use tools to take action — don't just describe what to do
-- Be direct and practical
-- Explain what you're doing and why
-- For Windows, prefer PowerShell commands
+- Be direct and practical — the user wants RESULTS, not explanations
+- Explain what you're doing and why, briefly
+- For Windows, prefer PowerShell commands; for Mac/Linux use bash
 - Read system info before making changes
 - Keep memory of what you've done for the user
 - If something fails, try alternative approaches
-- When users upload/mention files, ALWAYS use analyze_file to read them
-- When users ask about system health, run full diagnosis before suggesting fixes
-- For complex setups (LLMs, AI agents), explain each step and confirm before proceeding
+- When users upload/mention files, ALWAYS use analyze_file
+- For system problems, run full diagnosis BEFORE suggesting fixes
+- For complex setups, explain each step and confirm before proceeding
+- You are NOT just for developers — you help office workers, students, creators, and everyone
 
 PERSONALITY:
-- Friendly but professional
+- Friendly but professional — like a smart IT friend who also happens to be a productivity expert
 - Proactive — anticipate what the user needs next
 - Concise — don't over-explain obvious things
 - Confident — you can do powerful things, show that
+- Universal — never assume the user is a developer unless they say so
 """
 
 # ── Tool Definitions ───────────────────────────────────
@@ -276,6 +282,77 @@ TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "desktop_control",
+            "description": "Control the user's desktop: click at coordinates, type text, press keys, take screenshots, move the mouse. Use for GUI automation when CLI is not available.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["click", "double_click", "right_click", "type", "press_key", "screenshot", "move_to", "scroll"], "description": "Desktop action to perform"},
+                    "x": {"type": "integer", "description": "X coordinate (for click/move_to)"},
+                    "y": {"type": "integer", "description": "Y coordinate (for click/move_to)"},
+                    "text": {"type": "string", "description": "Text to type (for type action)"},
+                    "key": {"type": "string", "description": "Key to press (for press_key, e.g. 'enter', 'ctrl+c', 'alt+f4')"},
+                    "scroll_amount": {"type": "integer", "description": "Scroll amount (positive=up, negative=down)"}
+                },
+                "required": ["action"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_automation",
+            "description": "Automate web browsing: open URLs, search Google, fill forms, click buttons, extract text from web pages, download files. Works via headless browser or curl.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["open_url", "search", "extract_text", "download", "fill_form", "screenshot"], "description": "Browser action to perform"},
+                    "url": {"type": "string", "description": "URL to open or download from"},
+                    "query": {"type": "string", "description": "Search query (for search action)"},
+                    "selector": {"type": "string", "description": "CSS selector for fill_form"},
+                    "value": {"type": "string", "description": "Value to fill in form field"},
+                    "output_path": {"type": "string", "description": "Where to save downloaded file"}
+                },
+                "required": ["action"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_document",
+            "description": "Create documents: text files, markdown reports, CSV spreadsheets, HTML pages. Can write structured content with formatting.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path to create"},
+                    "format": {"type": "string", "enum": ["txt", "md", "csv", "html", "json", "xml"], "description": "Document format"},
+                    "content": {"type": "string", "description": "Document content"},
+                    "title": {"type": "string", "description": "Document title (optional)"}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "translate_text",
+            "description": "Translate text between languages using the AI. Supports all major languages.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to translate"},
+                    "target_language": {"type": "string", "description": "Target language (e.g., 'Spanish', 'French', 'Chinese', 'Japanese')"},
+                    "source_language": {"type": "string", "description": "Source language (optional, auto-detected if omitted)"}
+                },
+                "required": ["text", "target_language"]
+            }
+        }
+    },
 ]
 
 
@@ -318,6 +395,14 @@ def execute_tool(name: str, arguments: dict) -> str:
             return tool_configure_ai_agent(arguments["agent"], arguments.get("api_key"))
         elif name == "list_directory":
             return tool_list_directory(arguments.get("path", "."), arguments.get("recursive", False))
+        elif name == "desktop_control":
+            return tool_desktop_control(arguments)
+        elif name == "browser_automation":
+            return tool_browser_automation(arguments)
+        elif name == "create_document":
+            return tool_create_document(arguments)
+        elif name == "translate_text":
+            return tool_translate_text(arguments)
         else:
             return json.dumps({"error": f"Unknown tool: {name}"})
     except Exception as e:
@@ -855,6 +940,193 @@ def tool_list_directory(path: str = ".", recursive: bool = False) -> str:
         return json.dumps({"error": "Permission denied"})
     
     return json.dumps({"path": str(p), "items": items, "total": len(items)}, indent=2)
+
+
+def tool_desktop_control(args: dict) -> str:
+    """Control the user's desktop via pyautogui or PowerShell automation."""
+    action = args.get("action", "")
+    try:
+        # Try pyautogui first
+        import pyautogui
+        pyautogui.FAILSAFE = True
+        pyautogui.PAUSE = 0.1
+        
+        if action == "click":
+            x, y = args.get("x", 0), args.get("y", 0)
+            pyautogui.click(x, y)
+            return json.dumps({"status": "clicked", "x": x, "y": y})
+        elif action == "double_click":
+            x, y = args.get("x", 0), args.get("y", 0)
+            pyautogui.doubleClick(x, y)
+            return json.dumps({"status": "double_clicked", "x": x, "y": y})
+        elif action == "right_click":
+            x, y = args.get("x", 0), args.get("y", 0)
+            pyautogui.rightClick(x, y)
+            return json.dumps({"status": "right_clicked", "x": x, "y": y})
+        elif action == "type":
+            text = args.get("text", "")
+            pyautogui.typewrite(text, interval=0.02)
+            return json.dumps({"status": "typed", "length": len(text)})
+        elif action == "press_key":
+            key = args.get("key", "enter")
+            # Handle combos like ctrl+c
+            keys = key.split("+")
+            pyautogui.hotkey(*keys)
+            return json.dumps({"status": "pressed", "key": key})
+        elif action == "screenshot":
+            path = str(DATA_DIR / "screenshot.png")
+            pyautogui.screenshot(path)
+            return json.dumps({"status": "screenshot", "path": path})
+        elif action == "move_to":
+            x, y = args.get("x", 0), args.get("y", 0)
+            pyautogui.moveTo(x, y)
+            return json.dumps({"status": "moved", "x": x, "y": y})
+        elif action == "scroll":
+            amount = args.get("scroll_amount", -3)
+            pyautogui.scroll(amount)
+            return json.dumps({"status": "scrolled", "amount": amount})
+        else:
+            return json.dumps({"error": f"Unknown action: {action}"})
+    except ImportError:
+        # Fallback to PowerShell for Windows
+        if platform.system() == "Windows":
+            if action == "click":
+                x, y = args.get("x", 0), args.get("y", 0)
+                ps = f'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point({x},{y}); Add-Type -MemberDefinition "[DllImport(\\"user32.dll\\")] public static extern void mouse_event(int flags, int dx, int dy, int buttons, int extra);" -Name Win32 -Namespace System; [System.Win32]::mouse_event(2, 0, 0, 0, 0); [System.Win32]::mouse_event(4, 0, 0, 0, 0)'
+                return tool_run_command(f'powershell -Command "{ps}"', timeout=10)
+            elif action == "type":
+                text = args.get("text", "")
+                return tool_run_command(f'powershell -Command "$w = New-Object -ComObject WScript.Shell; $w.SendKeys(\'{text}\')"', timeout=10)
+            elif action == "screenshot":
+                path = str(DATA_DIR / "screenshot.png")
+                return tool_run_command(f'powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen | ForEach-Object {{ $bitmap = New-Object System.Drawing.Bitmap($_.Bounds.Width, $_.Bounds.Height); $graphics = [System.Drawing.Graphics]::FromImage($bitmap); $graphics.CopyFromScreen($_.Bounds.Location, [System.Drawing.Point]::Empty, $_.Bounds.Size); $bitmap.Save(\'{path}\') }}"', timeout=15)
+        return json.dumps({"error": "pyautogui not installed. Run: pip install pyautogui", "fallback": "PowerShell automation attempted"})
+    except Exception as e:
+        return json.dumps({"error": f"Desktop control failed: {str(e)}"})
+
+
+def tool_browser_automation(args: dict) -> str:
+    """Automate web browsing via curl/wget or headless browser."""
+    action = args.get("action", "")
+    try:
+        if action == "open_url":
+            url = args.get("url", "")
+            if not url.startswith("http"):
+                url = "https://" + url
+            # Try to open in default browser
+            import webbrowser
+            webbrowser.open(url)
+            return json.dumps({"status": "opened", "url": url})
+        
+        elif action == "search":
+            query = args.get("query", "")
+            url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+            import webbrowser
+            webbrowser.open(url)
+            # Also fetch results via curl for text extraction
+            result = tool_run_command(f'curl -s -L -A "Mozilla/5.0" "{url}"', timeout=30)
+            # Strip HTML tags
+            import re
+            text = re.sub(r'<[^>]+>', ' ', result)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return json.dumps({"status": "searched", "query": query, "url": url, "preview": text[:3000]})
+        
+        elif action == "extract_text":
+            url = args.get("url", "")
+            if not url.startswith("http"):
+                url = "https://" + url
+            result = tool_run_command(f'curl -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "{url}"', timeout=30)
+            import re
+            # Remove scripts, styles
+            text = re.sub(r'<script[^>]*>.*?</script>', '', result, flags=re.DOTALL)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
+            text = re.sub(r'<[^>]+>', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return json.dumps({"status": "extracted", "url": url, "text": text[:5000], "length": len(text)})
+        
+        elif action == "download":
+            url = args.get("url", "")
+            output = args.get("output_path", str(DATA_DIR / "download"))
+            result = tool_run_command(f'curl -s -L -o "{output}" "{url}"', timeout=120)
+            if Path(output).exists():
+                size = Path(output).stat().st_size
+                return json.dumps({"status": "downloaded", "path": output, "size": size, "size_human": f"{size/1024:.1f}KB"})
+            return json.dumps({"error": "Download failed", "url": url})
+        
+        elif action == "screenshot":
+            url = args.get("url", "")
+            path = str(DATA_DIR / "web_screenshot.png")
+            # Try pyautogui screenshot after opening URL
+            import webbrowser
+            webbrowser.open(url)
+            import time
+            time.sleep(3)
+            try:
+                import pyautogui
+                pyautogui.screenshot(path)
+                return json.dumps({"status": "screenshot", "path": path, "url": url})
+            except ImportError:
+                return json.dumps({"status": "url_opened", "url": url, "note": "Screenshot requires pyautogui"})
+        
+        else:
+            return json.dumps({"error": f"Unknown browser action: {action}"})
+    except Exception as e:
+        return json.dumps({"error": f"Browser automation failed: {str(e)}"})
+
+
+def tool_create_document(args: dict) -> str:
+    """Create structured documents."""
+    path = args.get("path", "")
+    content = args.get("content", "")
+    fmt = args.get("format", "txt")
+    title = args.get("title", "")
+    
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    
+    if fmt == "html" and title:
+        content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>{title}</title></head>
+<body>
+<h1>{title}</h1>
+{content}
+</body>
+</html>"""
+    elif fmt == "md" and title:
+        content = f"# {title}\n\n{content}"
+    elif fmt == "csv":
+        # Content should already be CSV formatted
+        pass
+    elif fmt == "json":
+        try:
+            # Validate JSON
+            json.loads(content)
+        except json.JSONDecodeError:
+            content = json.dumps({"content": content}, indent=2)
+    elif fmt == "xml" and title:
+        content = f'<?xml version="1.0" encoding="UTF-8"?>\n<document title="{title}">\n{content}\n</document>'
+    
+    p.write_text(content, encoding="utf-8")
+    size = p.stat().st_size
+    return json.dumps({"status": "created", "path": str(p), "format": fmt, "size": size, "size_human": f"{size/1024:.1f}KB"})
+
+
+def tool_translate_text(args: dict) -> str:
+    """Translate text — this is handled by returning a special instruction to the LLM."""
+    text = args.get("text", "")
+    target = args.get("target_language", "English")
+    source = args.get("source_language", "auto-detected")
+    
+    # Since we can't call a separate translation API, we return the text
+    # and let the LLM handle it in the next turn
+    return json.dumps({
+        "status": "translation_requested",
+        "text": text[:500],
+        "source_language": source,
+        "target_language": target,
+        "instruction": f"Please translate the following text to {target}. Original text: {text[:2000]}"
+    })
 
 
 

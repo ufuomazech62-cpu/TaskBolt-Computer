@@ -57,15 +57,36 @@ const SAAS_URL = 'https://taskbolt.space'
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
-  { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚡', enabled: true, isCore: true },
+  // Universal — for everyone
+  { id: 'general-task', name: 'General Task', description: 'Ask me to do anything on your computer', icon: '⚡', enabled: true, isCore: true },
+  { id: 'troubleshoot', name: 'Troubleshoot', description: 'Diagnose and fix any computer problem', icon: '🔧', enabled: true, isCore: true },
   { id: 'install', name: 'Install Software', description: 'Find and install any application', icon: '📦', enabled: true, isCore: true },
-  { id: 'fix', name: 'Fix Issues', description: 'Diagnose and repair system problems', icon: '🔧', enabled: true, isCore: true },
+  { id: 'fix', name: 'Fix Issues', description: 'Repair system problems automatically', icon: '🩹', enabled: true, isCore: true },
+  { id: 'cleanup', name: 'Clean & Optimize', description: 'Free disk space and boost performance', icon: '🧹', enabled: true, isCore: true },
+
+  // Productivity — office workers, students, creators
+  { id: 'data-analysis', name: 'Data Analysis', description: 'Analyze spreadsheets, CSVs, and datasets', icon: '📊', enabled: true, isCore: true },
+  { id: 'documents', name: 'Create Documents', description: 'Write reports, summaries, and presentations', icon: '📄', enabled: true, isCore: true },
+  { id: 'email', name: 'Email Assistant', description: 'Draft, organize, and manage your emails', icon: '✉️', enabled: true, isCore: true },
+  { id: 'file-organizer', name: 'Organize Files', description: 'Sort, rename, and organize files automatically', icon: '📁', enabled: true, isCore: true },
+  { id: 'research', name: 'Research Assistant', description: 'Web research and comprehensive summaries', icon: '🔍', enabled: true, isCore: true },
+  { id: 'writing', name: 'Writing Assistant', description: 'Edit, proofread, and improve your writing', icon: '✍️', enabled: true, isCore: true },
+  { id: 'pdf-tools', name: 'PDF Tools', description: 'Merge, split, extract, and convert PDFs', icon: '📑', enabled: true, isCore: true },
+  { id: 'translation', name: 'Translation', description: 'Translate documents and text to any language', icon: '🌐', enabled: true, isCore: true },
+
+  // System & Security
+  { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚙️', enabled: true, isCore: true },
   { id: 'update', name: 'Update Everything', description: 'Keep your system and apps up to date', icon: '🔄', enabled: true, isCore: true },
-  { id: 'cleanup', name: 'Clean & Optimize', description: 'Free disk space and improve performance', icon: '🧹', enabled: true, isCore: true },
-  { id: 'network', name: 'Network Setup', description: 'Configure WiFi, firewall, and networking', icon: '🌐', enabled: true, isCore: true },
+  { id: 'network', name: 'Network Setup', description: 'Configure WiFi, firewall, and networking', icon: '📡', enabled: true, isCore: true },
   { id: 'security', name: 'Security Check', description: 'Scan and harden your system security', icon: '🛡️', enabled: true, isCore: true },
   { id: 'backup', name: 'Backup & Restore', description: 'Create backups and restore points', icon: '💾', enabled: true, isCore: true },
-  { id: 'browser', name: 'TaskBolt Browser', description: 'Browse the web automatically via CLI', icon: '🌍', enabled: true, isCore: true },
+
+  // Advanced — power users & developers
+  { id: 'desktop-control', name: 'Desktop Control', description: 'Control mouse, keyboard, and automate clicks', icon: '🖱️', enabled: true, isCore: true },
+  { id: 'browser', name: 'Browser Automation', description: 'Browse, scrape, and fill web forms automatically', icon: '🌍', enabled: true, isCore: true },
+  { id: 'ai-setup', name: 'AI Agent Setup', description: 'Configure Claude, Copilot, Cursor, and more', icon: '🤖', enabled: true, isCore: true },
+  { id: 'local-llm', name: 'Local LLM Setup', description: 'Install and run AI models on your computer', icon: '🧠', enabled: true, isCore: true },
+  { id: 'dev-env', name: 'Development Setup', description: 'Set up Python, Node, Docker, and dev tools', icon: '💻', enabled: true, isCore: true },
 ]
 
 function App() {
@@ -1541,7 +1562,7 @@ function App() {
             </button>
             {skillsOpen && (
               <div className="sidebar-skills-list">
-                {skills.filter(s => s.enabled).slice(0, 6).map(skill => (
+                {skills.filter(s => s.enabled).slice(0, 10).map(skill => (
                   <button key={skill.id} className="sidebar-skill-item" onClick={() => { setInput(skill.name); inputRef.current?.focus() }}>
                     <span className="sidebar-skill-icon">{skill.icon}</span>
                     <span>{skill.name}</span>
@@ -1618,10 +1639,10 @@ function App() {
         {!activeThread ? (
           <div className="empty-state">
             <div className="empty-logo"><LogoSvg size={72} animated /></div>
-            <h2>What can I help you set up?</h2>
-            <p className="empty-subtitle">Describe what you need — I'll handle the rest.</p>
+            <h2>What can I help you with?</h2>
+            <p className="empty-subtitle">From fixing your computer to writing reports — I handle it all.</p>
             <div className="skill-suggestions">
-              {skills.filter(s => s.enabled && s.isCore).slice(0, 6).map(skill => (
+              {skills.filter(s => s.enabled && s.isCore).slice(0, 10).map(skill => (
                 <button key={skill.id} className="skill-chip" onClick={() => { if (isLoggedIn) setInput(skill.name); else setAppState('signin') }}>
                   <span className="chip-icon">{skill.icon}</span>
                   {skill.name}
@@ -1735,7 +1756,7 @@ function App() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'What would you like to set up?'}
+              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'Ask me anything — fix your PC, write a report, browse the web...'}
               rows={1}
               className="main-input"
             />
