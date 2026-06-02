@@ -491,6 +491,22 @@ function App() {
     let fullContent = ''
     let fullThinking = ''
     const toolCalls: { name: string; args: Record<string, unknown>; result?: string }[] = []
+    let lastEventTime = Date.now()
+
+    // Safety timeout: if no events for 60s, kill the stream
+    const safetyTimer = setInterval(() => {
+      const elapsed = Date.now() - lastEventTime
+      if (elapsed > 60000) {
+        clearInterval(safetyTimer)
+        if (!fullContent) {
+          fullContent = '⚠️ No response received. The AI service may be temporarily unavailable. Please try again.'
+        }
+        updateMsg()
+        setIsStreaming(false)
+        setAgentStatus('idle')
+        try { unlistenFn() } catch {}
+      }
+    }, 5000)
 
     const updateMsg = () => {
       setThreads(prev => {
@@ -511,7 +527,9 @@ function App() {
     }
 
     // Listen for agent events from Tauri
-    const unlisten = await listen<string>('agent-event', (event) => {
+    let unlistenFn: (() => void) | null = null
+    const unlistenPromise = listen<string>('agent-event', (event) => {
+      lastEventTime = Date.now()
       try {
         const data = JSON.parse(event.payload)
         switch (data.type) {
@@ -544,7 +562,8 @@ function App() {
               setShowRateLimitPopup(true)
               setIsStreaming(false)
               setAgentStatus('idle')
-              unlisten()
+              clearInterval(safetyTimer)
+              if (unlistenFn) unlistenFn()
               return
             }
             fullContent += `\n\n⚠️ ${errText}`
@@ -553,7 +572,8 @@ function App() {
           case 'done':
             setIsStreaming(false)
             setAgentStatus('idle')
-            unlisten()
+            clearInterval(safetyTimer)
+            if (unlistenFn) unlistenFn()
             break
           case 'status':
             break
@@ -562,6 +582,7 @@ function App() {
         // skip malformed events
       }
     })
+    unlistenPromise.then(fn => { unlistenFn = fn })
 
     try {
       // Send message to local agent engine via Tauri
@@ -576,12 +597,13 @@ function App() {
       updateMsg()
       setIsStreaming(false)
       setAgentStatus('idle')
-      try { unlisten() } catch {}
+      clearInterval(safetyTimer)
+      if (unlistenFn) unlistenFn()
     } finally {
       // Note: invoke('send_message') returns instantly (just writes to stdin).
       // The listener stays active until a 'done' event fires from the agent.
       // We only reset streaming here as a safety net if invoke itself throws.
-      // Do NOT call unlisten() here — it would kill the listener before events arrive.
+      // Do NOT call unlistenFn() here — it would kill the listener before events arrive.
     }
   }
 

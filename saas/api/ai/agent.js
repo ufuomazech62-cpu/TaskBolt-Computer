@@ -69,13 +69,12 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
-  const useModel = model || "deepseek-v4-flash";
+  const useModel = model || "qwen-plus";
 
   // Build request body with tools
   const body = {
     model: useModel,
     messages,
-    extra_body: { enable_thinking: true },
   };
 
   if (tools && tools.length > 0) {
