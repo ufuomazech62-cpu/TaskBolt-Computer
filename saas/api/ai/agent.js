@@ -7,7 +7,7 @@
 const { requireAuth, jsonResponse } = require("../../lib/_auth");
 const { sql, initDB } = require("../../lib/_db");
 
-const API_BASE = process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;
 
 /**
@@ -69,7 +69,6 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return jsonResponse(res, { error: "Service temporarily unavailable. Please try again." }, 500);
 
-  // DeepSeek V4 Flash was working — validate but don't override
   const useModel = model || "deepseek-v4-flash";
 
   // Build request body with tools
@@ -95,14 +94,9 @@ module.exports = async function handler(req, res) {
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.error("[agent] Upstream API error:", response.status, errBody.slice(0, 500));
-      console.error("[agent] API_BASE used:", API_BASE);
-      console.error("[agent] Model used:", useModel);
-      // TEMP DEBUG: return raw error to client for diagnosis
-      return res.status(502).json({ 
-        error: `DEBUG: ${response.status} - ${errBody.slice(0, 500)}`,
-        _debug: { apiBase: API_BASE, model: useModel, status: response.status }
-      });
+      console.error("[agent] Upstream API error:", response.status, errBody.slice(0, 300));
+      const userMessage = sanitizeUpstreamError(response.status, errBody);
+      return res.status(502).json({ error: userMessage });
     }
 
     const data = await response.json();
