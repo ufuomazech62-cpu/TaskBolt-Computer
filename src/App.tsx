@@ -108,7 +108,51 @@ interface MCPServer {
   enabled: boolean
 }
 
-type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin'
+type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban'
+type SidebarView = 'chat' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban'
+
+// ── Hermes-style Screen Interfaces ──────────────────
+interface MemoryEntry {
+  id: string
+  target: 'memory' | 'user'
+  content: string
+  createdAt: number
+}
+
+interface KanbanCard {
+  id: string
+  title: string
+  description: string
+  column: 'todo' | 'progress' | 'done' | 'blocked'
+  priority: 'low' | 'medium' | 'high'
+  createdAt: number
+}
+
+interface ScheduledTask {
+  id: string
+  name: string
+  schedule: string
+  prompt: string
+  enabled: boolean
+  lastRun?: number
+  nextRun?: number
+}
+
+interface GatewayPlatform {
+  id: string
+  name: string
+  icon: string
+  connected: boolean
+  config?: Record<string, string>
+}
+
+interface ToolsetConfig {
+  id: string
+  name: string
+  description: string
+  icon: string
+  enabled: boolean
+}
 type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp' | 'advanced'
 
 // ── SaaS Backend ────────────────────────────────────
@@ -257,6 +301,40 @@ function App() {
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [sidebarView, setSidebarView] = useState<SidebarView>('chat')
+  const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([])
+  const [memoryProfile, setMemoryProfile] = useState('')
+  const [kanbanCards, setKanbanCards] = useState<KanbanCard[]>([])
+  const [schedules, setSchedules] = useState<ScheduledTask[]>([])
+  const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
+    { id: 'telegram', name: 'Telegram', icon: '✈️', connected: false },
+    { id: 'discord', name: 'Discord', icon: '🎮', connected: false },
+    { id: 'slack', name: 'Slack', icon: '💬', connected: false },
+    { id: 'whatsapp', name: 'WhatsApp', icon: '📱', connected: false },
+    { id: 'email', name: 'Email', icon: '📧', connected: false },
+    { id: 'sms', name: 'SMS', icon: '💌', connected: false },
+  ])
+  const [toolsets, setToolsets] = useState<ToolsetConfig[]>([
+    { id: 'terminal', name: 'Terminal', description: 'Execute shell commands', icon: '💻', enabled: true },
+    { id: 'browser', name: 'Browser', description: 'Browse and interact with websites', icon: '🌐', enabled: true },
+    { id: 'file', name: 'File System', description: 'Read, write, and manage files', icon: '📁', enabled: true },
+    { id: 'code', name: 'Code Execution', description: 'Run Python, JS, and other code', icon: '⌨️', enabled: true },
+    { id: 'web', name: 'Web Search', description: 'Search the internet for information', icon: '🔍', enabled: true },
+    { id: 'vision', name: 'Vision', description: 'Analyze images and screenshots', icon: '👁️', enabled: true },
+    { id: 'image_gen', name: 'Image Generation', description: 'Create AI-generated images', icon: '🎨', enabled: true },
+    { id: 'tts', name: 'Text-to-Speech', description: 'Convert text to spoken audio', icon: '🔊', enabled: true },
+    { id: 'delegation', name: 'Delegation', description: 'Spawn sub-agents for complex tasks', icon: '🤝', enabled: true },
+    { id: 'cron', name: 'Scheduling', description: 'Set up recurring automated tasks', icon: '⏰', enabled: true },
+    { id: 'memory', name: 'Memory', description: 'Persistent memory across sessions', icon: '🧠', enabled: true },
+    { id: 'skills', name: 'Skills', description: 'Procedural knowledge and workflows', icon: '🧩', enabled: true },
+  ])
+  const [newKanbanTitle, setNewKanbanTitle] = useState('')
+  const [newKanbanColumn, setNewKanbanColumn] = useState<KanbanCard['column']>('todo')
+  const [newScheduleName, setNewScheduleName] = useState('')
+  const [newScheduleCron, setNewScheduleCron] = useState('')
+  const [newSchedulePrompt, setNewSchedulePrompt] = useState('')
+  const [newMemoryContent, setNewMemoryContent] = useState('')
+  const [newMemoryTarget, setNewMemoryTarget] = useState<'memory' | 'user'>('memory')
   const [searchResults, setSearchResults] = useState<{ threadId: string; msgContent: string; snippet: string }[]>([])
   const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -276,6 +354,9 @@ function App() {
     loadThreads()
     loadSkills()
     loadMCPServers()
+    loadMemory()
+    loadKanban()
+    loadSchedules()
     const done = localStorage.getItem('tb_setup_done')
     if (done === 'true') {
       setSetupDone(true)
@@ -496,6 +577,44 @@ function App() {
   const saveMCPServers = (servers: MCPServer[]) => {
     localStorage.setItem('tb_mcp_servers', JSON.stringify(servers))
     setMcpServers(servers)
+  }
+
+  // ── Memory persistence ──
+  const loadMemory = () => {
+    try {
+      const entries = localStorage.getItem('tb_memory_entries')
+      if (entries) setMemoryEntries(JSON.parse(entries))
+      const profile = localStorage.getItem('tb_memory_profile')
+      if (profile) setMemoryProfile(profile)
+    } catch {}
+  }
+  const saveMemory = (entries: MemoryEntry[]) => {
+    setMemoryEntries(entries)
+    localStorage.setItem('tb_memory_entries', JSON.stringify(entries))
+  }
+
+  // ── Kanban persistence ──
+  const loadKanban = () => {
+    try {
+      const saved = localStorage.getItem('tb_kanban_cards')
+      if (saved) setKanbanCards(JSON.parse(saved))
+    } catch {}
+  }
+  const saveKanban = (cards: KanbanCard[]) => {
+    setKanbanCards(cards)
+    localStorage.setItem('tb_kanban_cards', JSON.stringify(cards))
+  }
+
+  // ── Schedules persistence ──
+  const loadSchedules = () => {
+    try {
+      const saved = localStorage.getItem('tb_schedules')
+      if (saved) setSchedules(JSON.parse(saved))
+    } catch {}
+  }
+  const saveSchedules = (s: ScheduledTask[]) => {
+    setSchedules(s)
+    localStorage.setItem('tb_schedules', JSON.stringify(s))
   }
 
   // ── Thread helpers ───────────────────────────────────
@@ -1814,76 +1933,83 @@ function App() {
           )}
         </div>
 
-        <button className="btn-new-task" onClick={() => { setActiveThreadId(null); setInput('') }} title={sidebarOpen ? '' : 'New Task'}>
-          <IconPlus size={16} />
-          {sidebarOpen && <span>New Task</span>}
-        </button>
-
-        {sidebarOpen && (
-          <div className="sidebar-search">
-            <div className="search-wrapper">
-              <IconSearch size={14} />
-              <input
-                type="text"
-                placeholder="Search tasks & messages..."
-                value={searchQuery}
-                onChange={e => handleSearchChange(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="sidebar-threads">
-          {sidebarOpen ? (
-            <>
-              {threadGroups.length === 0 && <p className="no-threads">No tasks yet</p>}
-              {threadGroups.map(group => (
-                <div key={group.label} className="thread-group">
-                  <div className="thread-group-label">{group.label}</div>
-                  {group.items.map(thread => (
-                    <div key={thread.id} className={`thread-item ${thread.id === activeThreadId ? 'active' : ''}`} onClick={() => setActiveThreadId(thread.id)}>
-                      <IconMessageSquare size={14} />
-                      <span className="thread-title">{thread.title}</span>
-                      <button className="thread-delete" onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(thread.id) }} title="Delete">
-                        <IconX size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </>
-          ) : (
-            <div className="sidebar-icons-only">
-              <button className="sidebar-icon-btn" onClick={() => { setActiveThreadId(null); setInput('') }} title="New Task">
-                <IconPlus size={18} />
-              </button>
-            </div>
-          )}
+        {/* ── Navigation Icons (Hermes-style) ── */}
+        <div className="sidebar-nav">
+          {([
+            { view: 'chat' as SidebarView, icon: '💬', label: 'Chat' },
+            { view: 'sessions' as SidebarView, icon: '📋', label: 'Sessions' },
+            { view: 'memory' as SidebarView, icon: '🧠', label: 'Memory' },
+            { view: 'tools' as SidebarView, icon: '🔧', label: 'Tools' },
+            { view: 'schedules' as SidebarView, icon: '⏰', label: 'Schedules' },
+            { view: 'gateway' as SidebarView, icon: '📡', label: 'Gateway' },
+            { view: 'kanban' as SidebarView, icon: '📊', label: 'Kanban' },
+          ]).map(item => (
+            <button
+              key={item.view}
+              className={`sidebar-nav-item ${sidebarView === item.view ? 'active' : ''}`}
+              onClick={() => setSidebarView(item.view)}
+              title={sidebarOpen ? '' : item.label}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              {sidebarOpen && <span className="nav-label">{item.label}</span>}
+            </button>
+          ))}
         </div>
 
-        {/* Skills section in sidebar */}
-        {sidebarOpen && (
-          <div className="sidebar-skills">
-            <button className="sidebar-section-header" onClick={() => setSkillsOpen(!skillsOpen)}>
-              <IconPuzzle size={14} />
-              <span>Skills</span>
-              <span className={`sidebar-chevron ${skillsOpen ? 'open' : ''}`}>
-                <IconChevronDown size={12} />
-              </span>
+        {/* ── Chat-specific sidebar content ── */}
+        {sidebarView === 'chat' && (
+          <>
+            <button className="btn-new-task" onClick={() => { setActiveThreadId(null); setInput('') }} title={sidebarOpen ? '' : 'New Task'}>
+              <IconPlus size={16} />
+              {sidebarOpen && <span>New Task</span>}
             </button>
-            {skillsOpen && (
-              <div className="sidebar-skills-list">
-                {skills.filter(s => s.enabled).slice(0, 16).map(skill => (
-                  <button key={skill.id} className="sidebar-skill-item" onClick={() => { setInput(skill.name); inputRef.current?.focus() }}>
-                    <span className="sidebar-skill-icon">{skill.icon}</span>
-                    <span>{skill.name}</span>
-                  </button>
-                ))}
+
+            {sidebarOpen && (
+              <div className="sidebar-search">
+                <div className="search-wrapper">
+                  <IconSearch size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search tasks & messages..."
+                    value={searchQuery}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
               </div>
             )}
-          </div>
+
+            <div className="sidebar-threads">
+              {sidebarOpen ? (
+                <>
+                  {threadGroups.length === 0 && <p className="no-threads">No tasks yet</p>}
+                  {threadGroups.map(group => (
+                    <div key={group.label} className="thread-group">
+                      <div className="thread-group-label">{group.label}</div>
+                      {group.items.map(thread => (
+                        <div key={thread.id} className={`thread-item ${thread.id === activeThreadId ? 'active' : ''}`} onClick={() => setActiveThreadId(thread.id)}>
+                          <IconMessageSquare size={14} />
+                          <span className="thread-title">{thread.title}</span>
+                          <button className="thread-delete" onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(thread.id) }} title="Delete">
+                            <IconX size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="sidebar-icons-only">
+                  <button className="sidebar-icon-btn" onClick={() => { setActiveThreadId(null); setInput('') }} title="New Task">
+                    <IconPlus size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
         )}
+
+
 
         {/* Footer: User avatar + Settings gear side by side */}
         <div className="sidebar-footer">
@@ -1942,6 +2068,9 @@ function App() {
             </div>
           </div>
         )}
+        {/* ── Screen Router ── */}
+        {sidebarView === 'chat' && (
+        <>
         {/* Top Nav Bar */}
         <div className="top-nav-bar">
           {!isLoggedIn && (
@@ -2181,6 +2310,276 @@ function App() {
           </div>
           <p className="input-hint">TaskBolt uses AI to set up and configure your computer</p>
         </div>
+        </>
+        )}
+
+        {/* ── Sessions Screen ── */}
+        {sidebarView === 'sessions' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>📋 Sessions</h2>
+              <span className="screen-count">{threads.length} conversations</span>
+            </div>
+            <div className="screen-body">
+              {threads.length === 0 ? (
+                <div className="screen-empty">
+                  <span>No conversations yet</span>
+                  <p>Start chatting to create sessions</p>
+                </div>
+              ) : (
+                <div className="sessions-list">
+                  {threads.sort((a, b) => b.updatedAt - a.updatedAt).map(t => (
+                    <div key={t.id} className="session-card" onClick={() => { setSidebarView('chat'); setActiveThreadId(t.id) }}>
+                      <div className="session-card-header">
+                        <span className="session-title">{t.title}</span>
+                        <span className="session-date">{new Date(t.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="session-meta">
+                        <span className="session-msg-count">{t.messages.length} messages</span>
+                        {t.messages.length > 0 && (
+                          <span className="session-preview">{t.messages[t.messages.length - 1].content.slice(0, 80)}...</span>
+                        )}
+                      </div>
+                      <button className="session-delete-btn" onClick={e => { e.stopPropagation(); deleteThread(t.id) }}>
+                        <IconX size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Memory Screen ── */}
+        {sidebarView === 'memory' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>🧠 Memory</h2>
+              <span className="screen-count">{memoryEntries.length} entries</span>
+            </div>
+            <div className="screen-body">
+              <div className="memory-profile-section">
+                <h3>User Profile</h3>
+                <textarea
+                  className="memory-profile-input"
+                  placeholder="Who is the user? Name, role, preferences, habits..."
+                  value={memoryProfile}
+                  onChange={e => { setMemoryProfile(e.target.value); localStorage.setItem('tb_memory_profile', e.target.value) }}
+                  rows={4}
+                />
+                <div className="memory-profile-stats">
+                  <span>{memoryProfile.length} / 1,375 chars</span>
+                  <div className="memory-bar">
+                    <div className="memory-bar-fill" style={{ width: `${Math.min(100, (memoryProfile.length / 1375) * 100)}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              <h3>Memory Entries</h3>
+              <div className="memory-add-form">
+                <select value={newMemoryTarget} onChange={e => setNewMemoryTarget(e.target.value as 'memory' | 'user')} className="memory-target-select">
+                  <option value="memory">Notes</option>
+                  <option value="user">User</option>
+                </select>
+                <textarea
+                  className="memory-input"
+                  placeholder="Add a memory entry..."
+                  value={newMemoryContent}
+                  onChange={e => setNewMemoryContent(e.target.value)}
+                  rows={2}
+                />
+                <button className="btn-primary btn-sm" onClick={() => {
+                  if (!newMemoryContent.trim()) return
+                  const entry: MemoryEntry = { id: crypto.randomUUID(), target: newMemoryTarget, content: newMemoryContent.trim(), createdAt: Date.now() }
+                  saveMemory([entry, ...memoryEntries])
+                  setNewMemoryContent('')
+                }}>Add</button>
+              </div>
+
+              <div className="memory-entries">
+                {memoryEntries.map(entry => (
+                  <div key={entry.id} className={`memory-entry memory-${entry.target}`}>
+                    <div className="memory-entry-header">
+                      <span className={`memory-tag ${entry.target}`}>{entry.target === 'user' ? 'User' : 'Notes'}</span>
+                      <span className="memory-date">{new Date(entry.createdAt).toLocaleDateString()}</span>
+                      <button className="memory-remove-btn" onClick={() => saveMemory(memoryEntries.filter(e => e.id !== entry.id))}>
+                        <IconX size={10} />
+                      </button>
+                    </div>
+                    <p className="memory-entry-content">{entry.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tools Screen ── */}
+        {sidebarView === 'tools' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>🔧 Tools</h2>
+              <span className="screen-count">{toolsets.filter(t => t.enabled).length} / {toolsets.length} enabled</span>
+            </div>
+            <div className="screen-body">
+              <p className="screen-desc">Enable or disable AI capabilities</p>
+              <div className="tools-grid">
+                {toolsets.map(tool => (
+                  <div key={tool.id} className={`tool-card ${tool.enabled ? 'tool-enabled' : 'tool-disabled'}`}>
+                    <div className="tool-card-header">
+                      <span className="tool-card-icon">{tool.icon}</span>
+                      <span className="tool-card-name">{tool.name}</span>
+                    </div>
+                    <p className="tool-card-desc">{tool.description}</p>
+                    <label className="toggle">
+                      <input type="checkbox" checked={tool.enabled} onChange={e => setToolsets(prev => prev.map(t => t.id === tool.id ? { ...t, enabled: e.target.checked } : t))} />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Schedules Screen ── */}
+        {sidebarView === 'schedules' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>⏰ Schedules</h2>
+              <span className="screen-count">{schedules.length} tasks</span>
+            </div>
+            <div className="screen-body">
+              <div className="schedule-add-form">
+                <input className="input-field" placeholder="Task name" value={newScheduleName} onChange={e => setNewScheduleName(e.target.value)} />
+                <input className="input-field" placeholder="Schedule (e.g. '30m', 'every 2h', '0 9 * * *')" value={newScheduleCron} onChange={e => setNewScheduleCron(e.target.value)} />
+                <textarea className="input-field" placeholder="What should the agent do?" value={newSchedulePrompt} onChange={e => setNewSchedulePrompt(e.target.value)} rows={2} />
+                <button className="btn-primary btn-sm" onClick={() => {
+                  if (!newScheduleName.trim() || !newSchedulePrompt.trim()) return
+                  const task: ScheduledTask = { id: crypto.randomUUID(), name: newScheduleName.trim(), schedule: newScheduleCron || 'every 1h', prompt: newSchedulePrompt.trim(), enabled: true }
+                  saveSchedules([task, ...schedules])
+                  setNewScheduleName(''); setNewScheduleCron(''); setNewSchedulePrompt('')
+                }}>Create Schedule</button>
+              </div>
+
+              <div className="schedules-list">
+                {schedules.map(s => (
+                  <div key={s.id} className={`schedule-card ${s.enabled ? '' : 'schedule-disabled'}`}>
+                    <div className="schedule-card-header">
+                      <span className="schedule-name">{s.name}</span>
+                      <span className="schedule-cron">{s.schedule}</span>
+                      <label className="toggle">
+                        <input type="checkbox" checked={s.enabled} onChange={e => saveSchedules(schedules.map(t => t.id === s.id ? { ...t, enabled: e.target.checked } : t))} />
+                        <span className="toggle-slider" />
+                      </label>
+                      <button className="schedule-delete-btn" onClick={() => saveSchedules(schedules.filter(t => t.id !== s.id))}>
+                        <IconX size={12} />
+                      </button>
+                    </div>
+                    <p className="schedule-prompt">{s.prompt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Gateway Screen ── */}
+        {sidebarView === 'gateway' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>📡 Gateway</h2>
+              <span className="screen-count">{gatewayPlatforms.filter(p => p.connected).length} connected</span>
+            </div>
+            <div className="screen-body">
+              <p className="screen-desc">Connect messaging platforms to receive AI responses</p>
+              <div className="gateway-grid">
+                {gatewayPlatforms.map(p => (
+                  <div key={p.id} className={`gateway-card ${p.connected ? 'gateway-connected' : ''}`}>
+                    <span className="gateway-icon">{p.icon}</span>
+                    <span className="gateway-name">{p.name}</span>
+                    <span className={`gateway-status ${p.connected ? 'connected' : 'disconnected'}`}>
+                      {p.connected ? '● Connected' : '○ Not connected'}
+                    </span>
+                    <button className={`btn-secondary btn-sm ${p.connected ? 'btn-disconnect' : ''}`} onClick={() => {
+                      setGatewayPlatforms(prev => prev.map(pl => pl.id === p.id ? { ...pl, connected: !pl.connected } : pl))
+                    }}>
+                      {p.connected ? 'Disconnect' : 'Connect'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Kanban Screen ── */}
+        {sidebarView === 'kanban' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2>📊 Kanban Board</h2>
+              <span className="screen-count">{kanbanCards.length} cards</span>
+            </div>
+            <div className="screen-body">
+              <div className="kanban-add-form">
+                <input className="input-field" placeholder="Card title" value={newKanbanTitle} onChange={e => setNewKanbanTitle(e.target.value)} />
+                <select value={newKanbanColumn} onChange={e => setNewKanbanColumn(e.target.value as KanbanCard['column'])} className="input-field">
+                  <option value="todo">To Do</option>
+                  <option value="progress">In Progress</option>
+                  <option value="done">Done</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+                <button className="btn-primary btn-sm" onClick={() => {
+                  if (!newKanbanTitle.trim()) return
+                  const card: KanbanCard = { id: crypto.randomUUID(), title: newKanbanTitle.trim(), description: '', column: newKanbanColumn, priority: 'medium', createdAt: Date.now() }
+                  saveKanban([card, ...kanbanCards])
+                  setNewKanbanTitle('')
+                }}>Add Card</button>
+              </div>
+
+              <div className="kanban-board">
+                {(['todo', 'progress', 'done', 'blocked'] as const).map(col => {
+                  const colCards = kanbanCards.filter(c => c.column === col)
+                  const colLabel = { todo: 'To Do', progress: 'In Progress', done: 'Done', blocked: 'Blocked' }[col]
+                  const colColor = { todo: '#ffa657', progress: '#79c0ff', done: '#4ade80', blocked: '#f87171' }[col]
+                  return (
+                    <div key={col} className="kanban-column">
+                      <div className="kanban-column-header" style={{ borderColor: colColor }}>
+                        <span className="kanban-col-title">{colLabel}</span>
+                        <span className="kanban-col-count">{colCards.length}</span>
+                      </div>
+                      <div className="kanban-cards">
+                        {colCards.map(card => (
+                          <div key={card.id} className="kanban-card" draggable
+                            onDragStart={e => e.dataTransfer.setData('cardId', card.id)}
+                          >
+                            <span className="kanban-card-title">{card.title}</span>
+                            <div className="kanban-card-actions">
+                              {col !== 'todo' && <button className="kanban-move-btn" onClick={() => {
+                                const cols: KanbanCard['column'][] = ['todo', 'progress', 'done', 'blocked']
+                                const idx = cols.indexOf(card.column)
+                                if (idx > 0) saveKanban(kanbanCards.map(c => c.id === card.id ? { ...c, column: cols[idx - 1] } : c))
+                              }}>←</button>}
+                              {col !== 'blocked' && <button className="kanban-move-btn" onClick={() => {
+                                const cols: KanbanCard['column'][] = ['todo', 'progress', 'done', 'blocked']
+                                const idx = cols.indexOf(card.column)
+                                if (idx < cols.length - 1) saveKanban(kanbanCards.map(c => c.id === card.id ? { ...c, column: cols[idx + 1] } : c))
+                              }}>→</button>}
+                              <button className="kanban-del-btn" onClick={() => saveKanban(kanbanCards.filter(c => c.id !== card.id))}>
+                                <IconX size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Delete Thread Confirmation Modal */}
