@@ -1942,7 +1942,7 @@ function App() {
             { view: 'tools' as SidebarView, icon: '🔧', label: 'Tools' },
             { view: 'schedules' as SidebarView, icon: '⏰', label: 'Schedules' },
             { view: 'gateway' as SidebarView, icon: '📡', label: 'Gateway' },
-            { view: 'kanban' as SidebarView, icon: '📊', label: 'Kanban' },
+            { view: 'kanban' as SidebarView, icon: '📊', label: 'Task Board' },
           ]).map(item => (
             <button
               key={item.view}
@@ -2518,7 +2518,7 @@ function App() {
         {sidebarView === 'kanban' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>📊 Kanban Board</h2>
+              <h2>📊 Task Board</h2>
               <span className="screen-count">{kanbanCards.length} cards</span>
             </div>
             <div className="screen-body">
