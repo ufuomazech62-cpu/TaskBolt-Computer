@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { listen } from '@tauri-apps/api/event'
@@ -109,7 +109,7 @@ interface MCPServer {
 }
 
 type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban'
-type SidebarView = 'chat' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban'
+type SidebarView = 'chat' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban' | 'skills'
 
 // ── Hermes-style Screen Interfaces ──────────────────
 interface MemoryEntry {
@@ -157,6 +157,26 @@ type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp
 
 // ── SaaS Backend ────────────────────────────────────
 const SAAS_URL = 'https://taskbolt.space'
+
+// ── Tool SVG Icons ─────────────────────────────────────
+function renderToolIcon(icon: string): React.ReactNode {
+  const s = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }
+  const icons: Record<string, React.ReactNode> = {
+    terminal: <svg {...s}><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>,
+    browser: <svg {...s}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
+    file: <svg {...s}><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+    code: <svg {...s}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+    web: <svg {...s}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    vision: <svg {...s}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+    image: <svg {...s}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+    voice: <svg {...s}><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+    delegation: <svg {...s}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+    scheduler: <svg {...s}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    memory: <svg {...s}><path d="M12 2a10 10 0 0110 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/></svg>,
+    skills: <svg {...s}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+  }
+  return icons[icon] || <svg {...s}><circle cx="12" cy="12" r="10"/></svg>
+}
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
@@ -252,18 +272,18 @@ function App() {
     { id: 'imessage', name: 'iMessage', icon: '💬', connected: false },
   ])
   const [toolsets, setToolsets] = useState<ToolsetConfig[]>([
-    { id: 'terminal', name: 'Terminal', description: 'Execute shell commands', icon: '💻', enabled: true },
-    { id: 'browser', name: 'Browser', description: 'Browse and interact with websites', icon: '🌐', enabled: true },
-    { id: 'file', name: 'File System', description: 'Read, write, and manage files', icon: '📁', enabled: true },
-    { id: 'code', name: 'Code Execution', description: 'Run Python, JS, and other code', icon: '⌨️', enabled: true },
-    { id: 'web', name: 'Web Search', description: 'Search the internet for information', icon: '🔍', enabled: true },
-    { id: 'vision', name: 'Vision', description: 'Analyze images and screenshots', icon: '👁️', enabled: true },
-    { id: 'image_gen', name: 'Image Generation', description: 'Create AI-generated images', icon: '🎨', enabled: true },
-    { id: 'tts', name: 'Text-to-Speech', description: 'Convert text to spoken audio', icon: '🔊', enabled: true },
-    { id: 'delegation', name: 'Delegation', description: 'Spawn sub-agents for complex tasks', icon: '🤝', enabled: true },
-    { id: 'cron', name: 'Scheduling', description: 'Set up recurring automated tasks', icon: '⏰', enabled: true },
-    { id: 'memory', name: 'Memory', description: 'Persistent memory across sessions', icon: '🧠', enabled: true },
-    { id: 'skills', name: 'Skills', description: 'Procedural knowledge and workflows', icon: '🧩', enabled: true },
+    { id: 'terminal', name: 'Terminal', description: 'Run commands and scripts on your computer', icon: 'terminal', enabled: true },
+    { id: 'browser', name: 'Browser', description: 'Browse and interact with websites', icon: 'browser', enabled: true },
+    { id: 'file', name: 'File Manager', description: 'Read, write, and organize your files', icon: 'file', enabled: true },
+    { id: 'code', name: 'Code Runner', description: 'Write and run code in any language', icon: 'code', enabled: true },
+    { id: 'web', name: 'Web Search', description: 'Search the internet and summarize results', icon: 'web', enabled: true },
+    { id: 'vision', name: 'Vision', description: 'Analyze images and screenshots', icon: 'vision', enabled: true },
+    { id: 'image_gen', name: 'Image Creator', description: 'Generate images from descriptions', icon: 'image', enabled: true },
+    { id: 'tts', name: 'Voice', description: 'Read text aloud in a natural voice', icon: 'voice', enabled: true },
+    { id: 'delegation', name: 'Multi-Agent', description: 'Split complex work across multiple AI workers', icon: 'delegation', enabled: true },
+    { id: 'cron', name: 'Scheduler', description: 'Run tasks automatically on a schedule', icon: 'scheduler', enabled: true },
+    { id: 'memory', name: 'Memory', description: 'Remember context across conversations', icon: 'memory', enabled: true },
+    { id: 'skills', name: 'Skills', description: 'Learn and reuse specialized workflows', icon: 'skills', enabled: true },
   ])
   const [newKanbanTitle, setNewKanbanTitle] = useState('')
   const [newKanbanColumn, setNewKanbanColumn] = useState<KanbanCard['column']>('todo')
@@ -1725,7 +1745,7 @@ function App() {
           </div>
           <div className="settings-body">
             <div className="settings-tabs">
-              {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'advanced'] as SettingsTab[]).map(tab => (
+              {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'feedback', 'advanced'] as SettingsTab[]).map(tab => (
                 <button key={tab} className={`tab-btn ${settingsTab === tab ? 'active' : ''}`} onClick={() => setSettingsTab(tab)}>
                   {tab === 'mcp' ? 'MCP' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -2113,6 +2133,7 @@ function App() {
             { view: 'schedules' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, label: 'Automations' },
             { view: 'gateway' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>, label: 'Messaging' },
             { view: 'kanban' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: 'Task Board' },
+            { view: 'skills' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Skills' },
           ]).map(item => (
             <button
               key={item.view}
@@ -2487,7 +2508,7 @@ function App() {
         {sidebarView === 'sessions' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>📋 Sessions</h2>
+              <h2>Sessions</h2>
               <span className="screen-count">{threads.length} conversations</span>
             </div>
             <div className="screen-body">
@@ -2525,7 +2546,7 @@ function App() {
         {sidebarView === 'memory' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>🧠 Memory</h2>
+              <h2>Memory</h2>
               <span className="screen-count">{memoryEntries.length} entries</span>
             </div>
             <div className="screen-body">
@@ -2588,7 +2609,7 @@ function App() {
         {sidebarView === 'tools' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>🔧 Tools</h2>
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>Capabilities</h2>
               <span className="screen-count">{toolsets.filter(t => t.enabled).length} / {toolsets.length} enabled</span>
             </div>
             <div className="screen-body">
@@ -2597,7 +2618,7 @@ function App() {
                 {toolsets.map(tool => (
                   <div key={tool.id} className={`tool-card ${tool.enabled ? 'tool-enabled' : 'tool-disabled'}`}>
                     <div className="tool-card-header">
-                      <span className="tool-card-icon">{tool.icon}</span>
+                      <span className="tool-card-icon">{renderToolIcon(tool.icon)}</span>
                       <span className="tool-card-name">{tool.name}</span>
                     </div>
                     <p className="tool-card-desc">{tool.description}</p>
@@ -2620,19 +2641,34 @@ function App() {
         {sidebarView === 'schedules' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>⏰ Schedules</h2>
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Automations</h2>
               <span className="screen-count">{schedules.length} tasks</span>
             </div>
             <div className="screen-body">
+              <p className="screen-desc">Set up tasks that run automatically — daily summaries, weekly reports, regular check-ins, and more</p>
+              <div className="schedule-quick-picks">
+                <button className="schedule-quick-btn" onClick={() => { setNewScheduleName('Morning Briefing'); setNewScheduleCron('every day at 8am'); setNewSchedulePrompt('Give me a morning briefing — weather, my calendar, and any pending tasks') }}>
+                  <span>☀️</span> Morning Briefing
+                </button>
+                <button className="schedule-quick-btn" onClick={() => { setNewScheduleName('Weekly Report'); setNewScheduleCron('every Friday at 5pm'); setNewSchedulePrompt("Summarize my week — what I accomplished, what's pending, and priorities for next week") }}>
+                  <span>📊</span> Weekly Report
+                </button>
+                <button className="schedule-quick-btn" onClick={() => { setNewScheduleName('System Check'); setNewScheduleCron('every day at noon'); setNewSchedulePrompt('Check my computer health — disk space, updates needed, and any issues') }}>
+                  <span>🔍</span> System Check
+                </button>
+                <button className="schedule-quick-btn" onClick={() => { setNewScheduleName('News Summary'); setNewScheduleCron('every day at 7am'); setNewSchedulePrompt("Search for today's top tech news and give me a brief summary") }}>
+                  <span>📰</span> News Summary
+                </button>
+              </div>
               <div className="schedule-add-form">
-                <input className="input-field" placeholder="Task name" value={newScheduleName} onChange={e => setNewScheduleName(e.target.value)} />
-                <input className="input-field" placeholder="Schedule (e.g. '30m', 'every 2h', '0 9 * * *')" value={newScheduleCron} onChange={e => setNewScheduleCron(e.target.value)} />
-                <textarea className="input-field" placeholder="What should the agent do?" value={newSchedulePrompt} onChange={e => setNewSchedulePrompt(e.target.value)} rows={2} />
+                <input className="input-field" placeholder="Task name (e.g. Daily Backup)" value={newScheduleName} onChange={e => setNewScheduleName(e.target.value)} />
+                <input className="input-field" placeholder="When? (e.g. every day at 9am, every Monday, every 2 hours)" value={newScheduleCron} onChange={e => setNewScheduleCron(e.target.value)} />
+                <textarea className="input-field" placeholder="What should TaskBolt do? (e.g. Check my emails and summarize anything important)" value={newSchedulePrompt} onChange={e => setNewSchedulePrompt(e.target.value)} rows={2} />
                 <button className="btn-primary btn-sm" onClick={() => {
                   if (!newScheduleName.trim() || !newSchedulePrompt.trim()) return
                   addScheduleReal(newScheduleName.trim(), newScheduleCron || 'every 1h', newSchedulePrompt.trim())
                   setNewScheduleName(''); setNewScheduleCron(''); setNewSchedulePrompt('')
-                }}>Create Schedule</button>
+                }}>Create Automation</button>
               </div>
 
               <div className="schedules-list">
@@ -2661,11 +2697,11 @@ function App() {
         {sidebarView === 'gateway' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>Messaging</h2>
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Messaging</h2>
               <span className="screen-count">{gatewayPlatforms.filter(p => p.connected).length} connected</span>
             </div>
             <div className="screen-body">
-              <p className="screen-desc">Get AI responses delivered to your favorite apps</p>
+              <p className="screen-desc">Connect your messaging apps so you can chat with TaskBolt from anywhere — send a message on Telegram or WhatsApp and get an instant AI response</p>
               <div className="gateway-grid">
                 {gatewayPlatforms.map(p => (
                   <div key={p.id} className={`gateway-card ${p.connected ? 'gateway-connected' : ''}`}>
@@ -2700,7 +2736,7 @@ function App() {
         {sidebarView === 'kanban' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>📊 Task Board</h2>
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Task Board</h2>
               <span className="screen-count">{kanbanCards.length} cards</span>
             </div>
             <div className="screen-body">
@@ -2758,6 +2794,39 @@ function App() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Skills Screen ── */}
+        {sidebarView === 'skills' && (
+          <div className="screen-view">
+            <div className="screen-header">
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Skills</h2>
+              <span className="screen-count">{skills.filter(s => s.enabled).length} / {skills.length} active</span>
+            </div>
+            <div className="screen-body">
+              <p className="screen-desc">Skills are specialized abilities TaskBolt can use. Toggle them on or off to customize what your assistant can do.</p>
+              <div className="tools-grid">
+                {skills.map(skill => (
+                  <div key={skill.id} className={`tool-card ${skill.enabled ? 'tool-enabled' : 'tool-disabled'}`}>
+                    <div className="tool-card-header">
+                      <span className="tool-card-icon">{skill.icon}</span>
+                      <span className="tool-card-name">{skill.name}</span>
+                      {skill.isCore && <span className="skill-core-badge">Core</span>}
+                    </div>
+                    <p className="tool-card-desc">{skill.description}</p>
+                    <label className="toggle">
+                      <input type="checkbox" checked={skill.enabled} onChange={e => {
+                        const enabled = e.target.checked
+                        setSkills(prev => prev.map(s => s.id === skill.id ? { ...s, enabled } : s))
+                        if (!skill.isCore) toggleSkillReal(skill.id, enabled)
+                      }} />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
