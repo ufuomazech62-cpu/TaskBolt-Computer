@@ -1094,11 +1094,14 @@ body {
   gap: 12px;
   max-width: 800px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0 0 0 auto;
+  padding: 4px 16px;
 }
 
 .msg-user {
   flex-direction: row-reverse;
+  max-width: 75%;
+  margin-left: auto;
 }
 
 .msg-avatar {
@@ -1118,7 +1121,10 @@ body {
 }
 
 .msg-user .msg-body {
+  flex: 0 1 auto;
   text-align: right;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .msg-text {
@@ -1139,9 +1145,11 @@ body {
 }
 
 .msg-user .msg-text {
-  background: var(--accent-bg);
-  color: var(--accent-text);
+  background: #ffffff;
+  color: #000000;
   text-align: right;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 18px 18px 4px 18px;
 }
 
 /* Agent Status */
@@ -3247,17 +3255,22 @@ body {
 
 .msg-user {
   justify-content: flex-end;
+  margin-left: auto;
+  max-width: 75%;
 }
 
 .msg-user .msg-body {
-  background: rgba(255, 47, 146, 0.12);
-  padding: 10px 16px;
-  border-radius: 18px 18px 4px 18px;
-  max-width: 70%;
+  flex: 0 1 auto;
+  padding: 0;
+  max-width: 100%;
 }
 
 .msg-user .msg-text {
-  color: var(--text);
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 16px;
 }
 
 .msg-assistant {

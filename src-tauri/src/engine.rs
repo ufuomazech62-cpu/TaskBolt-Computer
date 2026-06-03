@@ -42,15 +42,23 @@ fn find_hermes() -> Option<String> {
     // 1. Check Python Scripts directories (where pip installs on Windows)
     if cfg!(windows) {
         let username = std::env::var("USERNAME").unwrap_or_default();
+        // Prefer hermes.exe (has gateway run command) over hermes-agent.exe (chat only)
         for version in &["Python313", "Python312", "Python311", "Python310"] {
-            for name in &["hermes-agent.exe", "hermes.exe"] {
-                let py_scripts = PathBuf::from(format!(
-                    r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\{}",
-                    username, version, name
-                ));
-                if py_scripts.exists() {
-                    return Some(py_scripts.to_string_lossy().to_string());
-                }
+            let hermes_exe = PathBuf::from(format!(
+                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes.exe",
+                username, version
+            ));
+            if hermes_exe.exists() {
+                return Some(hermes_exe.to_string_lossy().to_string());
+            }
+        }
+        for version in &["Python313", "Python312", "Python311", "Python310"] {
+            let agent_exe = PathBuf::from(format!(
+                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes-agent.exe",
+                username, version
+            ));
+            if agent_exe.exists() {
+                return Some(agent_exe.to_string_lossy().to_string());
             }
         }
         
@@ -191,6 +199,7 @@ fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
     // Write .env file
     let env_content = format!(
         r#"# TaskBolt Engine Config
+DASHSCOPE_API_KEY={api_key}
 OPENAI_API_KEY={api_key}
 OPENAI_BASE_URL={DASHSCOPE_BASE_URL}
 API_SERVER_KEY={GATEWAY_KEY}
@@ -201,10 +210,16 @@ API_SERVER_HOST={GATEWAY_HOST}
     std::fs::write(hermes_dir.join(".env"), env_content)
         .map_err(|e| format!("Failed to write .env: {e}"))?;
 
-    // Write config.yaml
+    // Write config.yaml with proper hermes config format
     let config_content = format!(
         r#"# TaskBolt Configuration
-model: "openai:{DEFAULT_MODEL}"
+model:
+  provider: alibaba
+  default: "{DEFAULT_MODEL}"
+
+providers: {{}}
+fallback_providers: []
+credential_pool_strategies: {{}}
 
 toolsets:
   - terminal
@@ -236,6 +251,8 @@ platforms:
     port: {GATEWAY_PORT}
     host: "{GATEWAY_HOST}"
     key: "{GATEWAY_KEY}"
+
+_config_version: 23
 "#
     );
     std::fs::write(hermes_dir.join("config.yaml"), config_content)
@@ -339,22 +356,25 @@ pub fn start_engine(
     let hermes_exe = find_hermes()
         .ok_or_else(|| "TaskBolt engine not found. Please run setup first.".to_string())?;
 
-    // Use the existing ~/.hermes directory (which has a working config)
-    // If it doesn't exist, fall back to ~/.taskbolt
-    let config_dir = if home.join(".hermes").join("config.yaml").exists() {
-        home.join(".hermes")
-    } else {
-        hermes_dir.clone()
-    };
+    // Always use ~/.taskbolt as config dir — we write our own config with api_server
+    let config_dir = hermes_dir.clone();
 
-    // Spawn gateway process with suppressed output
-    let mut child = Command::new(&hermes_exe)
-        .args(["gateway"])
+    // Clean stale lock/pid files before starting
+    let lock_file = config_dir.join("gateway.lock");
+    let pid_file = config_dir.join("gateway.pid");
+    if lock_file.exists() { std::fs::remove_file(&lock_file).ok(); }
+    if pid_file.exists() { std::fs::remove_file(&pid_file).ok(); }
+
+    // Spawn gateway process with --accept-hooks and --replace flags
+    let api_key = get_api_key();
+    let child = Command::new(&hermes_exe)
+        .args(["gateway", "run", "--accept-hooks"])
         .env("HERMES_HOME", config_dir.to_string_lossy().to_string())
+        .env("DASHSCOPE_API_KEY", &api_key)
         .current_dir(&config_dir)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())  // Suppress stdout
-        .stderr(Stdio::null())  // Suppress stderr
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("Failed to spawn gateway: {e}"))?;
