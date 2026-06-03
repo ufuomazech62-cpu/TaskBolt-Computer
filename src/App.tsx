@@ -308,11 +308,8 @@ function App() {
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
     { id: 'telegram', name: 'Telegram', icon: '✈️', connected: false },
-    { id: 'discord', name: 'Discord', icon: '🎮', connected: false },
-    { id: 'slack', name: 'Slack', icon: '💬', connected: false },
     { id: 'whatsapp', name: 'WhatsApp', icon: '📱', connected: false },
-    { id: 'email', name: 'Email', icon: '📧', connected: false },
-    { id: 'sms', name: 'SMS', icon: '💌', connected: false },
+    { id: 'imessage', name: 'iMessage', icon: '💬', connected: false },
   ])
   const [toolsets, setToolsets] = useState<ToolsetConfig[]>([
     { id: 'terminal', name: 'Terminal', description: 'Execute shell commands', icon: '💻', enabled: true },

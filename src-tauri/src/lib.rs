@@ -216,13 +216,9 @@ async fn cancel_message(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     // Kill and restart gateway to cancel
-    let mut guard = state.engine.lock().await;
-    if let Some(handle) = guard.as_mut() {
-        let mut child_guard = handle.child.lock().await;
-        if let Some(ref mut child) = *child_guard {
-            child.kill().await.ok();
-            *child_guard = None;
-        }
+    let guard = state.engine.lock().await;
+    if let Some(handle) = guard.as_ref() {
+        handle.kill_gateway().await;
     }
     Ok(())
 }

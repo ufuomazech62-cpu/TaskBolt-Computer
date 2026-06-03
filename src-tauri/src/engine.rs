@@ -15,7 +15,6 @@ const DASHSCOPE_DEFAULT_KEY: &str = "sk-ws-H.HREPLP.gp4v.MEYCIQDNuGK2sFsWGvTtarP
 const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 
 pub struct EngineHandle {
-    #[allow(dead_code)]
     child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
     pub client: Client,
     pub gateway_url: String,
@@ -28,6 +27,14 @@ impl EngineHandle {
 
     pub fn api_key(&self) -> &str {
         GATEWAY_KEY
+    }
+
+    pub async fn kill_gateway(&self) {
+        let mut child_guard = self.child.lock().await;
+        if let Some(ref mut child) = *child_guard {
+            child.kill().await.ok();
+            *child_guard = None;
+        }
     }
 }
 
@@ -266,7 +273,7 @@ pub fn start_engine(
 
     // Read stderr for debugging
     if let Some(stderr) = child.stderr.take() {
-        let app = app_handle.clone();
+        let _app = app_handle.clone();
         tokio::spawn(async move {
             use tokio::io::AsyncBufReadExt;
             let reader = tokio::io::BufReader::new(stderr);
