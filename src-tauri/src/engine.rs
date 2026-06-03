@@ -15,16 +15,13 @@ const DASHSCOPE_DEFAULT_KEY: &str = "sk-ws-H.HREPLP.gp4v.MEYCIQDNuGK2sFsWGvTtarP
 const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 
 pub struct EngineHandle {
+    #[allow(dead_code)]
     child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
     pub client: Client,
     pub gateway_url: String,
 }
 
 impl EngineHandle {
-    pub fn gateway_url(&self) -> &str {
-        &self.gateway_url
-    }
-
     pub fn api_key(&self) -> &str {
         GATEWAY_KEY
     }
@@ -40,15 +37,34 @@ impl EngineHandle {
 
 /// Find hermes CLI executable
 fn find_hermes() -> Option<String> {
-    // Check common locations
     let home = dirs::home_dir()?;
 
-    // 1. Check ~/.hermes/bin/hermes or ~/.local/bin/hermes
+    // 1. Check Python Scripts directories (where pip installs on Windows)
+    if cfg!(windows) {
+        let username = std::env::var("USERNAME").unwrap_or_default();
+        for version in &["Python313", "Python312", "Python311", "Python310"] {
+            let py_scripts = PathBuf::from(format!(
+                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes.exe",
+                username, version
+            ));
+            if py_scripts.exists() {
+                return Some(py_scripts.to_string_lossy().to_string());
+            }
+        }
+        
+        // Also check user-wide Python installation
+        let user_scripts = home.join("AppData").join("Roaming").join("Python").join("Scripts").join("hermes.exe");
+        if user_scripts.exists() {
+            return Some(user_scripts.to_string_lossy().to_string());
+        }
+    }
+
+    // 2. Check ~/.taskbolt locations
     let candidates = vec![
-        home.join(".hermes").join("bin").join("hermes"),
+        home.join(".taskbolt").join("bin").join("hermes"),
         home.join(".local").join("bin").join("hermes"),
-        home.join(".hermes").join(".venv").join("Scripts").join("hermes.exe"),
-        home.join(".hermes").join(".venv").join("bin").join("hermes"),
+        home.join(".taskbolt").join(".venv").join("Scripts").join("hermes.exe"),
+        home.join(".taskbolt").join(".venv").join("bin").join("hermes"),
     ];
 
     for candidate in &candidates {
@@ -101,10 +117,40 @@ fn get_api_key() -> String {
     std::env::var("DASHSCOPE_API_KEY").unwrap_or_else(|_| DASHSCOPE_DEFAULT_KEY.to_string())
 }
 
-/// Setup hermes config files
+/// Setup hermes config files in ~/.taskbolt/ and symlink to ~/.hermes/
 fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
+    // Create ~/.taskbolt/ directory
     std::fs::create_dir_all(hermes_dir)
-        .map_err(|e| format!("Failed to create .hermes dir: {e}"))?;
+        .map_err(|e| format!("Failed to create .taskbolt dir: {e}"))?;
+
+    // Create symlink: ~/.hermes/ → ~/.taskbolt/
+    // This way hermes-agent reads from ~/.hermes/ but we brand it as ~/.taskbolt/
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let symlink_path = home.join(".hermes");
+    
+    // Remove existing symlink or directory if it exists
+    if symlink_path.exists() || symlink_path.symlink_metadata().is_ok() {
+        if symlink_path.is_symlink() {
+            std::fs::remove_file(&symlink_path).ok();
+        } else if symlink_path.is_dir() {
+            // It's a real directory, rename it as backup
+            let backup = home.join(".hermes.backup");
+            std::fs::rename(&symlink_path, &backup).ok();
+        }
+    }
+
+    // Create symlink
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(hermes_dir, &symlink_path)
+            .map_err(|e| format!("Failed to create symlink: {e}"))?;
+    }
+    
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(hermes_dir, &symlink_path)
+            .map_err(|e| format!("Failed to create symlink: {e}"))?;
+    }
 
     let api_key = get_api_key();
 
@@ -203,26 +249,26 @@ pub async fn install_hermes(app_handle: tauri::AppHandle) -> Result<String, Stri
     // Emit progress
     app_handle.emit("agent-event", serde_json::json!({
         "type": "status",
-        "content": "Installing TaskBolt engine (this may take a few minutes)..."
+        "content": "Setting up your personal assistant (this takes about a minute)..."
     }).to_string()).ok();
 
     let output = Command::new(&python_exe)
-        .args(["-m", "pip", "install", "hermes-agent", "--quiet", "--disable-pip-version-check"])
+        .args(["-m", "pip", "install", "hermes-agent", "--user", "--quiet", "--disable-pip-version-check"])
         .output()
         .await
-        .map_err(|e| format!("Failed to run pip: {e}"))?;
+        .map_err(|e| format!("Could not run installer: {e}. Make sure Python is installed."))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("pip install failed: {stderr}"));
+        return Err(format!("Installation failed: {stderr}"));
     }
 
     app_handle.emit("agent-event", serde_json::json!({
         "type": "status",
-        "content": "Engine installed successfully!"
+        "content": "Almost ready..."
     }).to_string()).ok();
 
-    Ok("hermes-agent installed".to_string())
+    Ok("Installed successfully".to_string())
 }
 
 /// Wait for gateway to be ready
@@ -250,40 +296,26 @@ pub fn start_engine(
 ) -> Result<EngineHandle, String> {
     let home = dirs::home_dir()
         .ok_or_else(|| "Could not find home directory".to_string())?;
-    let hermes_dir = home.join(".hermes");
+    let hermes_dir = home.join(".taskbolt");
 
     // Setup config
     setup_hermes_config(&hermes_dir)?;
 
     // Find hermes executable
     let hermes_exe = find_hermes()
-        .ok_or_else(|| "Hermes CLI not found. Please run setup first.".to_string())?;
+        .ok_or_else(|| "TaskBolt engine not found. Please run setup first.".to_string())?;
 
-    // Spawn gateway process
+    // Spawn gateway process with suppressed output
     let mut child = Command::new(&hermes_exe)
         .args(["gateway"])
         .env("HERMES_HOME", hermes_dir.to_string_lossy().to_string())
         .current_dir(&hermes_dir)
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::null())  // Suppress stdout
+        .stderr(Stdio::null())  // Suppress stderr
         .kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("Failed to spawn gateway: {e}"))?;
-
-    // Read stderr for debugging
-    if let Some(stderr) = child.stderr.take() {
-        let _app = app_handle.clone();
-        tokio::spawn(async move {
-            use tokio::io::AsyncBufReadExt;
-            let reader = tokio::io::BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                // Log gateway stderr (debug info)
-                let _ = line; // Suppress unused warning
-            }
-        });
-    }
 
     let gateway_url = format!("http://{}:{}", GATEWAY_HOST, GATEWAY_PORT);
     let client = Client::builder()

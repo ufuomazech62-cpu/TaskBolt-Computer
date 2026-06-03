@@ -43,8 +43,8 @@ pub struct Schedule {
 
 fn get_hermes_home() -> PathBuf {
     dirs::home_dir()
-        .map(|h| h.join(".hermes"))
-        .unwrap_or_else(|| PathBuf::from(".hermes"))
+        .map(|h| h.join(".taskbolt"))
+        .unwrap_or_else(|| PathBuf::from(".taskbolt"))
 }
 
 fn read_config_yaml() -> Result<YamlValue, String> {

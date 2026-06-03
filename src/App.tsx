@@ -153,84 +153,21 @@ interface ToolsetConfig {
   icon: string
   enabled: boolean
 }
-type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp' | 'advanced'
+type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp' | 'feedback' | 'advanced'
 
 // ── SaaS Backend ────────────────────────────────────
 const SAAS_URL = 'https://taskbolt.space'
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
-  // ── Quick Actions (top row) ──
-  { id: 'general-task', name: 'General Task', description: 'Ask me to do anything on your computer', icon: '⚡', enabled: true, isCore: true },
-  { id: 'troubleshoot', name: 'Troubleshoot', description: 'Diagnose and fix any computer problem', icon: '🔧', enabled: true, isCore: true },
-
-  // ── Everyday Essentials ──
-  { id: 'install', name: 'Install Software', description: 'Find and install any application', icon: '📦', enabled: true, isCore: true },
-  { id: 'fix', name: 'Fix Issues', description: 'Repair system problems automatically', icon: '🩹', enabled: true, isCore: true },
-  { id: 'cleanup', name: 'Clean & Optimize', description: 'Free disk space and boost performance', icon: '🧹', enabled: true, isCore: true },
-  { id: 'setup', name: 'Setup My Computer', description: 'Auto-detect and configure your PC', icon: '⚙️', enabled: true, isCore: true },
-  { id: 'update', name: 'Update Everything', description: 'Keep your system and apps up to date', icon: '🔄', enabled: true, isCore: true },
-
-  // ── Productivity & Office ──
-  { id: 'data-analysis', name: 'Data Analysis', description: 'Analyze spreadsheets, CSVs, and datasets', icon: '📊', enabled: true, isCore: true },
-  { id: 'documents', name: 'Create Documents', description: 'Write reports, summaries, and presentations', icon: '📄', enabled: true, isCore: true },
-  { id: 'email', name: 'Email Assistant', description: 'Draft, organize, and manage your emails', icon: '✉️', enabled: true, isCore: true },
-  { id: 'file-organizer', name: 'Organize Files', description: 'Sort, rename, and organize files automatically', icon: '📁', enabled: true, isCore: true },
-  { id: 'research', name: 'Research Assistant', description: 'Web research and comprehensive summaries', icon: '🔍', enabled: true, isCore: true },
-  { id: 'writing', name: 'Writing Assistant', description: 'Edit, proofread, and improve your writing', icon: '✍️', enabled: true, isCore: true },
-  { id: 'pdf-tools', name: 'PDF Tools', description: 'Merge, split, extract, and convert PDFs', icon: '📑', enabled: true, isCore: true },
-  { id: 'translation', name: 'Translation', description: 'Translate documents and text to any language', icon: '🌐', enabled: true, isCore: true },
-  { id: 'presentations', name: 'Presentations', description: 'Create slide decks with content and design', icon: '🎯', enabled: true, isCore: true },
-  { id: 'meeting-notes', name: 'Meeting Notes', description: 'Summarize meetings and extract action items', icon: '📝', enabled: true, isCore: true },
-  { id: 'resume-builder', name: 'Resume & CV', description: 'Build professional resumes and cover letters', icon: '👔', enabled: true, isCore: true },
-  { id: 'invoice', name: 'Invoices & Receipts', description: 'Create invoices, track expenses, generate receipts', icon: '🧾', enabled: true, isCore: true },
-
-  // ── Professional & Business ──
-  { id: 'legal-docs', name: 'Legal Documents', description: 'Draft contracts, NDAs, terms of service, agreements', icon: '⚖️', enabled: true, isCore: true },
-  { id: 'financial-analysis', name: 'Financial Analysis', description: 'Analyze budgets, P&L statements, cash flow, investments', icon: '💰', enabled: true, isCore: true },
-  { id: 'business-plan', name: 'Business Plans', description: 'Write business plans, market analysis, pitch decks', icon: '📈', enabled: true, isCore: true },
-  { id: 'tax-prep', name: 'Tax Preparation', description: 'Organize tax documents, calculate deductions, prepare filings', icon: '🏛️', enabled: true, isCore: true },
-  { id: 'project-mgmt', name: 'Project Management', description: 'Create project plans, Gantt charts, task breakdowns', icon: '📋', enabled: true, isCore: true },
-  { id: 'hr-assistant', name: 'HR & Recruiting', description: 'Job descriptions, interview questions, onboarding docs', icon: '👥', enabled: true, isCore: true },
-  { id: 'seo-audit', name: 'SEO & Marketing', description: 'SEO audits, keyword research, content strategy, social media', icon: '📣', enabled: true, isCore: true },
-  { id: 'competitor-analysis', name: 'Competitor Analysis', description: 'Research competitors, SWOT analysis, market positioning', icon: '🎯', enabled: true, isCore: true },
-
-  // ── Creative & Media ──
-  { id: 'image-editing', name: 'Image Editing', description: 'Batch resize, convert, watermark, and edit images', icon: '🖼️', enabled: true, isCore: true },
-  { id: 'video-tools', name: 'Video Tools', description: 'Convert, compress, trim, and merge video files', icon: '🎬', enabled: true, isCore: true },
-  { id: 'audio-tools', name: 'Audio Tools', description: 'Convert, edit, and process audio files', icon: '🎵', enabled: true, isCore: true },
-  { id: 'social-media', name: 'Social Media', description: 'Create posts, schedule content, generate captions', icon: '📱', enabled: true, isCore: true },
-  { id: 'branding', name: 'Brand Identity', description: 'Create brand guidelines, color palettes, typography', icon: '🎨', enabled: true, isCore: true },
-
-  // ── System & Security ──
-  { id: 'network', name: 'Network Setup', description: 'Configure WiFi, firewall, and networking', icon: '📡', enabled: true, isCore: true },
-  { id: 'security', name: 'Security Check', description: 'Scan and harden your system security', icon: '🛡️', enabled: true, isCore: true },
-  { id: 'backup', name: 'Backup & Restore', description: 'Create backups and restore points', icon: '💾', enabled: true, isCore: true },
-  { id: 'privacy-audit', name: 'Privacy Audit', description: 'Check data exposure, remove traces, harden privacy', icon: '🔒', enabled: true, isCore: true },
-  { id: 'malware-scan', name: 'Malware Scan', description: 'Deep scan for malware, spyware, and suspicious processes', icon: '🦠', enabled: true, isCore: true },
-
-  // ── Automation & Power Tools ──
-  { id: 'desktop-control', name: 'Desktop Control', description: 'Control mouse, keyboard, and automate clicks', icon: '🖱️', enabled: true, isCore: true },
-  { id: 'browser', name: 'Browser Automation', description: 'Browse, scrape, and fill web forms automatically', icon: '🌍', enabled: true, isCore: true },
-  { id: 'workflow-auto', name: 'Workflow Automation', description: 'Automate repetitive tasks with scripts and macros', icon: '🔁', enabled: true, isCore: true },
-  { id: 'batch-ops', name: 'Batch Operations', description: 'Rename, convert, resize hundreds of files at once', icon: '⚡', enabled: true, isCore: true },
-  { id: 'scheduled-tasks', name: 'Scheduled Tasks', description: 'Set up cron jobs, reminders, and automated schedules', icon: '⏰', enabled: true, isCore: true },
-  { id: 'web-scraping', name: 'Web Scraping', description: 'Extract data from websites, download content, monitor pages', icon: '🕷️', enabled: true, isCore: true },
-
-  // ── Developer & IT ──
-  { id: 'ai-setup', name: 'AI Agent Setup', description: 'Configure Claude, Copilot, Cursor, and more', icon: '🤖', enabled: true, isCore: true },
-  { id: 'local-llm', name: 'Local LLM Setup', description: 'Install and run AI models on your computer', icon: '🧠', enabled: true, isCore: true },
-  { id: 'dev-env', name: 'Development Setup', description: 'Set up Python, Node, Docker, and dev tools', icon: '💻', enabled: true, isCore: true },
-  { id: 'database-mgmt', name: 'Database Management', description: 'Set up, query, backup PostgreSQL, MySQL, SQLite', icon: '🗄️', enabled: true, isCore: true },
-  { id: 'api-testing', name: 'API Testing', description: 'Test REST APIs, generate docs, debug endpoints', icon: '🔌', enabled: true, isCore: true },
-  { id: 'git-ops', name: 'Git & Version Control', description: 'Clone repos, manage branches, resolve conflicts, deploy', icon: '🌿', enabled: true, isCore: true },
-  { id: 'server-setup', name: 'Server Setup', description: 'Configure Nginx, Docker, SSH, SSL certificates', icon: '🖥️', enabled: true, isCore: true },
-  { id: 'ci-cd', name: 'CI/CD Pipelines', description: 'Set up GitHub Actions, automated testing, deployments', icon: '🚀', enabled: true, isCore: true },
-
-  // ── Education & Learning ──
-  { id: 'study-aid', name: 'Study Assistant', description: 'Create flashcards, summaries, practice questions', icon: '📚', enabled: true, isCore: true },
-  { id: 'code-tutor', name: 'Code Tutor', description: 'Learn programming with hands-on exercises and explanations', icon: '🎓', enabled: true, isCore: true },
-  { id: 'language-learn', name: 'Language Learning', description: 'Practice conversations, vocabulary, grammar in any language', icon: '🗣️', enabled: true, isCore: true },
+  { id: 'general-task', name: 'Help me with anything', description: 'Ask me to do anything on your computer', icon: '⚡', enabled: true, isCore: true },
+  { id: 'install', name: 'Install software', description: 'Find and install any application', icon: '📦', enabled: true, isCore: true },
+  { id: 'fix', name: 'Fix a problem', description: 'Diagnose and repair system issues', icon: '🔧', enabled: true, isCore: true },
+  { id: 'cleanup', name: 'Speed up my PC', description: 'Clean up and optimize performance', icon: '🚀', enabled: true, isCore: true },
+  { id: 'documents', name: 'Write a document', description: 'Reports, emails, resumes, and more', icon: '📄', enabled: true, isCore: true },
+  { id: 'research', name: 'Research online', description: 'Find information and summarize it', icon: '🔍', enabled: true, isCore: true },
+  { id: 'automation', name: 'Automate a task', description: 'Set up recurring workflows', icon: '🔁', enabled: true, isCore: true },
+  { id: 'security', name: 'Check my security', description: 'Scan and protect your system', icon: '🛡️', enabled: true, isCore: true },
 ]
 
 function App() {
@@ -291,6 +228,9 @@ function App() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteThreadConfirm, setDeleteThreadConfirm] = useState<string | null>(null)
+  const [feedbackRating, setFeedbackRating] = useState(0)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackSent, setFeedbackSent] = useState(false)
   const [agentStatus, setAgentStatus] = useState<'idle' | 'thinking' | 'executing' | 'typing'>('idle')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1644,7 +1584,7 @@ function App() {
           <div className="onboarding-logo">
             <div className="logo-bolt"><LogoSvg size={96} animated /></div>
             <h1>TaskBolt</h1>
-            <p className="onboarding-subtitle">AI that sets up your computer for you</p>
+            <p className="onboarding-subtitle">Your personal AI assistant — ready to help with anything on your computer</p>
           </div>
           {!setupDone && !setupError && (
             <div className="setup-progress">
@@ -2077,6 +2017,50 @@ function App() {
               </div>
             )}
 
+            {settingsTab === 'feedback' && (
+              <div className="settings-section">
+                <h3>Feedback</h3>
+                <p className="setting-desc">Help us improve TaskBolt by sharing your thoughts</p>
+                <div className="feedback-form">
+                  <label className="feedback-label">How would you rate TaskBolt?</label>
+                  <div className="feedback-rating">
+                    {['😞', '😐', '🙂', '😊', '🤩'].map((emoji, i) => (
+                      <button key={i} className={`rating-btn ${feedbackRating === i + 1 ? 'active' : ''}`} onClick={() => setFeedbackRating(i + 1)}>
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="feedback-label">What can we improve?</label>
+                  <textarea
+                    className="feedback-textarea"
+                    placeholder="Tell us what you like, what's missing, or what could be better..."
+                    value={feedbackText}
+                    onChange={e => setFeedbackText(e.target.value)}
+                    rows={4}
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={async () => {
+                      if (!feedbackText.trim()) return
+                      try {
+                        await fetch(`${SAAS_URL}/api/feedback`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+                          body: JSON.stringify({ rating: feedbackRating, feedback: feedbackText, version }),
+                        })
+                        setFeedbackSent(true)
+                        setFeedbackText('')
+                        setFeedbackRating(0)
+                      } catch { /* ignore */ }
+                    }}
+                    disabled={!feedbackText.trim() || feedbackSent}
+                  >
+                    {feedbackSent ? '✓ Thanks for your feedback!' : 'Send Feedback'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {settingsTab === 'advanced' && (
               <div className="settings-section">
                 <h3>Advanced</h3>
@@ -2121,16 +2105,14 @@ function App() {
           )}
         </div>
 
-        {/* ── Navigation Icons (Hermes-style) ── */}
+        {/* ── Navigation Icons ── */}
         <div className="sidebar-nav">
           {([
-            { view: 'chat' as SidebarView, icon: '💬', label: 'Chat' },
-            { view: 'sessions' as SidebarView, icon: '📋', label: 'Sessions' },
-            { view: 'memory' as SidebarView, icon: '🧠', label: 'Memory' },
-            { view: 'tools' as SidebarView, icon: '🔧', label: 'Tools' },
-            { view: 'schedules' as SidebarView, icon: '⏰', label: 'Schedules' },
-            { view: 'gateway' as SidebarView, icon: '📡', label: 'Gateway' },
-            { view: 'kanban' as SidebarView, icon: '📊', label: 'Task Board' },
+            { view: 'chat' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, label: 'Chat' },
+            { view: 'tools' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>, label: 'Capabilities' },
+            { view: 'schedules' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, label: 'Automations' },
+            { view: 'gateway' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>, label: 'Messaging' },
+            { view: 'kanban' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: 'Task Board' },
           ]).map(item => (
             <button
               key={item.view}
@@ -2281,10 +2263,10 @@ function App() {
         {!activeThread ? (
           <div className="empty-state">
             <div className="empty-logo"><LogoSvg size={72} animated /></div>
-            <h2>What can I help you with?</h2>
-            <p className="empty-subtitle">From fixing your computer to writing reports — I handle it all.</p>
+            <h2>Hi, I'm TaskBolt</h2>
+            <p className="empty-subtitle">I'm your personal assistant — I can install software, fix problems, speed up your PC, write documents, research topics, and much more. What can I help you with today?</p>
             <div className="skill-suggestions">
-              {skills.filter(s => s.enabled && s.isCore).slice(0, 16).map(skill => (
+              {skills.filter(s => s.enabled && s.isCore).slice(0, 8).map(skill => (
                 <button key={skill.id} className="skill-chip" onClick={() => { if (isLoggedIn) setInput(skill.name); else setAppState('signin') }}>
                   <span className="chip-icon">{skill.icon}</span>
                   {skill.name}
@@ -2470,7 +2452,7 @@ function App() {
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'Ask me anything — or type / for commands...'}
+              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'What would you like me to help you with?'}
               rows={1}
               className="main-input"
             />
@@ -2496,7 +2478,7 @@ function App() {
               </button>
             )}
           </div>
-          <p className="input-hint">TaskBolt uses AI to set up and configure your computer</p>
+          <p className="input-hint">Your personal AI assistant — just ask and I'll take care of it</p>
         </div>
         </>
         )}
@@ -2675,19 +2657,29 @@ function App() {
           </div>
         )}
 
-        {/* ── Gateway Screen ── */}
+        {/* ── Messaging Screen ── */}
         {sidebarView === 'gateway' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>📡 Gateway</h2>
+              <h2>Messaging</h2>
               <span className="screen-count">{gatewayPlatforms.filter(p => p.connected).length} connected</span>
             </div>
             <div className="screen-body">
-              <p className="screen-desc">Connect messaging platforms to receive AI responses</p>
+              <p className="screen-desc">Get AI responses delivered to your favorite apps</p>
               <div className="gateway-grid">
                 {gatewayPlatforms.map(p => (
                   <div key={p.id} className={`gateway-card ${p.connected ? 'gateway-connected' : ''}`}>
-                    <span className="gateway-icon">{p.icon}</span>
+                    <div className="gateway-brand-logo">
+                      {p.id === 'telegram' && (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="#229ED9"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.94 8.13l-1.97 9.28c-.15.67-.54.83-1.09.52l-3.02-2.22-1.46 1.4c-.16.16-.3.3-.61.3l.22-3.06 5.55-5.02c.24-.22-.05-.33-.38-.13l-6.86 4.32-2.96-.92c-.64-.2-.66-.64.14-.95l11.6-4.47c.54-.2 1.01.13.84.95z"/></svg>
+                      )}
+                      {p.id === 'whatsapp' && (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      )}
+                      {p.id === 'imessage' && (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="#34AADC"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.907 1.46 5.497 3.735 7.205l-.935 2.812a.5.5 0 00.707.582l3.158-1.579C9.558 20.42 10.753 20.5 12 20.5c5.523 0 10-4.145 10-9.257S17.523 2 12 2zm-1.5 12.5h-3a.5.5 0 010-1h3a.5.5 0 010 1zm4.5-3h-7.5a.5.5 0 010-1H15a.5.5 0 010 1zm0-3h-7.5a.5.5 0 010-1H15a.5.5 0 010 1z"/></svg>
+                      )}
+                    </div>
                     <span className="gateway-name">{p.name}</span>
                     <span className={`gateway-status ${p.connected ? 'connected' : 'disconnected'}`}>
                       {p.connected ? '● Connected' : '○ Not connected'}

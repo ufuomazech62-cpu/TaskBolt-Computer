@@ -934,7 +934,77 @@ body {
   color: var(--accent-text);
 }
 
-/* ── Empty State ── */
+/* ── Feedback Form ── */
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 500px;
+}
+
+.feedback-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.feedback-rating {
+  display: flex;
+  gap: 8px;
+}
+
+.rating-btn {
+  font-size: 1.5rem;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rating-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(1.1);
+}
+
+.rating-btn.active {
+  background: rgba(255, 47, 146, 0.12);
+  border-color: rgba(255, 47, 146, 0.3);
+  transform: scale(1.15);
+}
+
+.feedback-textarea {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.feedback-textarea:focus {
+  border-color: rgba(255, 47, 146, 0.3);
+}
+
+/* ── Gateway Brand Logos ── */
+.gateway-brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 8px;
+}
+
+/* ── Empty State Refinement ── */
 .empty-state {
   flex: 1;
   display: flex;
@@ -3173,14 +3243,14 @@ body {
 }
 
 .msg-user .msg-body {
-  background: var(--gradient);
+  background: rgba(255, 47, 146, 0.12);
   padding: 10px 16px;
   border-radius: 18px 18px 4px 18px;
   max-width: 70%;
 }
 
 .msg-user .msg-text {
-  color: white;
+  color: var(--text);
 }
 
 .msg-assistant {
