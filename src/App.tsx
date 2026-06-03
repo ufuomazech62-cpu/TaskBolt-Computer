@@ -255,6 +255,10 @@ function App() {
   const [showSlashPalette, setShowSlashPalette] = useState(false)
   const [slashFilter, setSlashFilter] = useState('')
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [searchResults, setSearchResults] = useState<{ threadId: string; msgContent: string; snippet: string }[]>([])
+  const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -496,9 +500,11 @@ function App() {
 
   // ── Thread helpers ───────────────────────────────────
   const activeThread = threads.find(t => t.id === activeThreadId)
-  const filteredThreads = threads.filter(t =>
-    t.title.toLowerCase().includes(searchQuery.toLowerCase())
-  ).sort((a, b) => b.updatedAt - a.updatedAt)
+  const filteredThreads = threads.filter(t => {
+    const q = searchQuery.toLowerCase()
+    if (t.title.toLowerCase().includes(q)) return true
+    return t.messages.some(m => m.content.toLowerCase().includes(q))
+  }).sort((a, b) => b.updatedAt - a.updatedAt)
 
   const createThread = (title: string): TaskThread => {
     const thread: TaskThread = {
@@ -814,7 +820,96 @@ function App() {
     }
   }
 
-  // ── MCP ──────────────────────────────────────────────
+  // ── Voice Input (Web Speech API) ─────────────────────
+  const startRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      alert('Voice input not supported in this browser')
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+
+    recognition.onresult = (event: any) => {
+      let transcript = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript
+      }
+      setInput(prev => prev ? prev + ' ' + transcript : transcript)
+    }
+
+    recognition.onerror = () => {
+      setIsRecording(false)
+    }
+
+    recognition.onend = () => {
+      setIsRecording(false)
+    }
+
+    recognition.start()
+    recognitionRef.current = recognition
+    setIsRecording(true)
+  }
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+    setIsRecording(false)
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      setUploadedFiles(prev => [...prev, ...files])
+    }
+  }
+
+  // ── Enhanced Search (searches message content) ───────
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query)
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+    const q = query.toLowerCase()
+    const results: { threadId: string; msgContent: string; snippet: string }[] = []
+    for (const thread of threads) {
+      for (const msg of thread.messages) {
+        if (msg.content.toLowerCase().includes(q)) {
+          const idx = msg.content.toLowerCase().indexOf(q)
+          const start = Math.max(0, idx - 40)
+          const end = Math.min(msg.content.length, idx + query.length + 40)
+          const snippet = (start > 0 ? '...' : '') + msg.content.slice(start, end) + (end < msg.content.length ? '...' : '')
+          results.push({ threadId: thread.id, msgContent: msg.content, snippet })
+          if (results.length >= 20) break
+        }
+      }
+      if (results.length >= 20) break
+    }
+    setSearchResults(results)
+  }
+
+  // ── MCP ──
 
   // ── Billing API calls ────────────────────────────────
   const authHeaders = (): HeadersInit => ({
@@ -1730,9 +1825,9 @@ function App() {
               <IconSearch size={14} />
               <input
                 type="text"
-                placeholder="Search tasks..."
+                placeholder="Search tasks & messages..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => handleSearchChange(e.target.value)}
                 className="search-input"
               />
             </div>
@@ -1833,7 +1928,20 @@ function App() {
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content ${dragOver ? 'drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {dragOver && (
+          <div className="drag-overlay">
+            <div className="drag-overlay-content">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Drop files here</span>
+            </div>
+          </div>
+        )}
         {/* Top Nav Bar */}
         <div className="top-nav-bar">
           {!isLoggedIn && (
@@ -2027,6 +2135,19 @@ function App() {
               <IconPlus size={18} />
             </button>
             <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileUpload} />
+            <button
+              className={`voice-btn ${isRecording ? 'recording' : ''}`}
+              onClick={() => isRecording ? stopRecording() : startRecording()}
+              title={isRecording ? 'Stop recording' : 'Voice input'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              {isRecording && <span className="voice-recording-dot" />}
+            </button>
             <textarea
               ref={inputRef}
               value={input}
