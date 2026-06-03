@@ -158,7 +158,7 @@ type SettingsTab = 'general' | 'account' | 'billing' | 'usage' | 'skills' | 'mcp
 // ── SaaS Backend ────────────────────────────────────
 const SAAS_URL = 'https://taskbolt.space'
 
-// ── Tool SVG Icons ─────────────────────────────────────
+// ── Tool & Skill SVG Icons ────────────────────────────
 function renderToolIcon(icon: string): React.ReactNode {
   const s = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }
   const icons: Record<string, React.ReactNode> = {
@@ -174,20 +174,129 @@ function renderToolIcon(icon: string): React.ReactNode {
     scheduler: <svg {...s}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
     memory: <svg {...s}><path d="M12 2a10 10 0 0110 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/></svg>,
     skills: <svg {...s}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+    zap: <svg {...s}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+    download: <svg {...s}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+    wrench: <svg {...s}><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
+    rocket: <svg {...s}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>,
+    'file-text': <svg {...s}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    search: <svg {...s}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    refresh: <svg {...s}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
+    shield: <svg {...s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+    bug: <svg {...s}><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 12h2"/><path d="M3 12h2"/><path d="M19 8l1.5-1.5"/><path d="M3.5 6.5L5 8"/><path d="M19 16l1.5 1.5"/><path d="M3.5 17.5L5 16"/><path d="M12 6V2"/></svg>,
+    git: <svg {...s}><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 009 9"/></svg>,
+    api: <svg {...s}><path d="M4 14h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M7 14V8a1 1 0 011-1h4"/><path d="M17 10v6a1 1 0 01-1 1h-4"/></svg>,
+    database: <svg {...s}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>,
+    container: <svg {...s}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+    pipeline: <svg {...s}><circle cx="5" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><line x1="5" y1="8" x2="5" y2="16"/><line x1="19" y1="8" x2="19" y2="16"/><path d="M7 6h3"/><path d="M14 6h3"/><path d="M7 18h10"/></svg>,
+    youtube: <svg {...s}><path d="M22.54 6.42a2.78 2.78 0 00-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 00-1.94 2A29 29 0 001 11.75a29 29 0 00.46 5.33A2.78 2.78 0 003.4 19.1c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 001.94-2 29 29 0 00.46-5.25 29 29 0 00-.46-5.43z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor" stroke="none"/></svg>,
+    script: <svg {...s}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>,
+    thumbnail: <svg {...s}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polygon points="10 8 10 12 14 10 10 8" fill="currentColor" stroke="none"/></svg>,
+    upload: <svg {...s}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+    presentation: <svg {...s}><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
+    video: <svg {...s}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>,
+    blog: <svg {...s}><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>,
+    share: <svg {...s}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+    mail: <svg {...s}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>,
+    table: <svg {...s}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>,
+    translate: <svg {...s}><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>,
+    list: <svg {...s}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+    calendar: <svg {...s}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    notes: <svg {...s}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+    pdf: <svg {...s}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15v-2h1.5a1.5 1.5 0 010 3H9z"/></svg>,
+    chart: <svg {...s}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    'mobile-money': <svg {...s}><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/><path d="M9 8h6"/><path d="M12 8v4"/><circle cx="12" cy="14" r="1.5" fill="currentColor" stroke="none"/></svg>,
+    phone: <svg {...s}><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>,
+    'globe-africa': <svg {...s}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20"/><path d="M2 12h20"/><path d="M8 4c1 3 1 5 0 8"/><path d="M16 4c-1 3-1 5 0 8"/></svg>,
+    building: <svg {...s}><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="6" x2="9.01" y2="6"/><line x1="15" y1="6" x2="15.01" y2="6"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/><line x1="9" y1="14" x2="9.01" y2="14"/><line x1="15" y1="14" x2="15.01" y2="14"/><path d="M10 22v-4h4v4"/></svg>,
+    languages: <svg {...s}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/></svg>,
+    fintech: <svg {...s}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M7 15h4"/><path d="M15 15h2"/></svg>,
+    leaf: <svg {...s}><path d="M11 20A7 7 0 014 13c0-3.5 2-6.5 5-8 1-1 3-2 6-2 0 4-1 6-2 8-1.5 2-3.5 3.5-5 5"/><path d="M2 22l10-10"/></svg>,
+    truck: <svg {...s}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+    currency: <svg {...s}><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+    tax: <svg {...s}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><path d="M12 9l-2 2 2 2"/></svg>,
+    education: <svg {...s}><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>,
+    health: <svg {...s}><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
+    invoice: <svg {...s}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>,
+    briefcase: <svg {...s}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>,
+    calculator: <svg {...s}><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/><line x1="8" y1="18" x2="8.01" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg>,
+    legal: <svg {...s}><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>,
+    people: <svg {...s}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+    network: <svg {...s}><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="5" y1="16" x2="5" y2="12"/><line x1="19" y1="16" x2="19" y2="12"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    backup: <svg {...s}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><path d="M2 8l4-4 4 4"/></svg>,
+    printer: <svg {...s}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
   }
   return icons[icon] || <svg {...s}><circle cx="12" cy="12" r="10"/></svg>
 }
 
 // ── Core skills ───────────────────────────────────────
 const CORE_SKILLS: Skill[] = [
-  { id: 'general-task', name: 'Help me with anything', description: 'Ask me to do anything on your computer', icon: '⚡', enabled: true, isCore: true },
-  { id: 'install', name: 'Install software', description: 'Find and install any application', icon: '📦', enabled: true, isCore: true },
-  { id: 'fix', name: 'Fix a problem', description: 'Diagnose and repair system issues', icon: '🔧', enabled: true, isCore: true },
-  { id: 'cleanup', name: 'Speed up my PC', description: 'Clean up and optimize performance', icon: '🚀', enabled: true, isCore: true },
-  { id: 'documents', name: 'Write a document', description: 'Reports, emails, resumes, and more', icon: '📄', enabled: true, isCore: true },
-  { id: 'research', name: 'Research online', description: 'Find information and summarize it', icon: '🔍', enabled: true, isCore: true },
-  { id: 'automation', name: 'Automate a task', description: 'Set up recurring workflows', icon: '🔁', enabled: true, isCore: true },
-  { id: 'security', name: 'Check my security', description: 'Scan and protect your system', icon: '🛡️', enabled: true, isCore: true },
+  // ── Core Essentials ──
+  { id: 'general-task', name: 'Help me with anything', description: 'Ask me to do anything on your computer', icon: 'zap', enabled: true, isCore: true },
+  { id: 'install', name: 'Install software', description: 'Find and install any application', icon: 'download', enabled: true, isCore: true },
+  { id: 'fix', name: 'Fix a problem', description: 'Diagnose and repair system issues', icon: 'wrench', enabled: true, isCore: true },
+  { id: 'cleanup', name: 'Speed up my PC', description: 'Clean up and optimize performance', icon: 'rocket', enabled: true, isCore: true },
+  { id: 'documents', name: 'Write a document', description: 'Reports, emails, resumes, and more', icon: 'file-text', enabled: true, isCore: true },
+  { id: 'research', name: 'Research online', description: 'Find information and summarize it', icon: 'search', enabled: true, isCore: true },
+  { id: 'automation', name: 'Automate a task', description: 'Set up recurring workflows', icon: 'refresh', enabled: true, isCore: true },
+  { id: 'security', name: 'Check my security', description: 'Scan and protect your system', icon: 'shield', enabled: true, isCore: true },
+
+  // ── Code & Development ──
+  { id: 'code-write', name: 'Write code', description: 'Generate code in any programming language', icon: 'code', enabled: true, isCore: false },
+  { id: 'code-debug', name: 'Debug code', description: 'Find and fix bugs in your code', icon: 'bug', enabled: true, isCore: false },
+  { id: 'git-ops', name: 'Git & GitHub', description: 'Commit, push, pull, create PRs, manage repos', icon: 'git', enabled: true, isCore: false },
+  { id: 'web-dev', name: 'Build a website', description: 'Create full websites from scratch', icon: 'browser', enabled: true, isCore: false },
+  { id: 'api-dev', name: 'Build an API', description: 'Design and implement REST or GraphQL APIs', icon: 'api', enabled: true, isCore: false },
+  { id: 'database', name: 'Database work', description: 'Create, query, and manage databases', icon: 'database', enabled: true, isCore: false },
+  { id: 'docker', name: 'Docker & containers', description: 'Build and manage containerized apps', icon: 'container', enabled: true, isCore: false },
+  { id: 'devops', name: 'CI/CD pipelines', description: 'Set up automated testing and deployment', icon: 'pipeline', enabled: true, isCore: false },
+
+  // ── Content Creation ──
+  { id: 'youtube-full', name: 'YouTube video (full)', description: 'Script, voiceover, visuals, edit, thumbnail — end to end', icon: 'youtube', enabled: true, isCore: false },
+  { id: 'youtube-script', name: 'YouTube script', description: 'Write engaging video scripts with hooks and CTAs', icon: 'script', enabled: true, isCore: false },
+  { id: 'youtube-thumbnail', name: 'YouTube thumbnail', description: 'Generate click-worthy thumbnail designs', icon: 'thumbnail', enabled: true, isCore: false },
+  { id: 'youtube-upload', name: 'Upload to YouTube', description: 'Publish videos with optimized titles, descriptions, tags', icon: 'upload', enabled: true, isCore: false },
+  { id: 'voiceover', name: 'AI voiceover', description: 'Generate natural voice narration for any script', icon: 'voice', enabled: true, isCore: false },
+  { id: 'presentation', name: 'Create presentation', description: 'Build slide decks with visuals and speaker notes', icon: 'presentation', enabled: true, isCore: false },
+  { id: 'image-gen', name: 'Generate images', description: 'Create custom images, graphics, and illustrations', icon: 'image', enabled: true, isCore: false },
+  { id: 'video-edit', name: 'Edit video', description: 'Cut, merge, add effects, and export video files', icon: 'video', enabled: true, isCore: false },
+  { id: 'blog-post', name: 'Write blog post', description: 'SEO-optimized articles with research and citations', icon: 'blog', enabled: true, isCore: false },
+  { id: 'social-media', name: 'Social media content', description: 'Create posts, captions, and hashtags for any platform', icon: 'share', enabled: true, isCore: false },
+
+  // ── Productivity ──
+  { id: 'email-draft', name: 'Write emails', description: 'Professional emails for any context', icon: 'mail', enabled: true, isCore: false },
+  { id: 'spreadsheet', name: 'Work with spreadsheets', description: 'Create, analyze, and format Excel/CSV files', icon: 'table', enabled: true, isCore: false },
+  { id: 'translate', name: 'Translate text', description: 'Translate between 100+ languages', icon: 'translate', enabled: true, isCore: false },
+  { id: 'summarize', name: 'Summarize content', description: 'Summarize articles, videos, PDFs, and meetings', icon: 'list', enabled: true, isCore: false },
+  { id: 'calendar', name: 'Manage schedule', description: 'Plan your day, set reminders, organize meetings', icon: 'calendar', enabled: true, isCore: false },
+  { id: 'notes', name: 'Take notes', description: 'Organize ideas, create outlines, build knowledge base', icon: 'notes', enabled: true, isCore: false },
+  { id: 'pdf', name: 'Work with PDFs', description: 'Read, merge, convert, and extract from PDFs', icon: 'pdf', enabled: true, isCore: false },
+  { id: 'data-analysis', name: 'Analyze data', description: 'Charts, statistics, insights from any dataset', icon: 'chart', enabled: true, isCore: false },
+
+  // ── Africa & Nigeria Focus ──
+  { id: 'mobile-money', name: 'Mobile money setup', description: 'Configure M-Pesa, MoMo, Paga, OPay, and mobile payment integrations', icon: 'mobile-money', enabled: true, isCore: false },
+  { id: 'ussd-builder', name: 'USSD app builder', description: 'Build USSD menus and services for feature phone users', icon: 'phone', enabled: true, isCore: false },
+  { id: 'africa-market', name: 'Africa market research', description: 'Research markets, competitors, and opportunities across Africa', icon: 'globe-africa', enabled: true, isCore: false },
+  { id: 'nigerian-business', name: 'Nigerian business setup', description: 'CAC registration, TIN, tax filing, business permits', icon: 'building', enabled: true, isCore: false },
+  { id: 'local-languages', name: 'African languages', description: 'Translate and create content in Yoruba, Hausa, Igbo, Swahili, Amharic, and more', icon: 'languages', enabled: true, isCore: false },
+  { id: 'africa-fintech', name: 'Fintech integration', description: 'Set up Paystack, Flutterwave, DPO, Chipper Cash, and other African payment APIs', icon: 'fintech', enabled: true, isCore: false },
+  { id: 'agriculture', name: 'Agriculture & farming', description: 'Crop planning, market prices, weather data, and farm management for Africa', icon: 'leaf', enabled: true, isCore: false },
+  { id: 'africa-logistics', name: 'Logistics & delivery', description: 'Set up delivery tracking, route planning, GIG, Kobo360, Sendy integrations', icon: 'truck', enabled: true, isCore: false },
+  { id: 'naira-calc', name: 'Currency & exchange', description: 'NGN/USD/EUR conversions, black market rates, crypto to naira', icon: 'currency', enabled: true, isCore: false },
+  { id: 'jtb-nigeria', name: 'JTB tax filing', description: 'File Nigerian taxes — CIT, VAT, PAYE with JTB compliance', icon: 'tax', enabled: true, isCore: false },
+  { id: 'education-africa', name: 'Education content', description: 'Create WAEC, NECO, JAMB, and curriculum-aligned learning materials', icon: 'education', enabled: true, isCore: false },
+  { id: 'healthcare-africa', name: 'Healthcare tools', description: 'Drug info, symptom checker, clinic management for African contexts', icon: 'health', enabled: true, isCore: false },
+
+  // ── Business & Finance ──
+  { id: 'invoice', name: 'Create invoice', description: 'Generate professional invoices and track payments', icon: 'invoice', enabled: true, isCore: false },
+  { id: 'business-plan', name: 'Business plan', description: 'Write complete business plans with financial projections', icon: 'briefcase', enabled: true, isCore: false },
+  { id: 'accounting', name: 'Bookkeeping', description: 'Track expenses, categorize transactions, generate reports', icon: 'calculator', enabled: true, isCore: false },
+  { id: 'contracts', name: 'Legal documents', description: 'Draft contracts, NDAs, agreements, and terms of service', icon: 'legal', enabled: true, isCore: false },
+  { id: 'hr-tools', name: 'HR & payroll', description: 'Employee management, payroll calculation, offer letters', icon: 'people', enabled: true, isCore: false },
+
+  // ── System & Network ──
+  { id: 'network-setup', name: 'Network config', description: 'Set up WiFi, VPN, DNS, and network troubleshooting', icon: 'network', enabled: true, isCore: false },
+  { id: 'backup', name: 'Backup & restore', description: 'Full system backup, cloud sync, and disaster recovery', icon: 'backup', enabled: true, isCore: false },
+  { id: 'print-setup', name: 'Printer setup', description: 'Install and configure printers, scanners, and shared devices', icon: 'printer', enabled: true, isCore: false },
 ]
 
 function App() {
@@ -1990,7 +2099,7 @@ function App() {
                 <p className="setting-desc">Enable or disable capabilities</p>
                 {skills.map(skill => (
                   <div key={skill.id} className="skill-row">
-                    <span className="skill-icon">{skill.icon}</span>
+                    <span className="skill-icon">{renderToolIcon(skill.icon)}</span>
                     <div className="skill-info">
                       <span className="skill-name">{skill.name}</span>
                       <span className="skill-desc">{skill.description}</span>
@@ -2289,7 +2398,7 @@ function App() {
             <div className="skill-suggestions">
               {skills.filter(s => s.enabled && s.isCore).slice(0, 8).map(skill => (
                 <button key={skill.id} className="skill-chip" onClick={() => { if (isLoggedIn) setInput(skill.name); else setAppState('signin') }}>
-                  <span className="chip-icon">{skill.icon}</span>
+                  <span className="chip-icon">{renderToolIcon(skill.icon)}</span>
                   {skill.name}
                 </button>
               ))}
@@ -2812,7 +2921,7 @@ function App() {
                 {skills.map(skill => (
                   <div key={skill.id} className={`tool-card ${skill.enabled ? 'tool-enabled' : 'tool-disabled'}`}>
                     <div className="tool-card-header">
-                      <span className="tool-card-icon">{skill.icon}</span>
+                      <span className="tool-card-icon">{renderToolIcon(skill.icon)}</span>
                       <span className="tool-card-name">{skill.name}</span>
                       {skill.isCore && <span className="skill-core-badge">Core</span>}
                     </div>
