@@ -1,9 +1,68 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-shell'
+import hljs from 'highlight.js/lib/core'
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import python from 'highlight.js/lib/languages/python'
+import bash from 'highlight.js/lib/languages/bash'
+import json from 'highlight.js/lib/languages/json'
+import css from 'highlight.js/lib/languages/css'
+import xml from 'highlight.js/lib/languages/xml'
+import sql from 'highlight.js/lib/languages/sql'
+import yaml from 'highlight.js/lib/languages/yaml'
+import rust from 'highlight.js/lib/languages/rust'
+import go from 'highlight.js/lib/languages/go'
+import dockerfile from 'highlight.js/lib/languages/dockerfile'
+import markdown from 'highlight.js/lib/languages/markdown'
 import LogoSvg from './LogoSvg'
+
+// Register highlight.js languages
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('py', python)
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('sh', bash)
+hljs.registerLanguage('shell', bash)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('html', xml)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('yml', yaml)
+hljs.registerLanguage('rust', rust)
+hljs.registerLanguage('rs', rust)
+hljs.registerLanguage('go', go)
+hljs.registerLanguage('dockerfile', dockerfile)
+hljs.registerLanguage('markdown', markdown)
+hljs.registerLanguage('md', markdown)
+
+// ── Slash Commands ────────────────────────────────────
+interface SlashCommand {
+  cmd: string
+  label: string
+  description: string
+  icon: string
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { cmd: '/new', label: 'New Task', description: 'Start a fresh conversation', icon: '✨' },
+  { cmd: '/clear', label: 'Clear Chat', description: 'Clear all messages in current thread', icon: '🧹' },
+  { cmd: '/help', label: 'Help', description: 'Show available commands and capabilities', icon: '❓' },
+  { cmd: '/web', label: 'Web Search', description: 'Search the web for information', icon: '🌐' },
+  { cmd: '/image', label: 'Generate Image', description: 'Create an AI-generated image', icon: '🖼️' },
+  { cmd: '/shell', label: 'Run Command', description: 'Execute a shell command directly', icon: '💻' },
+  { cmd: '/code', label: 'Write Code', description: 'Generate or debug code', icon: '⌨️' },
+  { cmd: '/status', label: 'Status', description: 'Show system and agent status', icon: '📊' },
+  { cmd: '/skills', label: 'Skills', description: 'List all enabled skills', icon: '🧩' },
+  { cmd: '/compact', label: 'Compact', description: 'Summarize conversation to free context', icon: '📦' },
+]
 
 // ── Types ──────────────────────────────────────────────
 interface Message {
@@ -193,6 +252,9 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [version, setVersion] = useState('')
+  const [showSlashPalette, setShowSlashPalette] = useState(false)
+  const [slashFilter, setSlashFilter] = useState('')
+  const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -672,7 +734,83 @@ function App() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      // Check if slash palette is open - select first match
+      if (showSlashPalette) {
+        const filtered = SLASH_COMMANDS.filter(c => c.cmd.includes(slashFilter) || c.label.toLowerCase().includes(slashFilter.toLowerCase()))
+        if (filtered.length > 0) {
+          executeSlashCommand(filtered[0].cmd)
+          return
+        }
+      }
       handleSend()
+    }
+    if (e.key === 'Escape' && showSlashPalette) {
+      setShowSlashPalette(false)
+      setSlashFilter('')
+    }
+  }
+
+  // ── Slash Command Logic ──────────────────────────────
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value
+    setInput(val)
+    // Show slash palette when input starts with /
+    if (val.startsWith('/')) {
+      setShowSlashPalette(true)
+      setSlashFilter(val)
+    } else {
+      setShowSlashPalette(false)
+      setSlashFilter('')
+    }
+  }
+
+  const executeSlashCommand = (cmd: string) => {
+    setShowSlashPalette(false)
+    setSlashFilter('')
+    setInput('')
+
+    switch (cmd) {
+      case '/new':
+        setActiveThreadId(null)
+        setInput('')
+        break
+      case '/clear':
+        if (activeThread) {
+          setThreads(prev => prev.map(t =>
+            t.id === activeThread.id ? { ...t, messages: [] } : t
+          ))
+          localStorage.setItem('tb_threads', JSON.stringify(
+            threads.map(t => t.id === activeThread.id ? { ...t, messages: [] } : t)
+          ))
+        }
+        break
+      case '/help': {
+        const helpContent = `## Available Commands\n\n${SLASH_COMMANDS.map(c => `**${c.cmd}** — ${c.description}`).join('\n')}\n\n---\n\n**Tip:** Type \`/\` in the input to see all commands with autocomplete.`
+        const threadId = activeThread?.id || createThread('Help').id
+        const sysMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: helpContent, timestamp: Date.now() }
+        addMessage(threadId, sysMsg)
+        break
+      }
+      case '/status': {
+        const statusContent = `## System Status\n\n- **Agent:** ${agentStatus === 'idle' ? '✅ Ready' : '⏳ ' + agentStatus}\n- **Threads:** ${threads.length}\n- **Skills:** ${skills.filter(s => s.enabled).length} enabled\n- **Credits:** ${billingStatus?.credits?.balance?.toLocaleString() || '—'}\n- **Version:** v${version}`
+        const threadId2 = activeThread?.id || createThread('Status').id
+        const sysMsg2: Message = { id: crypto.randomUUID(), role: 'assistant', content: statusContent, timestamp: Date.now() }
+        addMessage(threadId2, sysMsg2)
+        break
+      }
+      case '/skills': {
+        const enabledSkills = skills.filter(s => s.enabled)
+        const skillsContent = `## Enabled Skills (${enabledSkills.length})\n\n${enabledSkills.map(s => `- ${s.icon} **${s.name}** — ${s.description}`).join('\n')}`
+        const threadId3 = activeThread?.id || createThread('Skills').id
+        const sysMsg3: Message = { id: crypto.randomUUID(), role: 'assistant', content: skillsContent, timestamp: Date.now() }
+        addMessage(threadId3, sysMsg3)
+        break
+      }
+      default:
+        // For /web, /image, /shell, /code, /compact — send as message to agent
+        setInput(cmd + ' ')
+        setTimeout(() => inputRef.current?.focus(), 50)
+        break
     }
   }
 
@@ -916,7 +1054,41 @@ function App() {
     return groups.filter(g => g.items.length > 0)
   }
 
-  // ── Markdown renderer with table/column support ──
+  // ── Code Block Component with syntax highlighting + copy ──
+  const CodeBlock = ({ code, lang, blockIdx }: { code: string; lang: string; blockIdx: number }) => {
+    const [copied, setCopied] = useState(false)
+    const highlighted = useMemo(() => {
+      if (lang && hljs.getLanguage(lang)) {
+        try { return hljs.highlight(code, { language: lang }).value } catch {}
+      }
+      try { return hljs.highlightAuto(code).value } catch {}
+      return code
+    }, [code, lang])
+
+    const handleCopy = () => {
+      navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+
+    return (
+      <div className="code-block-wrapper">
+        <div className="code-block-header">
+          <span className="code-block-lang">{lang || 'code'}</span>
+          <button className={`code-copy-btn ${copied ? 'copied' : ''}`} onClick={handleCopy}>
+            {copied ? (
+              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied</>
+            ) : (
+              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy</>
+            )}
+          </button>
+        </div>
+        <pre className="md-code-block hljs"><code dangerouslySetInnerHTML={{ __html: highlighted }} /></pre>
+      </div>
+    )
+  }
+
+  // ── Markdown renderer with syntax highlighting ──
   const parseMarkdownTable = (lines: string[]): React.ReactNode | null => {
     if (lines.length < 2) return null
     const parseRow = (line: string) => line.split('|').slice(1, -1).map(c => c.trim())
@@ -941,12 +1113,13 @@ function App() {
     )
   }
 
-  const renderMarkdown = (text: string) => {
+  const renderMarkdown = (text: string, isStreamingMsg = false) => {
     const parts: React.ReactNode[] = []
     const lines = text.split('\n')
     let inCodeBlock = false
     let codeBlockContent = ''
     let codeBlockLang = ''
+    let codeBlockIdx = 0
     let tableBuffer: string[] = []
 
     const flushTable = () => {
@@ -969,7 +1142,8 @@ function App() {
           codeBlockLang = line.slice(3).trim()
           codeBlockContent = ''
         } else {
-          parts.push(<pre key={`cb-${i}`} className="md-code-block"><code>{codeBlockContent}</code></pre>)
+          parts.push(<CodeBlock key={`cb-${codeBlockIdx}`} code={codeBlockContent} lang={codeBlockLang} blockIdx={codeBlockIdx} />)
+          codeBlockIdx++
           inCodeBlock = false
         }
         return
@@ -1003,17 +1177,18 @@ function App() {
       else if (line.match(/^[-*_]{3,}\s*$/)) {
         parts.push(<hr key={i} className="md-hr" />)
       }
-      // List items
-      else if (line.match(/^[\-\*] /)) {
-        parts.push(<div key={i} className="md-li">{renderInline(line.slice(2))}</div>)
-      } else if (line.match(/^\d+\. /)) {
-        parts.push(<div key={i} className="md-li md-ol">{renderInline(line.replace(/^\d+\. /, ''))}</div>)
-      }
-      // Checkbox
+      // Checkbox (must come before list items)
       else if (line.match(/^[\-\*] \[[ x]\] /)) {
         const checked = line.match(/\[x\]/)
         const text = line.replace(/^[\-\*] \[[ x]\] /, '')
-        parts.push(<div key={i} className="md-li md-checkbox">{checked ? '☑' : '☐'} {renderInline(text)}</div>)
+        parts.push(<div key={i} className="md-li md-checkbox"><span className={`checkbox-icon ${checked ? 'checked' : ''}`}>{checked ? '✓' : ''}</span> {renderInline(text)}</div>)
+      }
+      // List items
+      else if (line.match(/^[\-\*] /)) {
+        parts.push(<div key={i} className="md-li"><span className="md-bullet">•</span>{renderInline(line.slice(2))}</div>)
+      } else if (line.match(/^\d+\. /)) {
+        const num = line.match(/^(\d+)\./)?.[1]
+        parts.push(<div key={i} className="md-li md-ol"><span className="md-num">{num}.</span>{renderInline(line.replace(/^\d+\. /, ''))}</div>)
       }
       // Empty line
       else if (line.trim() === '') {
@@ -1021,14 +1196,15 @@ function App() {
       }
       // Regular text
       else {
-        parts.push(<span key={i}>{renderInline(line)}{i < lines.length - 1 ? '\n' : ''}</span>)
+        parts.push(<p key={i} className="md-p">{renderInline(line)}</p>)
       }
     })
 
     flushTable()
 
+    // Unclosed code block (still streaming)
     if (inCodeBlock && codeBlockContent) {
-      parts.push(<pre key="cb-final" className="md-code-block"><code>{codeBlockContent}</code></pre>)
+      parts.push(<CodeBlock key={`cb-${codeBlockIdx}`} code={codeBlockContent} lang={codeBlockLang} blockIdx={codeBlockIdx} />)
     }
 
     return <>{parts}</>
@@ -1693,76 +1869,115 @@ function App() {
           </div>
         ) : (
           <div className="messages-container">
-            {activeThread.messages.map((msg, idx) => (
+            {activeThread.messages.map((msg, idx) => {
+              const isLastMsg = idx === activeThread.messages.length - 1
+              const isStreamingThis = isStreaming && isLastMsg && msg.role === 'assistant'
+              return (
               <div key={msg.id || idx} className={`msg msg-${msg.role}`}>
                 {msg.role === 'assistant' && (
                   <div className="msg-avatar">
-                    <LogoSvg size={48} animated status={agentStatus} className="ai-avatar" />
+                    <LogoSvg size={36} animated status={isStreamingThis ? agentStatus : 'idle'} className="ai-avatar" />
                   </div>
                 )}
                 <div className="msg-body">
-                  {msg.role === 'assistant' && isStreaming && idx === activeThread.messages.length - 1 && !msg.content && (
+                  {/* Status indicator while empty and streaming */}
+                  {msg.role === 'assistant' && isStreamingThis && !msg.content && !msg.toolCalls?.length && (
                     <div className="agent-status-indicator">
                       {agentStatus === 'thinking' && (
-                        <><span className="status-dot thinking" /> Thinking...</>
+                        <div className="status-pill thinking-pill">
+                          <span className="status-dot thinking" />
+                          <span>Thinking</span>
+                          <span className="status-dots-anim">...</span>
+                        </div>
                       )}
                       {agentStatus === 'executing' && (
-                        <><span className="status-dot executing" /> Executing task...</>
+                        <div className="status-pill executing-pill">
+                          <span className="status-dot executing" />
+                          <span>Executing</span>
+                          <span className="exec-bar-wrap"><span className="exec-bar-fill" /></span>
+                        </div>
                       )}
                       {(agentStatus === 'typing' || agentStatus === 'idle') && (
-                        <div className="typing-indicator"><div className="typing-bar"><span /><span /><span /></div></div>
+                        <div className="typing-indicator">
+                          <div className="typing-bar"><span /><span /><span /></div>
+                        </div>
                       )}
                     </div>
                   )}
+                  {/* Thinking / Reasoning block */}
                   {msg.thinking && (
                     <details className="thinking-block">
                       <summary>
-                        <IconChevronRight size={12} /> Reasoning
+                        <IconChevronRight size={12} />
+                        <span className="thinking-label">Reasoning</span>
                       </summary>
-                      <pre>{msg.thinking}</pre>
+                      <pre className="thinking-content">{msg.thinking}</pre>
                     </details>
                   )}
+                  {/* Tool calls with progress */}
                   {msg.toolCalls && msg.toolCalls.length > 0 && (
                     <div className="tool-calls">
                       {msg.toolCalls.map((tc, i) => (
-                        <details key={i} className="tool-call-block" open={tc.result === undefined}>
-                          <summary>
-                            <span className="tool-call-status">{tc.result === undefined ? <span className="tc-spinner" /> : <span className="tc-check">✓</span>}</span>
+                        <div key={i} className={`tool-call-card ${tc.result === undefined ? 'tool-running' : 'tool-done'}`}>
+                          <div className="tool-call-header" onClick={(e) => {
+                            const details = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.tool-call-detail') as HTMLElement
+                            if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none'
+                          }}>
+                            <span className="tool-call-status-icon">
+                              {tc.result === undefined ? <span className="tc-spinner" /> : <span className="tc-check">✓</span>}
+                            </span>
                             <span className="tool-call-name">{tc.name}</span>
-                            {tc.result !== undefined && <span className="tool-call-badge">done</span>}
-                          </summary>
-                          <div className="tool-call-detail">
+                            <span className={`tool-call-badge ${tc.result === undefined ? 'badge-running' : 'badge-done'}`}>
+                              {tc.result === undefined ? 'running' : 'done'}
+                            </span>
+                          </div>
+                          <div className="tool-call-detail" style={{ display: 'none' }}>
                             <div className="tool-call-section">
                               <span className="tool-call-label">Input</span>
-                              <pre>{JSON.stringify(tc.args, null, 2)}</pre>
+                              <pre className="tool-pre">{JSON.stringify(tc.args, null, 2)}</pre>
                             </div>
                             {tc.result !== undefined && (
                               <div className="tool-call-section">
                                 <span className="tool-call-label">Output</span>
-                                <pre>{tc.result.slice(0, 2000)}{tc.result.length > 2000 ? '\n...' : ''}</pre>
+                                <pre className="tool-pre">{tc.result.slice(0, 3000)}{tc.result.length > 3000 ? '\n...' : ''}</pre>
                               </div>
                             )}
                           </div>
-                        </details>
+                        </div>
                       ))}
                     </div>
                   )}
-                  {msg.content && <div className="msg-text">{renderMarkdown(msg.content)}</div>}
+                  {/* Message content */}
+                  {msg.content && (
+                    <div className="msg-text">
+                      {renderMarkdown(msg.content)}
+                      {isStreamingThis && <span className="streaming-cursor" />}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+              )
+            })}
             {isStreaming && activeThread.messages[activeThread.messages.length - 1]?.role === 'user' && (
               <div className="msg msg-assistant">
                 <div className="msg-avatar">
-                  <LogoSvg size={48} animated status={agentStatus} className="ai-avatar" />
+                  <LogoSvg size={36} animated status={agentStatus} className="ai-avatar" />
                 </div>
                 <div className="msg-body">
                   <div className="agent-status-indicator">
                     {agentStatus === 'thinking' && (
-                      <><span className="status-dot thinking" /> Thinking...</>
+                      <div className="status-pill thinking-pill">
+                        <span className="status-dot thinking" />
+                        <span>Thinking</span>
+                        <span className="status-dots-anim">...</span>
+                      </div>
                     )}
                     {agentStatus === 'executing' && (
-                      <><span className="status-dot executing" /> Executing task...</>
+                      <div className="status-pill executing-pill">
+                        <span className="status-dot executing" />
+                        <span>Executing</span>
+                        <span className="exec-bar-wrap"><span className="exec-bar-fill" /></span>
+                      </div>
                     )}
                     {(agentStatus === 'typing' || agentStatus === 'idle') && (
                       <div className="typing-indicator"><div className="typing-bar"><span /><span /><span /></div></div>
@@ -1787,6 +2002,26 @@ function App() {
               ))}
             </div>
           )}
+
+          {/* Slash Command Palette */}
+          {showSlashPalette && (
+            <div className="slash-palette">
+              {SLASH_COMMANDS
+                .filter(c => c.cmd.includes(slashFilter) || c.label.toLowerCase().includes(slashFilter.toLowerCase()))
+                .slice(0, 6)
+                .map(cmd => (
+                  <button key={cmd.cmd} className="slash-palette-item" onClick={() => executeSlashCommand(cmd.cmd)}>
+                    <span className="slash-icon">{cmd.icon}</span>
+                    <span className="slash-cmd">{cmd.cmd}</span>
+                    <span className="slash-desc">{cmd.description}</span>
+                  </button>
+                ))}
+              {SLASH_COMMANDS.filter(c => c.cmd.includes(slashFilter)).length === 0 && (
+                <div className="slash-palette-empty">No matching commands. Send as message?</div>
+              )}
+            </div>
+          )}
+
           <div className="input-wrapper">
             <button className="upload-btn" onClick={() => fileInputRef.current?.click()} title="Attach files">
               <IconPlus size={18} />
@@ -1795,9 +2030,9 @@ function App() {
             <textarea
               ref={inputRef}
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'Ask me anything — fix your PC, write a report, browse the web...'}
+              placeholder={!isLoggedIn ? 'Sign in to start chatting...' : 'Ask me anything — or type / for commands...'}
               rows={1}
               className="main-input"
             />
