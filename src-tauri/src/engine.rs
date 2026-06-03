@@ -43,19 +43,41 @@ fn find_hermes() -> Option<String> {
     if cfg!(windows) {
         let username = std::env::var("USERNAME").unwrap_or_default();
         for version in &["Python313", "Python312", "Python311", "Python310"] {
-            let py_scripts = PathBuf::from(format!(
-                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes.exe",
-                username, version
-            ));
-            if py_scripts.exists() {
-                return Some(py_scripts.to_string_lossy().to_string());
+            for name in &["hermes-agent.exe", "hermes.exe"] {
+                let py_scripts = PathBuf::from(format!(
+                    r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\{}",
+                    username, version, name
+                ));
+                if py_scripts.exists() {
+                    return Some(py_scripts.to_string_lossy().to_string());
+                }
             }
         }
         
-        // Also check user-wide Python installation
-        let user_scripts = home.join("AppData").join("Roaming").join("Python").join("Scripts").join("hermes.exe");
-        if user_scripts.exists() {
-            return Some(user_scripts.to_string_lossy().to_string());
+        // Also check user-wide Python installation (pip --user)
+        for version in &["Python313", "Python312", "Python311", "Python310"] {
+            let user_scripts = home.join("AppData").join("Roaming").join("Python").join(version).join("Scripts");
+            for name in &["hermes-agent.exe", "hermes.exe"] {
+                let exe = user_scripts.join(name);
+                if exe.exists() {
+                    return Some(exe.to_string_lossy().to_string());
+                }
+            }
+        }
+        // Fallback: Roaming\Python\Scripts (no version)
+        let user_scripts = home.join("AppData").join("Roaming").join("Python").join("Scripts");
+        for name in &["hermes-agent.exe", "hermes.exe"] {
+            let exe = user_scripts.join(name);
+            if exe.exists() {
+                return Some(exe.to_string_lossy().to_string());
+            }
+        }
+        // Check ~/.local/bin (pip --user on some setups)
+        for name in &["hermes-agent.exe", "hermes.exe"] {
+            let exe = home.join(".local").join("bin").join(name);
+            if exe.exists() {
+                return Some(exe.to_string_lossy().to_string());
+            }
         }
     }
 
@@ -75,17 +97,21 @@ fn find_hermes() -> Option<String> {
 
     // 2. Check PATH via `where` / `which`
     if cfg!(windows) {
-        if let Ok(output) = std::process::Command::new("where").arg("hermes").output() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() && output.status.success() {
-                return Some(path.lines().next().unwrap_or("").to_string());
+        for name in &["hermes-agent", "hermes"] {
+            if let Ok(output) = std::process::Command::new("where").arg(name).output() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() && output.status.success() {
+                    return Some(path.lines().next().unwrap_or("").to_string());
+                }
             }
         }
     } else {
-        if let Ok(output) = std::process::Command::new("which").arg("hermes").output() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() && output.status.success() {
-                return Some(path);
+        for name in &["hermes-agent", "hermes"] {
+            if let Ok(output) = std::process::Command::new("which").arg(name).output() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() && output.status.success() {
+                    return Some(path);
+                }
             }
         }
     }
@@ -129,13 +155,14 @@ fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
     let symlink_path = home.join(".hermes");
     
     // Remove existing symlink or directory if it exists
-    if symlink_path.exists() || symlink_path.symlink_metadata().is_ok() {
+    if symlink_path.symlink_metadata().is_ok() {
         if symlink_path.is_symlink() {
+            // It's already a symlink — remove and recreate
             std::fs::remove_file(&symlink_path).ok();
         } else if symlink_path.is_dir() {
-            // It's a real directory, rename it as backup
-            let backup = home.join(".hermes.backup");
-            std::fs::rename(&symlink_path, &backup).ok();
+            // It's a real directory (user has existing hermes setup) — leave it alone
+            // hermes-agent will use HERMES_HOME env var anyway
+            return Ok(());
         }
     }
 
@@ -148,8 +175,15 @@ fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
     
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_dir(hermes_dir, &symlink_path)
-            .map_err(|e| format!("Failed to create symlink: {e}"))?;
+        // Try symlink_dir first; if it fails (needs admin), try junction via cmd, or just skip
+        if let Err(_) = std::os::windows::fs::symlink_dir(hermes_dir, &symlink_path) {
+            // Try creating a directory junction (doesn't need admin)
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J",
+                    symlink_path.to_string_lossy().as_ref(),
+                    hermes_dir.to_string_lossy().as_ref()])
+                .output();
+        }
     }
 
     let api_key = get_api_key();
@@ -305,11 +339,19 @@ pub fn start_engine(
     let hermes_exe = find_hermes()
         .ok_or_else(|| "TaskBolt engine not found. Please run setup first.".to_string())?;
 
+    // Use the existing ~/.hermes directory (which has a working config)
+    // If it doesn't exist, fall back to ~/.taskbolt
+    let config_dir = if home.join(".hermes").join("config.yaml").exists() {
+        home.join(".hermes")
+    } else {
+        hermes_dir.clone()
+    };
+
     // Spawn gateway process with suppressed output
     let mut child = Command::new(&hermes_exe)
         .args(["gateway"])
-        .env("HERMES_HOME", hermes_dir.to_string_lossy().to_string())
-        .current_dir(&hermes_dir)
+        .env("HERMES_HOME", config_dir.to_string_lossy().to_string())
+        .current_dir(&config_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())  // Suppress stdout
         .stderr(Stdio::null())  // Suppress stderr
