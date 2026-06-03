@@ -354,6 +354,12 @@ function App() {
     loadMemory()
     loadKanban()
     loadSchedules()
+    // Load real backend data
+    loadGateway()
+    loadMemoryReal()
+    loadSkillsReal()
+    loadSchedulesReal()
+    loadToolsetsReal()
     const done = localStorage.getItem('tb_setup_done')
     if (done === 'true') {
       setSetupDone(true)
@@ -612,6 +618,185 @@ function App() {
   const saveSchedules = (s: ScheduledTask[]) => {
     setSchedules(s)
     localStorage.setItem('tb_schedules', JSON.stringify(s))
+  }
+
+  // ── Gateway (real backend) ──
+  const loadGateway = async () => {
+    try {
+      const platforms = await invoke<GatewayPlatform[]>('get_gateway_config')
+      setGatewayPlatforms(platforms)
+    } catch (e) {
+      console.error('Failed to load gateway:', e)
+    }
+  }
+
+  const connectPlatform = async (id: string) => {
+    let config: Record<string, string> = {}
+    if (id === 'telegram') {
+      const token = prompt('Enter your Telegram Bot Token:')
+      if (!token) return
+      config['bot_token'] = token
+    } else if (id === 'whatsapp') {
+      const number = prompt('Enter WhatsApp number (with country code, e.g. +15551234567):')
+      if (!number) return
+      config['phone_number'] = number
+    } else if (id === 'imessage') {
+      config['enabled'] = 'true'
+    }
+
+    try {
+      await invoke('set_gateway_platform', { platformId: id, config })
+      setGatewayPlatforms(prev => prev.map(p => p.id === id ? { ...p, connected: true, config } : p))
+    } catch (e) {
+      console.error('Failed to connect platform:', e)
+      alert(`Failed to connect ${id}: ${e}`)
+    }
+  }
+
+  const disconnectPlatform = async (id: string) => {
+    try {
+      await invoke('disconnect_gateway_platform', { platformId: id })
+      setGatewayPlatforms(prev => prev.map(p => p.id === id ? { ...p, connected: false } : p))
+    } catch (e) {
+      console.error('Failed to disconnect platform:', e)
+    }
+  }
+
+  // ── Memory (real backend) ──
+  const loadMemoryReal = async () => {
+    try {
+      const [entries, profile] = await Promise.all([
+        invoke<MemoryEntry[]>('get_memory_entries'),
+        invoke<string>('get_user_profile'),
+      ])
+      setMemoryEntries(entries)
+      setMemoryProfile(profile || '')
+    } catch (e) {
+      console.error('Failed to load memory:', e)
+      loadMemory() // fallback to localStorage
+    }
+  }
+
+  const saveMemoryReal = async (entries: MemoryEntry[]) => {
+    setMemoryEntries(entries)
+  }
+
+  const addMemoryReal = async (target: string, content: string) => {
+    try {
+      const id = await invoke<string>('add_memory_entry', { target, content })
+      const newEntry: MemoryEntry = { id, target: target as 'memory' | 'user', content, createdAt: Date.now() }
+      setMemoryEntries(prev => [newEntry, ...prev])
+    } catch (e) {
+      console.error('Failed to add memory:', e)
+      alert(`Failed to save memory: ${e}`)
+    }
+  }
+
+  const deleteMemoryReal = async (id: string) => {
+    try {
+      await invoke('delete_memory_entry', { id })
+      setMemoryEntries(prev => prev.filter(e => e.id !== id))
+    } catch (e) {
+      console.error('Failed to delete memory:', e)
+    }
+  }
+
+  const saveProfileReal = async (content: string) => {
+    setMemoryProfile(content)
+    try {
+      await invoke('set_user_profile', { content })
+    } catch (e) {
+      console.error('Failed to save profile:', e)
+    }
+  }
+
+  // ── Skills (real backend) ──
+  const loadSkillsReal = async () => {
+    try {
+      const realSkills = await invoke<Skill[]>('get_skills')
+      if (realSkills.length > 0) {
+        // Merge real skills with core skills
+        setSkills(prev => {
+          const coreIds = new Set(CORE_SKILLS.map(s => s.id))
+          const realMapped = realSkills.map(s => ({
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            icon: '🧩',
+            enabled: s.enabled,
+            isCore: false,
+          }))
+          return [...CORE_SKILLS, ...realMapped.filter(s => !coreIds.has(s.id))]
+        })
+      }
+    } catch (e) {
+      console.error('Failed to load skills:', e)
+    }
+  }
+
+  const toggleSkillReal = async (id: string, enabled: boolean) => {
+    setSkills(prev => prev.map(s => s.id === id ? { ...s, enabled } : s))
+    try {
+      await invoke('toggle_skill', { id, enabled })
+    } catch (e) {
+      console.error('Failed to toggle skill:', e)
+    }
+  }
+
+  // ── Schedules (real backend) ──
+  const loadSchedulesReal = async () => {
+    try {
+      const real = await invoke<ScheduledTask[]>('get_schedules')
+      if (real.length > 0) {
+        setSchedules(real)
+      }
+    } catch (e) {
+      console.error('Failed to load schedules:', e)
+    }
+  }
+
+  const addScheduleReal = async (name: string, schedule: string, prompt: string) => {
+    try {
+      const id = await invoke<string>('add_schedule', { name, cron: schedule, prompt })
+      const newSchedule: ScheduledTask = { id, name, schedule, prompt, enabled: true }
+      setSchedules(prev => [newSchedule, ...prev])
+    } catch (e) {
+      console.error('Failed to add schedule:', e)
+      alert(`Failed to create schedule: ${e}`)
+    }
+  }
+
+  const toggleScheduleReal = async (id: string, enabled: boolean) => {
+    setSchedules(prev => prev.map(s => s.id === id ? { ...s, enabled } : s))
+    try {
+      await invoke('toggle_schedule', { id, enabled })
+    } catch (e) {
+      console.error('Failed to toggle schedule:', e)
+    }
+  }
+
+  const deleteScheduleReal = async (id: string) => {
+    try {
+      await invoke('delete_schedule', { id })
+      setSchedules(prev => prev.filter(s => s.id !== id))
+    } catch (e) {
+      console.error('Failed to delete schedule:', e)
+    }
+  }
+
+  // ── Toolsets (real backend) ──
+  const loadToolsetsReal = async () => {
+    try {
+      const enabledIds = await invoke<string[]>('get_toolsets')
+      if (enabledIds.length > 0) {
+        setToolsets(prev => prev.map(t => ({
+          ...t,
+          enabled: enabledIds.includes(t.id),
+        })))
+      }
+    } catch (e) {
+      console.error('Failed to load toolsets:', e)
+    }
   }
 
   // ── Thread helpers ───────────────────────────────────
@@ -1851,7 +2036,13 @@ function App() {
                       <span className="skill-desc">{skill.description}</span>
                     </div>
                     <label className="toggle">
-                      <input type="checkbox" checked={skill.enabled} onChange={e => setSkills(prev => prev.map(s => s.id === skill.id ? { ...s, enabled: e.target.checked } : s))} />
+                      <input type="checkbox" checked={skill.enabled} onChange={e => {
+                        const enabled = e.target.checked
+                        setSkills(prev => prev.map(s => s.id === skill.id ? { ...s, enabled } : s))
+                        if (!skill.isCore) {
+                          toggleSkillReal(skill.id, enabled)
+                        }
+                      }} />
                       <span className="toggle-slider" />
                     </label>
                   </div>
@@ -2362,7 +2553,7 @@ function App() {
                   className="memory-profile-input"
                   placeholder="Who is the user? Name, role, preferences, habits..."
                   value={memoryProfile}
-                  onChange={e => { setMemoryProfile(e.target.value); localStorage.setItem('tb_memory_profile', e.target.value) }}
+                  onChange={e => saveProfileReal(e.target.value)}
                   rows={4}
                 />
                 <div className="memory-profile-stats">
@@ -2388,8 +2579,7 @@ function App() {
                 />
                 <button className="btn-primary btn-sm" onClick={() => {
                   if (!newMemoryContent.trim()) return
-                  const entry: MemoryEntry = { id: crypto.randomUUID(), target: newMemoryTarget, content: newMemoryContent.trim(), createdAt: Date.now() }
-                  saveMemory([entry, ...memoryEntries])
+                  addMemoryReal(newMemoryTarget, newMemoryContent.trim())
                   setNewMemoryContent('')
                 }}>Add</button>
               </div>
@@ -2400,7 +2590,7 @@ function App() {
                     <div className="memory-entry-header">
                       <span className={`memory-tag ${entry.target}`}>{entry.target === 'user' ? 'User' : 'Notes'}</span>
                       <span className="memory-date">{new Date(entry.createdAt).toLocaleDateString()}</span>
-                      <button className="memory-remove-btn" onClick={() => saveMemory(memoryEntries.filter(e => e.id !== entry.id))}>
+                      <button className="memory-remove-btn" onClick={() => deleteMemoryReal(entry.id)}>
                         <IconX size={10} />
                       </button>
                     </div>
@@ -2430,7 +2620,11 @@ function App() {
                     </div>
                     <p className="tool-card-desc">{tool.description}</p>
                     <label className="toggle">
-                      <input type="checkbox" checked={tool.enabled} onChange={e => setToolsets(prev => prev.map(t => t.id === tool.id ? { ...t, enabled: e.target.checked } : t))} />
+                      <input type="checkbox" checked={tool.enabled} onChange={e => {
+                        const enabled = e.target.checked
+                        setToolsets(prev => prev.map(t => t.id === tool.id ? { ...t, enabled } : t))
+                        invoke('toggle_toolset', { toolsetId: tool.id, enabled }).catch(e => console.error('Failed to toggle toolset:', e))
+                      }} />
                       <span className="toggle-slider" />
                     </label>
                   </div>
@@ -2454,8 +2648,7 @@ function App() {
                 <textarea className="input-field" placeholder="What should the agent do?" value={newSchedulePrompt} onChange={e => setNewSchedulePrompt(e.target.value)} rows={2} />
                 <button className="btn-primary btn-sm" onClick={() => {
                   if (!newScheduleName.trim() || !newSchedulePrompt.trim()) return
-                  const task: ScheduledTask = { id: crypto.randomUUID(), name: newScheduleName.trim(), schedule: newScheduleCron || 'every 1h', prompt: newSchedulePrompt.trim(), enabled: true }
-                  saveSchedules([task, ...schedules])
+                  addScheduleReal(newScheduleName.trim(), newScheduleCron || 'every 1h', newSchedulePrompt.trim())
                   setNewScheduleName(''); setNewScheduleCron(''); setNewSchedulePrompt('')
                 }}>Create Schedule</button>
               </div>
@@ -2467,10 +2660,10 @@ function App() {
                       <span className="schedule-name">{s.name}</span>
                       <span className="schedule-cron">{s.schedule}</span>
                       <label className="toggle">
-                        <input type="checkbox" checked={s.enabled} onChange={e => saveSchedules(schedules.map(t => t.id === s.id ? { ...t, enabled: e.target.checked } : t))} />
+                        <input type="checkbox" checked={s.enabled} onChange={e => toggleScheduleReal(s.id, e.target.checked)} />
                         <span className="toggle-slider" />
                       </label>
-                      <button className="schedule-delete-btn" onClick={() => saveSchedules(schedules.filter(t => t.id !== s.id))}>
+                      <button className="schedule-delete-btn" onClick={() => deleteScheduleReal(s.id)}>
                         <IconX size={12} />
                       </button>
                     </div>
@@ -2500,7 +2693,7 @@ function App() {
                       {p.connected ? '● Connected' : '○ Not connected'}
                     </span>
                     <button className={`btn-secondary btn-sm ${p.connected ? 'btn-disconnect' : ''}`} onClick={() => {
-                      setGatewayPlatforms(prev => prev.map(pl => pl.id === p.id ? { ...pl, connected: !pl.connected } : pl))
+                      p.connected ? disconnectPlatform(p.id) : connectPlatform(p.id)
                     }}>
                       {p.connected ? 'Disconnect' : 'Connect'}
                     </button>

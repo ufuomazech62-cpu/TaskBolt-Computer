@@ -4,6 +4,7 @@ use tauri::Emitter;
 use futures_util::StreamExt;
 
 mod engine;
+mod backend;
 
 struct AppState {
     engine: Arc<tokio::sync::Mutex<Option<engine::EngineHandle>>>,
@@ -237,6 +238,22 @@ pub fn run() {
             auto_setup,
             send_message,
             cancel_message,
+            backend::get_gateway_config,
+            backend::set_gateway_platform,
+            backend::disconnect_gateway_platform,
+            backend::get_memory_entries,
+            backend::add_memory_entry,
+            backend::delete_memory_entry,
+            backend::get_user_profile,
+            backend::set_user_profile,
+            backend::get_skills,
+            backend::toggle_skill,
+            backend::get_toolsets,
+            backend::toggle_toolset,
+            backend::get_schedules,
+            backend::add_schedule,
+            backend::toggle_schedule,
+            backend::delete_schedule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
