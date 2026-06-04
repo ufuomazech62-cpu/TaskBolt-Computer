@@ -9,9 +9,8 @@ const GATEWAY_PORT: u16 = 8642;
 const GATEWAY_HOST: &str = "127.0.0.1";
 const GATEWAY_KEY: &str = "taskbolt-local-key";
 
-// DashScope API config (OpenAI-compatible)
-const DASHSCOPE_BASE_URL: &str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
-const DASHSCOPE_DEFAULT_KEY: &str = "sk-ws-H.HREPLP.gp4v.MEYCIQDNuGK2sFsWGvTtarP1Pb4QWwyteUTnUC2e8G-2r2eXmQIhAMlpdycwD1pShqIJCptTF_bGuIY_xp5VluEpweczNcUn";
+// Vercel secure endpoint (API key lives on server)
+const VERCEL_API: &str = "https://taskbolt.space/api/ai/agent";
 const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 
 pub struct EngineHandle {
@@ -146,9 +145,9 @@ fn find_python() -> String {
     }
 }
 
-/// Get the DashScope API key from environment or fallback
-fn get_api_key() -> String {
-    std::env::var("DASHSCOPE_API_KEY").unwrap_or_else(|_| DASHSCOPE_DEFAULT_KEY.to_string())
+/// Get auth token from env or file
+fn get_auth_token() -> String {
+    std::env::var("TASKBOLT_TOKEN").unwrap_or_default()
 }
 
 /// Setup hermes config files in ~/.taskbolt/ and symlink to ~/.hermes/
@@ -194,14 +193,13 @@ fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
         }
     }
 
-    let api_key = get_api_key();
+    let auth_token = get_auth_token();
 
-    // Write .env file
+    // Write .env file (Vercel endpoint - no API key on client)
     let env_content = format!(
         r#"# TaskBolt Engine Config
-DASHSCOPE_API_KEY={api_key}
-OPENAI_API_KEY={api_key}
-OPENAI_BASE_URL={DASHSCOPE_BASE_URL}
+TASKBOLT_API={VERCEL_API}
+TASKBOLT_TOKEN={auth_token}
 API_SERVER_KEY={GATEWAY_KEY}
 API_SERVER_PORT={GATEWAY_PORT}
 API_SERVER_HOST={GATEWAY_HOST}
@@ -214,12 +212,11 @@ API_SERVER_HOST={GATEWAY_HOST}
     let config_content = format!(
         r#"# TaskBolt Configuration
 model:
-  provider: alibaba
+  provider: vercel
   default: "{DEFAULT_MODEL}"
 
-providers: {{}}
-fallback_providers: []
-credential_pool_strategies: {{}}
+vercel_api: "{VERCEL_API}"
+auth_token: "{auth_token}"
 
 toolsets:
   - terminal
@@ -466,4 +463,8 @@ pub async fn initialize_engine(app_handle: tauri::AppHandle) -> Result<EngineHan
     }).to_string()).ok();
 
     Ok(handle)
+}
+
+fn get_api_key() -> String {
+    std::env::var("DASHSCOPE_API_KEY").unwrap_or_default()
 }
