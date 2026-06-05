@@ -38,7 +38,7 @@
       "icons/icon.png"
     ],
     "resources": [
-      "../taskbolt_bridge.py"
+      "../engine/**/*"
     ]
   }
 }

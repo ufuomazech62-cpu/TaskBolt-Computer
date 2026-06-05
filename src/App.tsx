@@ -356,7 +356,9 @@ function App() {
   const [allTransactions, setAllTransactions] = useState<any[]>([])
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [userContext, setUserContext] = useState(() => localStorage.getItem('tb_user_context') || '')
   const [deleteThreadConfirm, setDeleteThreadConfirm] = useState<string | null>(null)
+  const [sessionSearchQuery, setSessionSearchQuery] = useState('')
   const [feedbackRating, setFeedbackRating] = useState(0)
   const [feedbackText, setFeedbackText] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
@@ -396,6 +398,7 @@ function App() {
   ])
   const [newKanbanTitle, setNewKanbanTitle] = useState('')
   const [newKanbanColumn, setNewKanbanColumn] = useState<KanbanCard['column']>('todo')
+  const [dragOverColumn, setDragOverColumn] = useState<KanbanCard['column'] | null>(null)
   const [newScheduleName, setNewScheduleName] = useState('')
   const [newScheduleCron, setNewScheduleCron] = useState('')
   const [newSchedulePrompt, setNewSchedulePrompt] = useState('')
@@ -943,7 +946,34 @@ function App() {
       return
     }
 
-    const userContent = input.trim()
+    // Build message content with attached files
+    let userContent = input.trim()
+    
+    // Process attached files
+    if (uploadedFiles.length > 0) {
+      const fileInfo: string[] = []
+      for (const file of uploadedFiles) {
+        // For text files under 500KB, read and include content
+        if (file.size < 500 * 1024 && /\.(txt|md|csv|json|xml|yaml|yml|log|py|js|ts|html|css|sh|bat|ps1|cfg|ini|toml|env)$/i.test(file.name)) {
+          try {
+            const text = await file.text()
+            fileInfo.push(`\n--- File: ${file.name} (${file.size.toLocaleString()} bytes) ---\n${text.slice(0, 10000)}${text.length > 10000 ? '\n... (truncated)' : ''}\n--- End of ${file.name} ---\n`)
+          } catch {
+            fileInfo.push(`\n[File: ${file.name} — could not read content]\n`)
+          }
+        } else {
+          // For binary/large files, just include metadata
+          fileInfo.push(`\n[File attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB, type: ${file.type || 'unknown'})]\n`)
+        }
+      }
+      
+      const filesHeader = `📎 ${uploadedFiles.length} file(s) attached:\n${uploadedFiles.map(f => `• ${f.name}`).join('\n')}\n`
+      userContent = filesHeader + fileInfo.join('') + `\n\nUser message:\n${userContent}`
+      
+      // Clear uploaded files after sending
+      setUploadedFiles([])
+    }
+    
     setInput('')
     setIsStreaming(true)
 
@@ -1412,6 +1442,118 @@ function App() {
       fetchUsage(usagePeriod)
     }
   }, [settingsTab, usagePeriod])
+
+  // ── Automation Runner (Cron/Schedule) ──────────────────────
+  // Parses human-readable schedule strings into millisecond intervals.
+  // Supports: "every Xh", "every Xm", "every Xs", "every day at Ham",
+  //           "every Monday/Tuesday/...", "every X hours/minutes"
+  const parseScheduleToMs = useCallback((schedule: string): number => {
+    const s = schedule.trim().toLowerCase()
+
+    // "every Xh" or "every X hours"
+    const hoursMatch = s.match(/every\s+(\d+)\s*(h|hours?)/)
+    if (hoursMatch) return parseInt(hoursMatch[1]) * 60 * 60 * 1000
+
+    // "every Xm" or "every X minutes"
+    const minsMatch = s.match(/every\s+(\d+)\s*(m|min|minutes?)/)
+    if (minsMatch) return parseInt(minsMatch[1]) * 60 * 1000
+
+    // "every Xs" or "every X seconds"
+    const secsMatch = s.match(/every\s+(\d+)\s*(s|sec|seconds?)/)
+    if (secsMatch) return parseInt(secsMatch[1]) * 1000
+
+    // "every day at Ham" or "every day at H:MMam/pm"
+    const dailyMatch = s.match(/every\s+day\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/)
+    if (dailyMatch) {
+      // For daily schedules, use 24h interval (run once per day)
+      return 24 * 60 * 60 * 1000
+    }
+
+    // "every Monday/Tuesday/Wednesday/..."
+    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+    const weeklyMatch = s.match(new RegExp(`every\\s+(${dayNames.join('|')})`))
+    if (weeklyMatch) return 7 * 24 * 60 * 60 * 1000
+
+    // "every X days"
+    const daysMatch = s.match(/every\s+(\d+)\s*days?/)
+    if (daysMatch) return parseInt(daysMatch[1]) * 24 * 60 * 60 * 1000
+
+    // Default: 1 hour
+    return 60 * 60 * 1000
+  }, [])
+
+  // Check if a schedule is due to run based on its lastRun timestamp
+  const isScheduleDue = useCallback((task: ScheduledTask): boolean => {
+    if (!task.enabled) return false
+
+    const now = Date.now()
+    const intervalMs = parseScheduleToMs(task.schedule)
+
+    // If never run before, it's due
+    if (!task.lastRun) return true
+
+    // Check if enough time has passed since last run
+    return (now - task.lastRun) >= intervalMs
+  }, [parseScheduleToMs])
+
+  // Run a single automation by sending its prompt via send_message
+  const runAutomation = useCallback(async (task: ScheduledTask) => {
+    const automationThreadId = `automation-${task.id}`
+    console.log(`[AutomationRunner] Firing automation: "${task.name}" (id: ${task.id})`)
+
+    try {
+      await invoke('send_message', {
+        content: `[AUTOMATION: ${task.name}] ${task.prompt}`,
+        threadId: automationThreadId,
+        authToken: authToken || '',
+      })
+
+      // Update lastRun timestamp in state
+      const now = Date.now()
+      setSchedules(prev => prev.map(s =>
+        s.id === task.id ? { ...s, lastRun: now } : s
+      ))
+
+      // Persist lastRun to backend if the command exists
+      try {
+        await invoke('update_schedule_last_run', { id: task.id, lastRun: now })
+      } catch {
+        // Backend may not support this command yet — state update is sufficient
+      }
+
+      console.log(`[AutomationRunner] Successfully triggered: "${task.name}"`)
+    } catch (err) {
+      console.error(`[AutomationRunner] Failed to trigger "${task.name}":`, err)
+    }
+  }, [authToken])
+
+  // Main automation runner interval — checks every 60 seconds
+  useEffect(() => {
+    const checkAndRunAutomations = () => {
+      const dueTasks = schedules.filter(isScheduleDue)
+      if (dueTasks.length > 0) {
+        console.log(`[AutomationRunner] ${dueTasks.length} automation(s) due to run`)
+      }
+      dueTasks.forEach(task => {
+        runAutomation(task)
+      })
+    }
+
+    // Run an initial check after a short delay (let app finish loading)
+    const initialTimer = setTimeout(() => {
+      checkAndRunAutomations()
+    }, 5000)
+
+    // Then check every 60 seconds
+    const intervalId = setInterval(() => {
+      checkAndRunAutomations()
+    }, 60000)
+
+    return () => {
+      clearTimeout(initialTimer)
+      clearInterval(intervalId)
+    }
+  }, [schedules, isScheduleDue, runAutomation])
 
   const addMCPServer = () => {
     if (!newMcpName.trim() || !newMcpUrl.trim()) return
@@ -1889,6 +2031,50 @@ function App() {
                       <button className="btn-secondary" onClick={handleSignOut}>Sign Out</button>
                     </div>
 
+                    {/* ── Personalize TaskBolt ── */}
+                    <div style={{ marginTop: '2rem' }}>
+                      <h3 style={{ marginBottom: '0.25rem' }}>🧠 Personalize TaskBolt</h3>
+                      <p className="setting-desc">
+                        Tell TaskBolt about yourself so it can give better, more relevant answers.
+                        This stays on your machine — it's never sent to any server.
+                      </p>
+                      <textarea
+                        className="input-field"
+                        rows={4}
+                        placeholder="e.g. I'm a project manager at Acme Corp. I prefer concise answers. I use Windows 11. I'm learning Python."
+                        value={userContext}
+                        onChange={e => setUserContext(e.target.value)}
+                        style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: '0.9rem', lineHeight: '1.5' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                        <button
+                          className="btn-primary btn-sm"
+                          onClick={() => {
+                            localStorage.setItem('tb_user_context', userContext)
+                            // Also save to engine memory
+                            invoke('save_user_context', { context: userContext }).catch(() => {})
+                          }}
+                        >
+                          Save
+                        </button>
+                        {userContext && (
+                          <button
+                            className="btn-secondary btn-sm"
+                            onClick={() => {
+                              setUserContext('')
+                              localStorage.setItem('tb_user_context', '')
+                              invoke('save_user_context', { context: '' }).catch(() => {})
+                            }}
+                          >
+                            Clear All
+                          </button>
+                        )}
+                        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                          {userContext.length > 0 ? `${userContext.length} characters saved` : 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="danger-zone" style={{ marginTop: '2rem' }}>
                       <h3 style={{ color: 'var(--danger)' }}>Danger Zone</h3>
                       <p className="setting-desc">Permanently delete your account and all data. This cannot be undone.</p>
@@ -2238,6 +2424,7 @@ function App() {
         <div className="sidebar-nav">
           {([
             { view: 'chat' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>, label: 'Chat' },
+            { view: 'sessions' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>, label: 'Sessions' },
             { view: 'tools' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>, label: 'Capabilities' },
             { view: 'schedules' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, label: 'Automations' },
             { view: 'gateway' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>, label: 'Messaging' },
@@ -2259,25 +2446,11 @@ function App() {
         {/* ── Chat-specific sidebar content ── */}
         {sidebarView === 'chat' && (
           <>
+            {/* New Task — always at the top */}
             <button className="btn-new-task" onClick={() => { setActiveThreadId(null); setInput('') }} title={sidebarOpen ? '' : 'New Task'}>
               <IconPlus size={16} />
               {sidebarOpen && <span>New Task</span>}
             </button>
-
-            {sidebarOpen && (
-              <div className="sidebar-search">
-                <div className="search-wrapper">
-                  <IconSearch size={14} />
-                  <input
-                    type="text"
-                    placeholder="Search tasks & messages..."
-                    value={searchQuery}
-                    onChange={e => handleSearchChange(e.target.value)}
-                    className="search-input"
-                  />
-                </div>
-              </div>
-            )}
 
             <div className="sidebar-threads">
               {sidebarOpen ? (
@@ -2617,36 +2790,91 @@ function App() {
         {sidebarView === 'sessions' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>Sessions</h2>
-              <span className="screen-count">{threads.length} conversations</span>
+              <h2>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                All Conversations
+              </h2>
+              <span className="screen-count">{threads.length} total</span>
             </div>
             <div className="screen-body">
-              {threads.length === 0 ? (
-                <div className="screen-empty">
-                  <span>No conversations yet</span>
-                  <p>Start chatting to create sessions</p>
-                </div>
-              ) : (
-                <div className="sessions-list">
-                  {threads.sort((a, b) => b.updatedAt - a.updatedAt).map(t => (
-                    <div key={t.id} className="session-card" onClick={() => { setSidebarView('chat'); setActiveThreadId(t.id) }}>
-                      <div className="session-card-header">
-                        <span className="session-title">{t.title}</span>
-                        <span className="session-date">{new Date(t.updatedAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="session-meta">
-                        <span className="session-msg-count">{t.messages.length} messages</span>
-                        {t.messages.length > 0 && (
-                          <span className="session-preview">{t.messages[t.messages.length - 1].content.slice(0, 80)}...</span>
-                        )}
-                      </div>
-                      <button className="session-delete-btn" onClick={e => { e.stopPropagation(); deleteThread(t.id) }}>
-                        <IconX size={12} />
-                      </button>
+              {/* Search bar */}
+              <div className="sessions-search-bar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.5}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input
+                  type="text"
+                  placeholder="Search conversations..."
+                  className="sessions-search-input"
+                  value={sessionSearchQuery}
+                  onChange={e => setSessionSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {(() => {
+                const filtered = sessionSearchQuery
+                  ? threads.filter(t =>
+                      t.title.toLowerCase().includes(sessionSearchQuery.toLowerCase()) ||
+                      t.messages.some(m => m.content.toLowerCase().includes(sessionSearchQuery.toLowerCase()))
+                    )
+                  : threads
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="screen-empty">
+                      <span>{sessionSearchQuery ? 'No matching conversations' : 'No conversations yet'}</span>
+                      <p>{sessionSearchQuery ? 'Try a different search term' : 'Start chatting to create sessions'}</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                }
+
+                // Group by date
+                const now = new Date()
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+                const weekAgo = today - 7 * 24 * 60 * 60 * 1000
+                const monthAgo = today - 30 * 24 * 60 * 60 * 1000
+
+                const groups: { label: string; items: typeof threads }[] = [
+                  { label: 'Today', items: [] },
+                  { label: 'This Week', items: [] },
+                  { label: 'This Month', items: [] },
+                  { label: 'Older', items: [] },
+                ]
+
+                filtered.sort((a, b) => b.updatedAt - a.updatedAt).forEach(t => {
+                  if (t.updatedAt >= today) groups[0].items.push(t)
+                  else if (t.updatedAt >= weekAgo) groups[1].items.push(t)
+                  else if (t.updatedAt >= monthAgo) groups[2].items.push(t)
+                  else groups[3].items.push(t)
+                })
+
+                return groups.filter(g => g.items.length > 0).map(group => (
+                  <div key={group.label} className="session-group">
+                    <div className="session-group-label">{group.label}</div>
+                    {group.items.map(t => (
+                      <div key={t.id} className="session-card" onClick={() => { setSidebarView('chat'); setActiveThreadId(t.id) }}>
+                        <div className="session-card-top">
+                          <div className="session-card-info">
+                            <span className="session-title">{t.title}</span>
+                            <span className="session-date">{new Date(t.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                          </div>
+                          <button
+                            className="session-delete-btn"
+                            onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(t.id) }}
+                            title="Delete conversation"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                          </button>
+                        </div>
+                        <div className="session-meta">
+                          <span className="session-msg-count">{t.messages.length} message{t.messages.length !== 1 ? 's' : ''}</span>
+                          {t.messages.length > 0 && (
+                            <span className="session-preview">{t.messages[t.messages.length - 1].content.slice(0, 100).replace(/\n/g, ' ')}{t.messages[t.messages.length - 1].content.length > 100 ? '...' : ''}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              })()}
             </div>
           </div>
         )}
@@ -2871,7 +3099,18 @@ function App() {
                   const colLabel = { todo: 'To Do', progress: 'In Progress', done: 'Done', blocked: 'Blocked' }[col]
                   const colColor = { todo: '#ffa657', progress: '#79c0ff', done: '#4ade80', blocked: '#f87171' }[col]
                   return (
-                    <div key={col} className="kanban-column">
+                    <div key={col} className={`kanban-column ${dragOverColumn === col ? 'kanban-column-drag-over' : ''}`}
+                      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverColumn(col) }}
+                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(prev => prev === col ? null : prev) }}
+                      onDrop={e => {
+                        e.preventDefault()
+                        setDragOverColumn(null)
+                        const cardId = e.dataTransfer.getData('cardId')
+                        if (cardId) {
+                          saveKanban(kanbanCards.map(c => c.id === cardId ? { ...c, column: col } : c))
+                        }
+                      }}
+                    >
                       <div className="kanban-column-header" style={{ borderColor: colColor }}>
                         <span className="kanban-col-title">{colLabel}</span>
                         <span className="kanban-col-count">{colCards.length}</span>
@@ -2879,7 +3118,8 @@ function App() {
                       <div className="kanban-cards">
                         {colCards.map(card => (
                           <div key={card.id} className="kanban-card" draggable
-                            onDragStart={e => e.dataTransfer.setData('cardId', card.id)}
+                            onDragStart={e => { e.dataTransfer.setData('cardId', card.id); e.dataTransfer.effectAllowed = 'move'; (e.currentTarget as HTMLElement).style.opacity = '0.4' }}
+                            onDragEnd={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; setDragOverColumn(null) }}
                           >
                             <span className="kanban-card-title">{card.title}</span>
                             <div className="kanban-card-actions">

@@ -1,0 +1,27 @@
+# TaskBolt Engine — minimal requirements for Odysseus agent core
+# Core HTTP client for LLM calls
+httpx
+# Web framework (Odysseus imports from it)
+fastapi
+python-multipart
+# Config
+python-dotenv
+pydantic>=2.0
+pydantic-settings>=2.0
+# Database (Odysseus settings/sessions store)
+SQLAlchemy
+# Web tools
+beautifulsoup4
+# Markdown rendering
+markdown
+# HTML sanitizer
+nh3
+# Date handling
+python-dateutil
+# Cron scheduling
+croniter
+# MCP support
+mcp
+# Crypto (for auth utils)
+cryptography
+bcrypt

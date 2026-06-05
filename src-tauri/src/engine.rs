@@ -2,29 +2,20 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::process::Command;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tauri::Emitter;
-use reqwest::Client;
 
-const GATEWAY_PORT: u16 = 8642;
-const GATEWAY_HOST: &str = "127.0.0.1";
-const GATEWAY_KEY: &str = "taskbolt-local-key";
-
-// Vercel secure endpoint (API key lives on server)
-const VERCEL_API: &str = "https://taskbolt.space/api/ai/agent";
+// Vercel SaaS endpoint — JWT auth + credit deduction + API key stays server-side
+const VERCEL_SAAS_URL: &str = "https://taskbolt.space/api/ai/agent";
 const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 
 pub struct EngineHandle {
-    #[allow(dead_code)]
-    child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
-    pub client: Client,
-    pub gateway_url: String,
+    pub child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
+    pub stdin_tx: Option<tokio::sync::mpsc::Sender<String>>,
+    current_token: Arc<tokio::sync::Mutex<String>>,
 }
 
 impl EngineHandle {
-    pub fn api_key(&self) -> &str {
-        GATEWAY_KEY
-    }
-
     pub async fn kill_gateway(&self) {
         let mut child_guard = self.child.lock().await;
         if let Some(ref mut child) = *child_guard {
@@ -32,108 +23,32 @@ impl EngineHandle {
             *child_guard = None;
         }
     }
-}
 
-/// Find hermes CLI executable
-fn find_hermes() -> Option<String> {
-    let home = dirs::home_dir()?;
-
-    // 1. Check Python Scripts directories (where pip installs on Windows)
-    if cfg!(windows) {
-        let username = std::env::var("USERNAME").unwrap_or_default();
-        // Prefer hermes.exe (has gateway run command) over hermes-agent.exe (chat only)
-        for version in &["Python313", "Python312", "Python311", "Python310"] {
-            let hermes_exe = PathBuf::from(format!(
-                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes.exe",
-                username, version
-            ));
-            if hermes_exe.exists() {
-                return Some(hermes_exe.to_string_lossy().to_string());
-            }
-        }
-        for version in &["Python313", "Python312", "Python311", "Python310"] {
-            let agent_exe = PathBuf::from(format!(
-                r"C:\Users\{}\AppData\Local\Programs\Python\{}\Scripts\hermes-agent.exe",
-                username, version
-            ));
-            if agent_exe.exists() {
-                return Some(agent_exe.to_string_lossy().to_string());
-            }
-        }
-        
-        // Also check user-wide Python installation (pip --user)
-        for version in &["Python313", "Python312", "Python311", "Python310"] {
-            let user_scripts = home.join("AppData").join("Roaming").join("Python").join(version).join("Scripts");
-            for name in &["hermes-agent.exe", "hermes.exe"] {
-                let exe = user_scripts.join(name);
-                if exe.exists() {
-                    return Some(exe.to_string_lossy().to_string());
-                }
-            }
-        }
-        // Fallback: Roaming\Python\Scripts (no version)
-        let user_scripts = home.join("AppData").join("Roaming").join("Python").join("Scripts");
-        for name in &["hermes-agent.exe", "hermes.exe"] {
-            let exe = user_scripts.join(name);
-            if exe.exists() {
-                return Some(exe.to_string_lossy().to_string());
-            }
-        }
-        // Check ~/.local/bin (pip --user on some setups)
-        for name in &["hermes-agent.exe", "hermes.exe"] {
-            let exe = home.join(".local").join("bin").join(name);
-            if exe.exists() {
-                return Some(exe.to_string_lossy().to_string());
-            }
-        }
+    pub async fn get_token(&self) -> String {
+        self.current_token.lock().await.clone()
     }
 
-    // 2. Check ~/.taskbolt locations
-    let candidates = vec![
-        home.join(".taskbolt").join("bin").join("hermes"),
-        home.join(".local").join("bin").join("hermes"),
-        home.join(".taskbolt").join(".venv").join("Scripts").join("hermes.exe"),
-        home.join(".taskbolt").join(".venv").join("bin").join("hermes"),
-    ];
-
-    for candidate in &candidates {
-        if candidate.exists() {
-            return Some(candidate.to_string_lossy().to_string());
+    /// Send a JSON message to the engine's stdin
+    pub async fn send_message(&self, json_msg: &str) -> Result<(), String> {
+        if let Some(ref tx) = self.stdin_tx {
+            tx.send(format!("{}\n", json_msg))
+                .await
+                .map_err(|e| format!("Failed to send to engine: {e}"))?;
+            Ok(())
+        } else {
+            Err("Engine stdin not available".to_string())
         }
     }
-
-    // 2. Check PATH via `where` / `which`
-    if cfg!(windows) {
-        for name in &["hermes-agent", "hermes"] {
-            if let Ok(output) = std::process::Command::new("where").arg(name).output() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() && output.status.success() {
-                    return Some(path.lines().next().unwrap_or("").to_string());
-                }
-            }
-        }
-    } else {
-        for name in &["hermes-agent", "hermes"] {
-            if let Ok(output) = std::process::Command::new("which").arg(name).output() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() && output.status.success() {
-                    return Some(path);
-                }
-            }
-        }
-    }
-
-    None
 }
 
 /// Find Python executable
 fn find_python() -> String {
     if cfg!(windows) {
-        for version in &["Python313", "Python312", "Python311"] {
+        let username = std::env::var("USERNAME").unwrap_or_default();
+        for version in &["Python313", "Python312", "Python311", "Python310"] {
             let py = PathBuf::from(format!(
                 r"C:\Users\{}\AppData\Local\Programs\Python\{}\python.exe",
-                std::env::var("USERNAME").unwrap_or_default(),
-                version
+                username, version
             ));
             if py.exists() {
                 return py.to_string_lossy().to_string();
@@ -145,326 +60,237 @@ fn find_python() -> String {
     }
 }
 
-/// Get auth token from env or file
-fn get_auth_token() -> String {
-    std::env::var("TASKBOLT_TOKEN").unwrap_or_default()
+/// Find the engine directory (where taskbolt_engine.py lives)
+fn find_engine_dir() -> Option<PathBuf> {
+    // Check relative to the executable
+    if let Ok(exe) = std::env::current_exe() {
+        let candidate = exe.parent()?.join("engine");
+        if candidate.join("taskbolt_engine.py").exists() {
+            return Some(candidate);
+        }
+        // Dev mode: engine is in the project root
+        let candidate = exe.parent()?.join("../../engine");
+        if candidate.join("taskbolt_engine.py").exists() {
+            return Some(candidate.canonicalize().unwrap_or(candidate));
+        }
+    }
+
+    // Check common locations
+    let home = dirs::home_dir()?;
+
+    // In the project workspace (dev mode)
+    let candidates = vec![
+        home.join(".taskbolt").join("engine"),
+        home.join(".openclaw-autoclaw").join("agents").join("zechy-computer")
+            .join("workspace").join("TaskBolt-Computer").join("engine"),
+    ];
+
+    for candidate in &candidates {
+        if candidate.join("taskbolt_engine.py").exists() {
+            return Some(candidate.clone());
+        }
+    }
+
+    None
 }
 
-/// Setup hermes config files in ~/.taskbolt/ and symlink to ~/.hermes/
-fn setup_hermes_config(hermes_dir: &PathBuf) -> Result<(), String> {
-    // Create ~/.taskbolt/ directory
-    std::fs::create_dir_all(hermes_dir)
-        .map_err(|e| format!("Failed to create .taskbolt dir: {e}"))?;
+/// Check if engine dependencies are installed
+async fn check_dependencies(python: &str, engine_dir: &PathBuf) -> bool {
+    let output = Command::new(python)
+        .args(["-c", "import httpx; import pydantic; print('ok')"])
+        .current_dir(engine_dir)
+        .output()
+        .await;
 
-    // Create symlink: ~/.hermes/ → ~/.taskbolt/
-    // This way hermes-agent reads from ~/.hermes/ but we brand it as ~/.taskbolt/
-    let home = dirs::home_dir().ok_or("Could not find home directory")?;
-    let symlink_path = home.join(".hermes");
-    
-    // Remove existing symlink or directory if it exists
-    if symlink_path.symlink_metadata().is_ok() {
-        if symlink_path.is_symlink() {
-            // It's already a symlink — remove and recreate
-            std::fs::remove_file(&symlink_path).ok();
-        } else if symlink_path.is_dir() {
-            // It's a real directory (user has existing hermes setup) — leave it alone
-            // hermes-agent will use HERMES_HOME env var anyway
-            return Ok(());
-        }
+    match output {
+        Ok(o) => o.status.success(),
+        Err(_) => false,
     }
+}
 
-    // Create symlink
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(hermes_dir, &symlink_path)
-            .map_err(|e| format!("Failed to create symlink: {e}"))?;
+/// Install engine dependencies
+async fn install_dependencies(
+    python: &str,
+    engine_dir: &PathBuf,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    app_handle.emit("agent-event", serde_json::json!({
+        "type": "status",
+        "content": "Installing TaskBolt engine dependencies..."
+    }).to_string()).ok();
+
+    let req_file = engine_dir.join("taskbolt_requirements.txt");
+
+    let output = Command::new(python)
+        .args(["-m", "pip", "install", "-r", req_file.to_str().unwrap_or("requirements.txt"),
+               "--quiet", "--disable-pip-version-check"])
+        .current_dir(engine_dir)
+        .output()
+        .await
+        .map_err(|e| format!("Could not run pip: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("pip install failed: {stderr}"));
     }
-    
-    #[cfg(windows)]
-    {
-        // Try symlink_dir first; if it fails (needs admin), try junction via cmd, or just skip
-        if let Err(_) = std::os::windows::fs::symlink_dir(hermes_dir, &symlink_path) {
-            // Try creating a directory junction (doesn't need admin)
-            let _ = std::process::Command::new("cmd")
-                .args(["/C", "mklink", "/J",
-                    symlink_path.to_string_lossy().as_ref(),
-                    hermes_dir.to_string_lossy().as_ref()])
-                .output();
-        }
-    }
-
-    let auth_token = get_auth_token();
-
-    // Write .env file (Vercel endpoint - no API key on client)
-    let env_content = format!(
-        r#"# TaskBolt Engine Config
-TASKBOLT_API={VERCEL_API}
-TASKBOLT_TOKEN={auth_token}
-API_SERVER_KEY={GATEWAY_KEY}
-API_SERVER_PORT={GATEWAY_PORT}
-API_SERVER_HOST={GATEWAY_HOST}
-"#
-    );
-    std::fs::write(hermes_dir.join(".env"), env_content)
-        .map_err(|e| format!("Failed to write .env: {e}"))?;
-
-    // Write config.yaml with proper hermes config format
-    let config_content = format!(
-        r#"# TaskBolt Configuration
-model:
-  provider: vercel
-  default: "{DEFAULT_MODEL}"
-
-vercel_api: "{VERCEL_API}"
-auth_token: "{auth_token}"
-
-toolsets:
-  - terminal
-  - file
-  - web
-  - browser
-  - code_exec
-  - vision
-  - image_gen
-  - tts
-  - skills
-  - memory
-  - session_search
-  - delegation
-  - cron
-
-agent:
-  max_turns: 50
-  gateway_timeout: 600
-
-memory:
-  memory_enabled: true
-  user_profile_enabled: true
-  memory_char_limit: 2200
-  user_char_limit: 1375
-
-platforms:
-  api_server:
-    port: {GATEWAY_PORT}
-    host: "{GATEWAY_HOST}"
-    key: "{GATEWAY_KEY}"
-
-_config_version: 23
-"#
-    );
-    std::fs::write(hermes_dir.join("config.yaml"), config_content)
-        .map_err(|e| format!("Failed to write config.yaml: {e}"))?;
-
-    // Write SOUL.md (persona)
-    let soul_content = r#"You are TaskBolt, an intelligent AI assistant that sets up, configures, and fixes computers.
-
-## Core Identity
-- You are helpful, knowledgeable, and direct
-- You execute tasks on the user's computer using available tools
-- You communicate clearly and admit uncertainty when appropriate
-- You prioritize being genuinely useful over being verbose
-
-## Capabilities
-- Install and configure software, drivers, and development tools
-- Diagnose and repair system issues, errors, and misconfigurations
-- Clean up disk space, improve performance, and update everything
-- Scan for vulnerabilities and harden system security
-- Browse the web, research information, and summarize findings
-- Write, debug, and run code in any language
-- Create documents, reports, and presentations
-- Automate repetitive tasks with scripts and workflows
-- Manage files — organize, rename, convert, batch operations
-- Generate images, convert text to speech
-- Set up scheduled tasks and recurring automation
-
-## Guidelines
-- Always confirm before destructive operations (deleting files, formatting)
-- Explain what you're doing before executing
-- Show progress for long-running tasks
-- Use the right tool for the job
-- On Windows, prefer PowerShell and native tools
-"#;
-    std::fs::write(hermes_dir.join("SOUL.md"), soul_content)
-        .map_err(|e| format!("Failed to write SOUL.md: {e}"))?;
 
     Ok(())
 }
 
-/// Install hermes-agent via pip
-pub async fn install_hermes(app_handle: tauri::AppHandle) -> Result<String, String> {
-    let python_exe = find_python();
-
-    // Emit progress
-    app_handle.emit("agent-event", serde_json::json!({
-        "type": "status",
-        "content": "Setting up your personal assistant (this takes about a minute)..."
-    }).to_string()).ok();
-
-    let output = Command::new(&python_exe)
-        .args(["-m", "pip", "install", "hermes-agent", "--user", "--quiet", "--disable-pip-version-check"])
-        .output()
-        .await
-        .map_err(|e| format!("Could not run installer: {e}. Make sure Python is installed."))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Installation failed: {stderr}"));
-    }
-
-    app_handle.emit("agent-event", serde_json::json!({
-        "type": "status",
-        "content": "Almost ready..."
-    }).to_string()).ok();
-
-    Ok("Installed successfully".to_string())
-}
-
-/// Wait for gateway to be ready
-async fn wait_for_gateway(client: &Client, max_attempts: u32) -> Result<(), String> {
-    let url = format!("http://{}:{}/health", GATEWAY_HOST, GATEWAY_PORT);
-
-    for i in 0..max_attempts {
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        match client.get(&url).send().await {
-            Ok(resp) if resp.status().is_success() => return Ok(()),
-            _ => {
-                if i % 4 == 0 {
-                    // Log every 2 seconds
-                }
-            }
-        }
-    }
-    Err("Gateway did not become ready within timeout".to_string())
-}
-
-/// Start the hermes gateway engine
-pub fn start_engine(
-    taskbolt_dir: &std::path::Path,
+/// Initialize the TaskBolt engine: install deps, start Python process
+pub async fn initialize_engine(
     app_handle: tauri::AppHandle,
+    jwt_token: &str,
 ) -> Result<EngineHandle, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "Could not find home directory".to_string())?;
-    let hermes_dir = home.join(".taskbolt");
+    let python = find_python();
 
-    // Setup config
-    setup_hermes_config(&hermes_dir)?;
+    // Find engine directory
+    let engine_dir = find_engine_dir()
+        .ok_or_else(|| "TaskBolt engine not found. Engine directory missing.".to_string())?;
 
-    // Find hermes executable
-    let hermes_exe = find_hermes()
-        .ok_or_else(|| "TaskBolt engine not found. Please run setup first.".to_string())?;
+    app_handle.emit("agent-event", serde_json::json!({
+        "type": "status",
+        "content": format!("Engine found at: {}", engine_dir.display())
+    }).to_string()).ok();
 
-    // Always use ~/.taskbolt as config dir — we write our own config with api_server
-    let config_dir = hermes_dir.clone();
-
-    // Clean stale lock/pid files before starting
-    let lock_file = config_dir.join("gateway.lock");
-    let pid_file = config_dir.join("gateway.pid");
-    if lock_file.exists() { std::fs::remove_file(&lock_file).ok(); }
-    if pid_file.exists() { std::fs::remove_file(&pid_file).ok(); }
-
-    // Spawn gateway process with --accept-hooks and --replace flags
-    let api_key = get_api_key();
-    let child = Command::new(&hermes_exe)
-        .args(["gateway", "run", "--accept-hooks"])
-        .env("HERMES_HOME", config_dir.to_string_lossy().to_string())
-        .env("DASHSCOPE_API_KEY", &api_key)
-        .current_dir(&config_dir)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|e| format!("Failed to spawn gateway: {e}"))?;
-
-    let gateway_url = format!("http://{}:{}", GATEWAY_HOST, GATEWAY_PORT);
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(600))
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
-
-    let _ = taskbolt_dir; // May use for additional data paths later
-
-    Ok(EngineHandle {
-        child: Arc::new(tokio::sync::Mutex::new(Some(child))),
-        client,
-        gateway_url,
-    })
-}
-
-/// Check if gateway is already running
-pub async fn is_gateway_running() -> bool {
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(2))
-        .build()
-        .unwrap_or_else(|_| Client::new());
-    let url = format!("http://{}:{}/health", GATEWAY_HOST, GATEWAY_PORT);
-    client.get(&url).send().await
-        .map(|r| r.status().is_success())
-        .unwrap_or(false)
-}
-
-/// Initialize: install if needed, then start gateway
-pub async fn initialize_engine(app_handle: tauri::AppHandle) -> Result<EngineHandle, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "Could not find home directory".to_string())?;
-    let taskbolt_dir = home.join(".taskbolt");
-    std::fs::create_dir_all(&taskbolt_dir).ok();
-
-    // Check if hermes is installed
-    if find_hermes().is_none() {
-        app_handle.emit("agent-event", serde_json::json!({
-            "type": "status",
-            "content": "Installing TaskBolt engine..."
-        }).to_string()).ok();
-
-        install_hermes(app_handle.clone()).await?;
+    // Check/install dependencies
+    if !check_dependencies(&python, &engine_dir).await {
+        install_dependencies(&python, &engine_dir, app_handle.clone()).await?;
     }
 
-    // Check if gateway is already running
-    if is_gateway_running().await {
-        app_handle.emit("agent-event", serde_json::json!({
-            "type": "status",
-            "content": "Engine already running — connecting..."
-        }).to_string()).ok();
-
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(600))
-            .build()
-            .map_err(|e| format!("HTTP client error: {e}"))?;
-        let gateway_url = format!("http://{}:{}", GATEWAY_HOST, GATEWAY_PORT);
-
-        return Ok(EngineHandle {
-            child: Arc::new(tokio::sync::Mutex::new(None)),
-            client,
-            gateway_url,
-        });
-    }
-
-    // Start the gateway
     app_handle.emit("agent-event", serde_json::json!({
         "type": "status",
         "content": "Starting TaskBolt engine..."
     }).to_string()).ok();
 
-    let handle = start_engine(&taskbolt_dir, app_handle.clone())?;
+    // Create stdin channel
+    let (stdin_tx, mut stdin_rx) = tokio::sync::mpsc::channel::<String>(100);
 
-    // Wait for it to be ready
+    // Spawn the Python engine process
+    let mut child = Command::new(&python)
+        .args(["taskbolt_engine.py"])
+        .current_dir(&engine_dir)
+        .env("TASKBOLT_SAAS_URL", VERCEL_SAAS_URL)
+        .env("TASKBOLT_JWT_TOKEN", jwt_token)
+        .env("TASKBOLT_MODEL", DEFAULT_MODEL)
+        .env("PYTHONUNBUFFERED", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|e| format!("Failed to start engine: {e}"))?;
+
+    // Take stdin handle for sending messages
+    let mut child_stdin = child.stdin.take()
+        .ok_or_else(|| "Failed to get engine stdin".to_string())?;
+
+    // Spawn task to forward messages from channel to process stdin
+    tokio::spawn(async move {
+        while let Some(msg) = stdin_rx.recv().await {
+            if child_stdin.write_all(msg.as_bytes()).await.is_err() {
+                break;
+            }
+            child_stdin.flush().await.ok();
+        }
+    });
+
+    // Take stdout to read SSE events
+    let stdout = child.stdout.take()
+        .ok_or_else(|| "Failed to get engine stdout".to_string())?;
+
+    // Spawn task to read stdout and emit events to Tauri
+    let app_clone = app_handle.clone();
+    tokio::spawn(async move {
+        let reader = BufReader::new(stdout);
+        let mut lines = reader.lines();
+
+        while let Ok(Some(line)) = lines.next_line().await {
+            let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
+
+            // Engine outputs JSON lines — forward as agent-event
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                let event_type = parsed.get("type").and_then(|t| t.as_str()).unwrap_or("content");
+
+                match event_type {
+                    "ready" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "status",
+                            "content": "TaskBolt engine ready!"
+                        }).to_string()).ok();
+                    }
+                    "content" => {
+                        // Stream content chunks
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "content",
+                            "content": parsed.get("content").and_then(|c| c.as_str()).unwrap_or("")
+                        }).to_string()).ok();
+                    }
+                    "status" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "status",
+                            "content": parsed.get("message").and_then(|m| m.as_str()).unwrap_or("")
+                        }).to_string()).ok();
+                    }
+                    "error" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "error",
+                            "content": parsed.get("message").and_then(|m| m.as_str()).unwrap_or("Engine error")
+                        }).to_string()).ok();
+                    }
+                    "done" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "done"
+                        }).to_string()).ok();
+                    }
+                    "thinking" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "thinking",
+                            "content": parsed.get("content").and_then(|c| c.as_str()).unwrap_or("")
+                        }).to_string()).ok();
+                    }
+                    "credits" => {
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "credits",
+                            "used": parsed.get("used").unwrap_or(&serde_json::Value::Null),
+                            "remaining": parsed.get("remaining").unwrap_or(&serde_json::Value::Null)
+                        }).to_string()).ok();
+                    }
+                    _ => {
+                        // Forward unknown events as-is
+                        app_clone.emit("agent-event", trimmed.to_string()).ok();
+                    }
+                }
+            }
+        }
+    });
+
+    // Forward stderr to log (debug only)
+    let stderr = child.stderr.take();
+    if let Some(stderr) = stderr {
+        tokio::spawn(async move {
+            let reader = BufReader::new(stderr);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                // Engine logs go to stderr — we can optionally forward to UI
+                eprintln!("[engine] {}", line);
+            }
+        });
+    }
+
+    // Wait for the "ready" signal (up to 30 seconds)
+    // The stdout reader task will emit the ready event
+    tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+
     app_handle.emit("agent-event", serde_json::json!({
         "type": "status",
-        "content": "Waiting for engine to start..."
+        "content": "TaskBolt engine starting up..."
     }).to_string()).ok();
 
-    wait_for_gateway(&handle.client, 60).await
-        .map_err(|e| format!("Engine failed to start: {e}"))?;
-
-    app_handle.emit("agent-event", serde_json::json!({
-        "type": "status",
-        "content": "TaskBolt engine ready!"
-    }).to_string()).ok();
-
-    Ok(handle)
-}
-
-fn get_api_key() -> String {
-    std::env::var("DASHSCOPE_API_KEY").unwrap_or_default()
+    Ok(EngineHandle {
+        child: Arc::new(tokio::sync::Mutex::new(Some(child))),
+        stdin_tx: Some(stdin_tx),
+        current_token: Arc::new(tokio::sync::Mutex::new(jwt_token.to_string())),
+    })
 }

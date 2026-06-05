@@ -3561,10 +3561,54 @@ body {
    SESSIONS SCREEN
    ═══════════════════════════════════════════════════════ */
 
+.sessions-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.sessions-search-bar:focus-within {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sessions-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.sessions-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 .sessions-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.session-group {
+  margin-bottom: 20px;
+}
+
+.session-group-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 0 4px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 8px;
 }
 
 .session-card {
@@ -3575,6 +3619,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
   transition: all 0.15s;
+  margin-bottom: 6px;
 }
 
 .session-card:hover {
@@ -3582,11 +3627,19 @@ body {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
-.session-card-header {
+.session-card-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 6px;
+}
+
+.session-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .session-title {
@@ -3603,7 +3656,6 @@ body {
   font-size: 0.72rem;
   color: var(--text-tertiary);
   flex-shrink: 0;
-  margin-left: 12px;
 }
 
 .session-meta {
@@ -3619,6 +3671,7 @@ body {
   padding: 1px 8px;
   border-radius: var(--radius-full);
   font-size: 0.72rem;
+  flex-shrink: 0;
 }
 
 .session-preview {
@@ -3629,19 +3682,23 @@ body {
 }
 
 .session-delete-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: none;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 4px;
-  background: rgba(248, 113, 113, 0.15);
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.1);
   color: var(--red);
   cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+  transition: all 0.15s;
+}
+
+.session-delete-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
 }
 
 .session-card:hover .session-delete-btn {
@@ -4051,6 +4108,21 @@ body {
   min-height: 200px;
   display: flex;
   flex-direction: column;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kanban-column-drag-over {
+  background: rgba(121, 192, 255, 0.08);
+  border-color: rgba(121, 192, 255, 0.4);
+  box-shadow: inset 0 0 12px rgba(121, 192, 255, 0.1);
+}
+
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+
+.kanban-card[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .kanban-column-header {

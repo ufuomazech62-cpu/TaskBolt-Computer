@@ -59,6 +59,8 @@ module.exports = async (req, res) => {
       let user = await sql`SELECT * FROM users WHERE github_id = ${String(ghUser.id)} LIMIT 1`;
       if (user.length === 0) {
         user = await sql`INSERT INTO users (email, github_id, username, display_name, avatar_url) VALUES (${primaryEmail}, ${String(ghUser.id)}, ${ghUser.login}, ${ghUser.name || ghUser.login}, ${ghUser.avatar_url || null}) RETURNING *`;
+        // Grant free starter credits to new users
+        await sql`INSERT INTO credits (user_id, balance, total_allocated, total_used) VALUES (${user[0].id}, 500, 500, 0) ON CONFLICT (user_id) DO NOTHING`;
       }
       user = user[0];
       const token = sign({ userId: user.id, email: user.email });

@@ -75,6 +75,8 @@ module.exports = async (req, res) => {
       if (!user || user.length === 0) {
         isNewUser = true;
         user = await sql`INSERT INTO users (email, display_name) VALUES (${cleanEmail}, ${cleanEmail.split("@")[0]}) RETURNING id, email, display_name`;
+        // Grant free starter credits to new users
+        await sql`INSERT INTO credits (user_id, balance, total_allocated, total_used) VALUES (${user[0].id}, 500, 500, 0) ON CONFLICT (user_id) DO NOTHING`;
       }
       user = user[0];
       const token = sign({ userId: user.id, email: user.email });
