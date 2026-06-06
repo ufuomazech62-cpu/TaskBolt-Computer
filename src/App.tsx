@@ -64,6 +64,30 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { cmd: '/compact', label: 'Compact', description: 'Summarize conversation to free context', icon: '📦' },
 ]
 
+// ── MCP Connectors ──────────────────────────────────────
+interface McpConnector {
+  id: string
+  name: string
+  icon: string
+  description: string
+  capabilities: string[]
+  connected: boolean
+  serverPkg?: string
+}
+
+const INITIAL_MCP_CONNECTORS: McpConnector[] = [
+  { id: 'gmail', name: 'Gmail', icon: 'gmail', description: 'Read, search, and send emails right from your conversations.', capabilities: ['Read inbox', 'Search emails', 'Send emails', 'Organize labels'], connected: false, serverPkg: '@anthropic/mcp-gmail' },
+  { id: 'gcal', name: 'Google Calendar', icon: 'googlecalendar', description: 'Check your schedule, create events, and find free time.', capabilities: ['View schedule', 'Create events', 'Find availability', 'Update events'], connected: false, serverPkg: '@anthropic/mcp-gcal' },
+  { id: 'gdrive', name: 'Google Drive', icon: 'googledrive', description: 'Access your cloud files, documents, and spreadsheets.', capabilities: ['Search files', 'Read documents', 'Browse folders', 'Upload files'], connected: false, serverPkg: '@anthropic/mcp-gdrive' },
+  { id: 'github', name: 'GitHub', icon: 'github', description: 'Manage projects, track issues, and review code with your team.', capabilities: ['Track issues', 'Review code', 'Manage projects', 'Browse repos'], connected: false, serverPkg: '@modelcontextprotocol/server-github' },
+  { id: 'slack', name: 'Slack', icon: 'slack', description: 'Send messages and search your team channels without switching apps.', capabilities: ['Send messages', 'Search chats', 'Browse channels', 'Read threads'], connected: false, serverPkg: '@anthropic/mcp-slack' },
+  { id: 'notion', name: 'Notion', icon: 'notion', description: 'Read, create, and organize your notes, docs, and databases.', capabilities: ['Read pages', 'Create pages', 'Search workspace', 'Manage databases'], connected: false, serverPkg: '@anthropic/mcp-notion' },
+  { id: 'linear', name: 'Linear', icon: 'linear', description: 'Track work items, manage sprints, and stay on top of tasks.', capabilities: ['Create tasks', 'View work', 'Manage sprints', 'Search tasks'], connected: false, serverPkg: '@anthropic/mcp-linear' },
+  { id: 'postgres', name: 'PostgreSQL', icon: 'postgresql', description: 'Query and explore your databases through conversation.', capabilities: ['Run queries', 'Explore structure', 'List tables', 'Understand data'], connected: false, serverPkg: '@modelcontextprotocol/server-postgres' },
+  { id: 'vercel', name: 'Vercel', icon: 'vercel', description: 'Deploy and manage your websites and apps in the cloud.', capabilities: ['Deploy projects', 'View analytics', 'Manage domains', 'Check deployments'], connected: false, serverPkg: '@anthropic/mcp-vercel' },
+  { id: 'paystack', name: 'Paystack', icon: 'paystack', description: 'Manage payments, check transactions, and track revenue.', capabilities: ['View transactions', 'Check payments', 'Track revenue', 'Manage customers'], connected: false, serverPkg: '@anthropic/mcp-paystack' },
+]
+
 // ── Types ──────────────────────────────────────────────
 interface Message {
   id: string
@@ -109,12 +133,12 @@ interface MCPServer {
 }
 
 type AppState = 'onboarding' | 'tasks' | 'settings' | 'signin' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban'
-type SidebarView = 'chat' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban' | 'skills'
+type SidebarView = 'chat' | 'sessions' | 'memory' | 'tools' | 'schedules' | 'gateway' | 'kanban' | 'skills' | 'connectors'
 
 // ── Hermes-style Screen Interfaces ──────────────────
 interface MemoryEntry {
   id: string
-  target: 'memory' | 'user'
+  target: 'memory' | 'user' | 'profile' | 'facts' | 'preferences' | 'history' | 'legacy'
   content: string
   createdAt: number
 }
@@ -299,6 +323,20 @@ const CORE_SKILLS: Skill[] = [
   { id: 'print-setup', name: 'Printer setup', description: 'Install and configure printers, scanners, and shared devices', icon: 'printer', enabled: true, isCore: false },
 ]
 
+// ── Connector Brand Icons (real logos via CDN) ──
+function ConnectorIcon({ id, size = 28 }: { id: string; size?: number }) {
+  return (
+    <img
+      src={`https://cdn.simpleicons.org/${id}`}
+      alt={id}
+      width={size}
+      height={size}
+      style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+    />
+  )
+}
+
 function App() {
   // ── State ────────────────────────────────────────────
   const [appState, setAppState] = useState<AppState>('onboarding')
@@ -363,6 +401,7 @@ function App() {
   const [feedbackText, setFeedbackText] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [agentStatus, setAgentStatus] = useState<'idle' | 'thinking' | 'executing' | 'typing'>('idle')
+  const [statusMessage, setStatusMessage] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -376,6 +415,8 @@ function App() {
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([])
   const [memoryProfile, setMemoryProfile] = useState('')
   const [kanbanCards, setKanbanCards] = useState<KanbanCard[]>([])
+  const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(INITIAL_MCP_CONNECTORS)
+  const [showConnectorModal, setShowConnectorModal] = useState(false)
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
     { id: 'telegram', name: 'Telegram', icon: '✈️', connected: false },
@@ -403,7 +444,7 @@ function App() {
   const [newScheduleCron, setNewScheduleCron] = useState('')
   const [newSchedulePrompt, setNewSchedulePrompt] = useState('')
   const [newMemoryContent, setNewMemoryContent] = useState('')
-  const [newMemoryTarget, setNewMemoryTarget] = useState<'memory' | 'user'>('memory')
+  const [newMemoryTarget, setNewMemoryTarget] = useState<string>('facts')
   const [searchResults, setSearchResults] = useState<{ threadId: string; msgContent: string; snippet: string }[]>([])
   const recognitionRef = useRef<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -879,6 +920,27 @@ function App() {
     return t.messages.some(m => m.content.toLowerCase().includes(q))
   }).sort((a, b) => b.updatedAt - a.updatedAt)
 
+  const generateSmartTitle = (msg: string): string => {
+    if (!msg) return 'New Task'
+    const text = msg.trim()
+    // Check slash commands
+    const slashMatch = text.match(/^\/(\w+)\s*(.*)/)
+    if (slashMatch) {
+      const cmd = SLASH_COMMANDS.find(c => c.cmd === slashMatch[1])
+      if (cmd) return slashMatch[2] ? `${cmd.label}: ${slashMatch[2].slice(0, 30)}` : cmd.label
+    }
+    // Skip common greetings
+    const greetings = /^(hi|hello|hey|sup|yo|howdy|good\s*(morning|afternoon|evening)|what'?s\s*up|hola|greetings)[\s!.?]*$/i
+    if (greetings.test(text)) return 'New Task'
+    // Strip leading filler words
+    let cleaned = text.replace(/^(please|can you|could you|i need|i want|i'?d like|help me|let'?s)\s+/i, '')
+    // Capitalize first letter
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+    // Truncate cleanly
+    if (cleaned.length > 42) cleaned = cleaned.slice(0, 42).replace(/\s+\S*$/, '') + '…'
+    return cleaned || 'New Task'
+  }
+
   const createThread = (title: string): TaskThread => {
     const thread: TaskThread = {
       id: crypto.randomUUID(),
@@ -907,7 +969,7 @@ function App() {
           ...t,
           messages: [...t.messages, msg],
           updatedAt: Date.now(),
-          title: t.messages.length === 0 ? msg.content.slice(0, 50) : t.title,
+          title: t.messages.length === 0 ? generateSmartTitle(msg.content) : t.title,
         }
       })
       localStorage.setItem('tb_threads', JSON.stringify(updated))
@@ -992,7 +1054,7 @@ function App() {
     } else {
       const newThread: TaskThread = {
         id: crypto.randomUUID(),
-        title: userContent.slice(0, 50),
+        title: generateSmartTitle(userContent),
         messages: [userMsg],
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -1102,11 +1164,23 @@ function App() {
           case 'done':
             setIsStreaming(false)
             setAgentStatus('idle')
+            setStatusMessage('')
             clearInterval(safetyTimer)
             if (unlistenFn) unlistenFn()
             break
-          case 'status':
+          case 'status': {
+            const msg = data.message || data.content || ''
+            setStatusMessage(msg)
+            // Infer agent state from status message content
+            if (msg.toLowerCase().includes('thinking') || msg.toLowerCase().includes('analyzing')) {
+              setAgentStatus('thinking')
+            } else if (msg.toLowerCase().includes('execut') || msg.toLowerCase().includes('running') || msg.toLowerCase().includes('install') || msg.toLowerCase().includes('creating') || msg.toLowerCase().includes('writing') || msg.toLowerCase().includes('download')) {
+              setAgentStatus('executing')
+            } else {
+              setAgentStatus('thinking')
+            }
             break
+          }
         }
       } catch {
         // skip malformed events
@@ -1998,7 +2072,7 @@ function App() {
             <div className="settings-tabs">
               {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'feedback', 'advanced'] as SettingsTab[]).map(tab => (
                 <button key={tab} className={`tab-btn ${settingsTab === tab ? 'active' : ''}`} onClick={() => setSettingsTab(tab)}>
-                  {tab === 'mcp' ? 'MCP' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === 'mcp' ? 'Connectors' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
@@ -2307,27 +2381,61 @@ function App() {
 
             {settingsTab === 'mcp' && (
               <div className="settings-section">
-                <h3>MCP Servers</h3>
-                <p className="setting-desc">Connect external tools via Model Context Protocol</p>
-                {mcpServers.map(server => (
-                  <div key={server.id} className="mcp-row">
-                    <div className="mcp-info">
-                      <strong>{server.name}</strong>
-                      <span className="text-muted">{server.url}</span>
-                    </div>
-                    <label className="toggle">
-                      <input type="checkbox" checked={server.enabled} onChange={e => saveMCPServers(mcpServers.map(s => s.id === server.id ? { ...s, enabled: e.target.checked } : s))} />
-                      <span className="toggle-slider" />
-                    </label>
-                    <button className="btn-icon" onClick={() => saveMCPServers(mcpServers.filter(s => s.id !== server.id))}>
-                      <IconX size={14} />
-                    </button>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px'}}>
+                  <div>
+                    <h3 style={{margin:0}}>Connectors</h3>
+                    <p className="setting-desc" style={{margin:'4px 0 0'}}>Link your apps so TaskBolt can help you get more done</p>
                   </div>
-                ))}
-                <div className="mcp-add">
-                  <input type="text" placeholder="Server name" value={newMcpName} onChange={e => setNewMcpName(e.target.value)} className="input-field mcp-input" />
-                  <input type="text" placeholder="URL (e.g. http://localhost:3000)" value={newMcpUrl} onChange={e => setNewMcpUrl(e.target.value)} className="input-field mcp-input" />
-                  <button className="btn-primary" onClick={addMCPServer} disabled={!newMcpName.trim() || !newMcpUrl.trim()}>Add Server</button>
+                  <button className="btn-primary" onClick={() => setShowConnectorModal(true)} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',fontSize:'0.84rem',whiteSpace:'nowrap'}}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add App
+                  </button>
+                </div>
+
+                {/* Connected section */}
+                {mcpConnectors.some(c => c.connected) && (
+                  <div style={{marginBottom:'20px'}}>
+                    <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
+                      Connected ({mcpConnectors.filter(c => c.connected).length})
+                    </h4>
+                    <div className="connector-grid">
+                      {mcpConnectors.filter(c => c.connected).map(connector => (
+                        <div key={connector.id} className="connector-card connector-connected">
+                          <div className="connector-card-top">
+                            <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
+                            <div className="connector-info">
+                              <span className="connector-name">{connector.name}</span>
+                              <span className="connector-status-badge">Connected</span>
+                            </div>
+                            <button className="btn-icon" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: false } : c))} title="Disconnect" style={{color:'var(--text-tertiary)'}}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          </div>
+                          <p className="connector-desc">{connector.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Available section */}
+                <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
+                  Available Apps
+                </h4>
+                <div className="connector-grid">
+                  {mcpConnectors.filter(c => !c.connected).map(connector => (
+                    <div key={connector.id} className="connector-card" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: true } : c))} style={{cursor:'pointer'}}>
+                      <div className="connector-card-top">
+                        <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
+                        <div className="connector-info">
+                          <span className="connector-name">{connector.name}</span>
+                          <span className="connector-desc-short">{connector.capabilities[0]}</span>
+                        </div>
+                        <button className="connector-connect-btn">Connect</button>
+                      </div>
+                      <p className="connector-desc">{connector.description}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -2420,6 +2528,12 @@ function App() {
           )}
         </div>
 
+        {/* ── + New Task (always at top, below logo) ── */}
+        <button className="btn-new-task" onClick={() => { setActiveThreadId(null); setInput(''); setSidebarView('chat') }} title={sidebarOpen ? '' : 'New Task'}>
+          <IconPlus size={16} />
+          {sidebarOpen && <span>New Task</span>}
+        </button>
+
         {/* ── Navigation Icons ── */}
         <div className="sidebar-nav">
           {([
@@ -2430,6 +2544,8 @@ function App() {
             { view: 'gateway' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>, label: 'Messaging' },
             { view: 'kanban' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: 'Task Board' },
             { view: 'skills' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Skills' },
+            { view: 'memory' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 0110 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/></svg>, label: 'Memory' },
+            { view: 'connectors' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>, label: 'Connectors' },
           ]).map(item => (
             <button
               key={item.view}
@@ -2443,44 +2559,7 @@ function App() {
           ))}
         </div>
 
-        {/* ── Chat-specific sidebar content ── */}
-        {sidebarView === 'chat' && (
-          <>
-            {/* New Task — always at the top */}
-            <button className="btn-new-task" onClick={() => { setActiveThreadId(null); setInput('') }} title={sidebarOpen ? '' : 'New Task'}>
-              <IconPlus size={16} />
-              {sidebarOpen && <span>New Task</span>}
-            </button>
 
-            <div className="sidebar-threads">
-              {sidebarOpen ? (
-                <>
-                  {threadGroups.length === 0 && <p className="no-threads">No tasks yet</p>}
-                  {threadGroups.map(group => (
-                    <div key={group.label} className="thread-group">
-                      <div className="thread-group-label">{group.label}</div>
-                      {group.items.map(thread => (
-                        <div key={thread.id} className={`thread-item ${thread.id === activeThreadId ? 'active' : ''}`} onClick={() => setActiveThreadId(thread.id)}>
-                          <IconMessageSquare size={14} />
-                          <span className="thread-title">{thread.title}</span>
-                          <button className="thread-delete" onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(thread.id) }} title="Delete">
-                            <IconX size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="sidebar-icons-only">
-                  <button className="sidebar-icon-btn" onClick={() => { setActiveThreadId(null); setInput('') }} title="New Task">
-                    <IconPlus size={18} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        )}
 
 
 
@@ -2591,29 +2670,23 @@ function App() {
                 )}
                 <div className="msg-body">
                   {/* Status indicator while empty and streaming */}
-                  {msg.role === 'assistant' && isStreamingThis && !msg.content && !msg.toolCalls?.length && (
+                  {msg.role === 'assistant' && isStreamingThis && !msg.content && (
                     <div className="agent-status-indicator">
-                      {agentStatus === 'thinking' && (
+                      {statusMessage ? (
+                        <div className="status-pill thinking-pill">
+                          <span className="status-dot thinking" />
+                          <span className="status-msg-text">{statusMessage}</span>
+                        </div>
+                      ) : (
                         <div className="status-pill thinking-pill">
                           <span className="status-dot thinking" />
                           <span>Thinking</span>
                           <span className="status-dots-anim">...</span>
                         </div>
                       )}
-                      {agentStatus === 'executing' && (
-                        <div className="status-pill executing-pill">
-                          <span className="status-dot executing" />
-                          <span>Executing</span>
-                          <span className="exec-bar-wrap"><span className="exec-bar-fill" /></span>
-                        </div>
-                      )}
-                      {(agentStatus === 'typing' || agentStatus === 'idle') && (
-                        <div className="typing-indicator">
-                          <div className="typing-bar"><span /><span /><span /></div>
-                        </div>
-                      )}
                     </div>
                   )}
+
                   {/* Thinking / Reasoning block */}
                   {msg.thinking && (
                     <details className="thinking-block">
@@ -2624,40 +2697,7 @@ function App() {
                       <pre className="thinking-content">{msg.thinking}</pre>
                     </details>
                   )}
-                  {/* Tool calls with progress */}
-                  {msg.toolCalls && msg.toolCalls.length > 0 && (
-                    <div className="tool-calls">
-                      {msg.toolCalls.map((tc, i) => (
-                        <div key={i} className={`tool-call-card ${tc.result === undefined ? 'tool-running' : 'tool-done'}`}>
-                          <div className="tool-call-header" onClick={(e) => {
-                            const details = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.tool-call-detail') as HTMLElement
-                            if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none'
-                          }}>
-                            <span className="tool-call-status-icon">
-                              {tc.result === undefined ? <span className="tc-spinner" /> : <span className="tc-check">✓</span>}
-                            </span>
-                            <span className="tool-call-name">{tc.name}</span>
-                            <span className={`tool-call-badge ${tc.result === undefined ? 'badge-running' : 'badge-done'}`}>
-                              {tc.result === undefined ? 'running' : 'done'}
-                            </span>
-                          </div>
-                          <div className="tool-call-detail" style={{ display: 'none' }}>
-                            <div className="tool-call-section">
-                              <span className="tool-call-label">Input</span>
-                              <pre className="tool-pre">{JSON.stringify(tc.args, null, 2)}</pre>
-                            </div>
-                            {tc.result !== undefined && (
-                              <div className="tool-call-section">
-                                <span className="tool-call-label">Output</span>
-                                <pre className="tool-pre">{tc.result.slice(0, 3000)}{tc.result.length > 3000 ? '\n...' : ''}</pre>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Message content */}
+                  {/* Tool calls hidden — user sees only status pills */}
                   {msg.content && (
                     <div className="msg-text">
                       {renderMarkdown(msg.content)}
@@ -2675,22 +2715,17 @@ function App() {
                 </div>
                 <div className="msg-body">
                   <div className="agent-status-indicator">
-                    {agentStatus === 'thinking' && (
+                    {statusMessage ? (
+                      <div className="status-pill thinking-pill">
+                        <span className="status-dot thinking" />
+                        <span className="status-msg-text">{statusMessage}</span>
+                      </div>
+                    ) : (
                       <div className="status-pill thinking-pill">
                         <span className="status-dot thinking" />
                         <span>Thinking</span>
                         <span className="status-dots-anim">...</span>
                       </div>
-                    )}
-                    {agentStatus === 'executing' && (
-                      <div className="status-pill executing-pill">
-                        <span className="status-dot executing" />
-                        <span>Executing</span>
-                        <span className="exec-bar-wrap"><span className="exec-bar-fill" /></span>
-                      </div>
-                    )}
-                    {(agentStatus === 'typing' || agentStatus === 'idle') && (
-                      <div className="typing-indicator"><div className="typing-bar"><span /><span /><span /></div></div>
                     )}
                   </div>
                 </div>
@@ -2790,20 +2825,15 @@ function App() {
         {sidebarView === 'sessions' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                All Conversations
-              </h2>
-              <span className="screen-count">{threads.length} total</span>
+              <h2>Sessions</h2>
+              <span className="screen-count">{threads.length}</span>
             </div>
-            <div className="screen-body">
-              {/* Search bar */}
-              <div className="sessions-search-bar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.5}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <div className="screen-body" style={{padding:'0 20px'}}>
+              <div className="sessions-search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.4,flexShrink:0}}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 <input
                   type="text"
-                  placeholder="Search conversations..."
-                  className="sessions-search-input"
+                  placeholder="Search tasks & conversations..."
                   value={sessionSearchQuery}
                   onChange={e => setSessionSearchQuery(e.target.value)}
                 />
@@ -2819,14 +2849,14 @@ function App() {
 
                 if (filtered.length === 0) {
                   return (
-                    <div className="screen-empty">
-                      <span>{sessionSearchQuery ? 'No matching conversations' : 'No conversations yet'}</span>
-                      <p>{sessionSearchQuery ? 'Try a different search term' : 'Start chatting to create sessions'}</p>
+                    <div style={{textAlign:'center',padding:'48px 16px',color:'var(--text-tertiary)'}}>
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.3,marginBottom:'12px'}}><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
+                      <p style={{margin:0,fontSize:'0.92rem',fontWeight:500}}>{sessionSearchQuery ? 'No matching results' : 'No tasks or conversations yet'}</p>
+                      <p style={{margin:'6px 0 0',fontSize:'0.82rem',opacity:0.7}}>{sessionSearchQuery ? 'Try a different search' : 'Click "+ New Task" to start one'}</p>
                     </div>
                   )
                 }
 
-                // Group by date
                 const now = new Date()
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
                 const weekAgo = today - 7 * 24 * 60 * 60 * 1000
@@ -2847,31 +2877,34 @@ function App() {
                 })
 
                 return groups.filter(g => g.items.length > 0).map(group => (
-                  <div key={group.label} className="session-group">
+                  <div key={group.label}>
                     <div className="session-group-label">{group.label}</div>
-                    {group.items.map(t => (
-                      <div key={t.id} className="session-card" onClick={() => { setSidebarView('chat'); setActiveThreadId(t.id) }}>
-                        <div className="session-card-top">
-                          <div className="session-card-info">
-                            <span className="session-title">{t.title}</span>
-                            <span className="session-date">{new Date(t.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                    {group.items.map(t => {
+                      const lastMsg = t.messages[t.messages.length - 1]
+                      const preview = lastMsg?.content?.slice(0, 60) || ''
+                      const timeAgo = (() => {
+                        const diff = Date.now() - t.updatedAt
+                        if (diff < 60000) return 'now'
+                        if (diff < 3600000) return Math.floor(diff/60000) + 'm'
+                        if (diff < 86400000) return Math.floor(diff/3600000) + 'h'
+                        return Math.floor(diff/86400000) + 'd'
+                      })()
+                      return (
+                        <div key={t.id} className="session-item" onClick={() => { setSidebarView('chat'); setActiveThreadId(t.id) }}>
+                          <div className="session-item-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                           </div>
-                          <button
-                            className="session-delete-btn"
-                            onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(t.id) }}
-                            title="Delete conversation"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                          <div className="session-item-content">
+                            <div className="session-item-title">{t.title}</div>
+                            {preview && <div className="session-item-preview">{preview}</div>}
+                          </div>
+                          <span className="session-item-time">{timeAgo}</span>
+                          <button className="session-item-delete" onClick={e => { e.stopPropagation(); setDeleteThreadConfirm(t.id) }} title="Delete">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                           </button>
                         </div>
-                        <div className="session-meta">
-                          <span className="session-msg-count">{t.messages.length} message{t.messages.length !== 1 ? 's' : ''}</span>
-                          {t.messages.length > 0 && (
-                            <span className="session-preview">{t.messages[t.messages.length - 1].content.slice(0, 100).replace(/\n/g, ' ')}{t.messages[t.messages.length - 1].content.length > 100 ? '...' : ''}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ))
               })()}
@@ -2883,60 +2916,95 @@ function App() {
         {sidebarView === 'memory' && (
           <div className="screen-view">
             <div className="screen-header">
-              <h2>Memory</h2>
+              <h2><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"middle",marginRight:"8px"}}><path d="M12 2a10 10 0 0110 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/></svg>Memory</h2>
               <span className="screen-count">{memoryEntries.length} entries</span>
             </div>
             <div className="screen-body">
-              <div className="memory-profile-section">
-                <h3>User Profile</h3>
-                <textarea
-                  className="memory-profile-input"
-                  placeholder="Who is the user? Name, role, preferences, habits..."
-                  value={memoryProfile}
-                  onChange={e => saveProfileReal(e.target.value)}
-                  rows={4}
-                />
-                <div className="memory-profile-stats">
-                  <span>{memoryProfile.length} / 1,375 chars</span>
-                  <div className="memory-bar">
-                    <div className="memory-bar-fill" style={{ width: `${Math.min(100, (memoryProfile.length / 1375) * 100)}%` }} />
-                  </div>
-                </div>
-              </div>
+              <p className="screen-desc">What TaskBolt remembers about you across all conversations. This is auto-loaded every time you start a new chat.</p>
 
-              <h3>Memory Entries</h3>
-              <div className="memory-add-form">
-                <select value={newMemoryTarget} onChange={e => setNewMemoryTarget(e.target.value as 'memory' | 'user')} className="memory-target-select">
-                  <option value="memory">Notes</option>
-                  <option value="user">User</option>
-                </select>
-                <textarea
-                  className="memory-input"
-                  placeholder="Add a memory entry..."
-                  value={newMemoryContent}
-                  onChange={e => setNewMemoryContent(e.target.value)}
-                  rows={2}
-                />
-                <button className="btn-primary btn-sm" onClick={() => {
-                  if (!newMemoryContent.trim()) return
-                  addMemoryReal(newMemoryTarget, newMemoryContent.trim())
-                  setNewMemoryContent('')
-                }}>Add</button>
-              </div>
-
-              <div className="memory-entries">
-                {memoryEntries.map(entry => (
-                  <div key={entry.id} className={`memory-entry memory-${entry.target}`}>
-                    <div className="memory-entry-header">
-                      <span className={`memory-tag ${entry.target}`}>{entry.target === 'user' ? 'User' : 'Notes'}</span>
-                      <span className="memory-date">{new Date(entry.createdAt).toLocaleDateString()}</span>
-                      <button className="memory-remove-btn" onClick={() => deleteMemoryReal(entry.id)}>
-                        <IconX size={10} />
-                      </button>
+              {(['profile', 'facts', 'preferences', 'history'] as const).map(cat => {
+                const catEntries = memoryEntries.filter(e => e.target === cat)
+                const catLabels: Record<string, string> = { profile: '👤 Profile', facts: '🖥️ Facts', preferences: '⚙️ Preferences', history: '📋 History' }
+                const catDescs: Record<string, string> = {
+                  profile: 'Who you are — name, role, timezone, communication style',
+                  facts: 'Environment details — OS, tools, project paths, configs',
+                  preferences: 'How TaskBolt should interact with you — tone, habits, corrections',
+                  history: 'Compressed summaries of past tasks and conversations',
+                }
+                return (
+                  <div key={cat} className="memory-category" style={{marginBottom:'20px'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}}>
+                      <h3 style={{margin:0,fontSize:'0.95rem',fontWeight:600}}>{catLabels[cat]}</h3>
+                      <span className="screen-count">{catEntries.length}</span>
                     </div>
-                    <p className="memory-entry-content">{entry.content}</p>
+                    <p style={{fontSize:'0.78rem',color:'var(--text-tertiary)',margin:'0 0 10px'}}>{catDescs[cat]}</p>
+                    {catEntries.length === 0 ? (
+                      <div style={{padding:'12px 16px',borderRadius:'8px',background:'rgba(255,255,255,0.02)',border:'1px dashed var(--border)',color:'var(--text-tertiary)',fontSize:'0.82rem',textAlign:'center'}}>
+                        No entries yet — TaskBolt will save things here as it learns about you
+                      </div>
+                    ) : (
+                      <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                        {catEntries.map(entry => (
+                          <div key={entry.id} style={{display:'flex',alignItems:'flex-start',gap:'8px',padding:'8px 12px',borderRadius:'8px',background:'rgba(255,255,255,0.03)',border:'1px solid var(--border)'}}>
+                            <span style={{flex:1,fontSize:'0.84rem',color:'var(--text)',lineHeight:1.4}}>{entry.content}</span>
+                            <button
+                              className="btn-icon"
+                              onClick={async () => {
+                                await invoke('delete_memory_entry', { id: entry.id })
+                                setMemoryEntries(prev => prev.filter(e => e.id !== entry.id))
+                              }}
+                              title="Delete"
+                              style={{color:'var(--text-tertiary)',flexShrink:0,opacity:0.5}}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
+                )
+              })}
+
+              {/* Manual add */}
+              <div style={{marginTop:'24px',paddingTop:'16px',borderTop:'1px solid var(--border)'}}>
+                <h3 style={{margin:'0 0 8px',fontSize:'0.95rem',fontWeight:600}}>✏️ Add Memory</h3>
+                <div style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
+                  {(['profile', 'facts', 'preferences', 'history'] as const).map(cat => (
+                    <button
+                      key={cat}
+                      className={`btn-secondary btn-sm ${newMemoryTarget === cat ? 'active' : ''}`}
+                      onClick={() => setNewMemoryTarget(cat as any)}
+                      style={{fontSize:'0.76rem',padding:'4px 10px',textTransform:'capitalize',
+                        background: newMemoryTarget === cat ? 'rgba(255,255,255,0.1)' : 'transparent',
+                        border: `1px solid ${newMemoryTarget === cat ? 'rgba(255,255,255,0.2)' : 'var(--border)'}`,
+                        borderRadius:'6px',color:'var(--text)',cursor:'pointer'}}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:'8px'}}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={`Add a ${newMemoryTarget} entry...`}
+                    style={{flex:1}}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                        const content = (e.target as HTMLInputElement).value.trim()
+                        try {
+                          const id = await invoke<string>('add_memory_entry', { target: newMemoryTarget, content })
+                          const newEntry: MemoryEntry = { id, target: newMemoryTarget as any, content, createdAt: Date.now() }
+                          setMemoryEntries(prev => [...prev, newEntry])
+                          ;(e.target as HTMLInputElement).value = ''
+                        } catch (err) {
+                          console.error('Failed to add memory:', err)
+                        }
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -3050,7 +3118,7 @@ function App() {
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                       )}
                       {p.id === 'imessage' && (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="#34AADC"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.907 1.46 5.497 3.735 7.205l-.935 2.812a.5.5 0 00.707.582l3.158-1.579C9.558 20.42 10.753 20.5 12 20.5c5.523 0 10-4.145 10-9.257S17.523 2 12 2zm-1.5 12.5h-3a.5.5 0 010-1h3a.5.5 0 010 1zm4.5-3h-7.5a.5.5 0 010-1H15a.5.5 0 010 1zm0-3h-7.5a.5.5 0 010-1H15a.5.5 0 010 1z"/></svg>
+                        <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#34C759"/><path d="M24 13.5c0 3.6-3.6 6.5-8 6.5-.9 0-1.7-.1-2.5-.4L9 22l1.5-3.5C9 17.3 8 15.5 8 13.5 8 9.9 11.6 7 16 7s8 2.9 8 6.5z" fill="white"/><circle cx="12.5" cy="13.5" r="1.3" fill="#34C759"/><circle cx="16" cy="13.5" r="1.3" fill="#34C759"/><circle cx="19.5" cy="13.5" r="1.3" fill="#34C759"/></svg>
                       )}
                     </div>
                     <span className="gateway-name">{p.name}</span>
@@ -3180,7 +3248,140 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* ── Connectors Screen ── */}
+        {sidebarView === 'connectors' && (
+          <div className="screen-view">
+            <div className="screen-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <h2 style={{margin:0,fontSize:'1.25rem'}}>Connectors</h2>
+                <p style={{margin:'4px 0 0',fontSize:'0.82rem',color:'var(--text-tertiary)'}}>
+                  Link your apps so TaskBolt can help you get more done
+                </p>
+              </div>
+              <button className="btn-primary" onClick={() => setShowConnectorModal(true)} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',fontSize:'0.84rem',whiteSpace:'nowrap'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add App
+              </button>
+            </div>
+            <div className="screen-body" style={{padding:'20px 24px'}}>
+              {/* Connected section */}
+              {mcpConnectors.some(c => c.connected) && (
+                <div style={{marginBottom:'24px'}}>
+                  <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
+                    Connected ({mcpConnectors.filter(c => c.connected).length})
+                  </h3>
+                  <div className="connector-grid">
+                    {mcpConnectors.filter(c => c.connected).map(connector => (
+                      <div key={connector.id} className="connector-card connector-connected">
+                        <div className="connector-card-top">
+                          <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
+                          <div className="connector-info">
+                            <span className="connector-name">{connector.name}</span>
+                            <span className="connector-status-badge">Connected</span>
+                          </div>
+                          <button className="btn-icon" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: false } : c))} title="Disconnect" style={{color:'var(--text-tertiary)'}}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </div>
+                        <p className="connector-desc">{connector.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Available section */}
+              <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
+                Available Apps
+              </h3>
+              <div className="connector-grid">
+                {mcpConnectors.filter(c => !c.connected).map(connector => (
+                  <div key={connector.id} className="connector-card" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: true } : c))} style={{cursor:'pointer'}}>
+                    <div className="connector-card-top">
+                      <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
+                      <div className="connector-info">
+                        <span className="connector-name">{connector.name}</span>
+                        <span className="connector-desc-short">{connector.capabilities[0]}</span>
+                      </div>
+                      <button className="connector-connect-btn">Connect</button>
+                    </div>
+                    <p className="connector-desc">{connector.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* ── Add Connector Modal ── */}
+      {showConnectorModal && (
+        <div className="modal-overlay" onClick={() => setShowConnectorModal(false)}>
+          <div className="connector-modal" onClick={e => e.stopPropagation()}>
+            <div className="connector-modal-header">
+              <h3>Add a New App</h3>
+              <button className="btn-icon" onClick={() => setShowConnectorModal(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="connector-modal-body">
+              <p style={{color:'var(--text-tertiary)',fontSize:'0.88rem',marginBottom:'20px'}}>
+                Connect any app or service to TaskBolt. Just give it a name and tell us where to find it.
+              </p>
+              <div style={{marginBottom:'16px'}}>
+                <label style={{fontSize:'0.82rem',fontWeight:500,marginBottom:'6px',display:'block'}}>App Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Jira, Figma, Stripe..."
+                  value={newMcpName}
+                  onChange={e => setNewMcpName(e.target.value)}
+                  className="input-field"
+                  style={{width:'100%'}}
+                />
+              </div>
+              <div style={{marginBottom:'16px'}}>
+                <label style={{fontSize:'0.82rem',fontWeight:500,marginBottom:'6px',display:'block'}}>Server Address</label>
+                <input
+                  type="text"
+                  placeholder="e.g. http://localhost:3000 or https://my-mcp.example.com"
+                  value={newMcpUrl}
+                  onChange={e => setNewMcpUrl(e.target.value)}
+                  className="input-field"
+                  style={{width:'100%'}}
+                />
+              </div>
+              <p style={{fontSize:'0.76rem',color:'var(--text-tertiary)',marginBottom:'20px'}}>
+                The server address is where TaskBolt connects to the app. If you're not sure, ask the app provider for their "MCP server URL".
+              </p>
+              <button
+                className="btn-primary"
+                style={{width:'100%',padding:'12px',fontSize:'0.92rem'}}
+                disabled={!newMcpName.trim() || !newMcpUrl.trim()}
+                onClick={() => {
+                  if (!newMcpName.trim() || !newMcpUrl.trim()) return
+                  const slug = newMcpName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+                  const custom: McpConnector = {
+                    id: 'custom-' + Date.now(),
+                    name: newMcpName.trim(),
+                    icon: slug,
+                    description: 'Connected to ' + newMcpName.trim(),
+                    capabilities: ['Custom tools'],
+                    connected: false,
+                    serverPkg: newMcpUrl.trim(),
+                  }
+                  setMcpConnectors(prev => [...prev, custom])
+                  setNewMcpName('')
+                  setNewMcpUrl('')
+                  setShowConnectorModal(false)
+                }}
+              >
+                Add App
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Thread Confirmation Modal */}
       {deleteThreadConfirm && (

@@ -3,6 +3,13 @@
 TaskBolt Engine — lightweight local agent with full persona & tools.
 Routes ALL LLM calls through TaskBolt SaaS (Vercel) for auth + billing.
 No secrets, no backend info, no API keys ever exposed to the AI model.
+
+MEMORY ARCHITECTURE:
+- profile.md     → Who the user is (name, role, timezone, communication style)
+- facts.md       → Environment facts (OS, installed tools, project paths, configs)
+- preferences.md → User preferences (coding style, tone, habits, pet peeves)
+- history.md     → Compressed summaries of past tasks/conversations
+- Auto-injected into system prompt every conversation (no recall needed)
 """
 
 import os
@@ -10,6 +17,7 @@ import sys
 import json
 import asyncio
 import logging
+from datetime import datetime
 
 import httpx
 
@@ -29,6 +37,118 @@ MODEL_NAME = os.getenv('TASKBOLT_MODEL', 'qwen-plus')
 if not JWT_TOKEN:
     print(json.dumps({"type": "error", "message": "Please sign in to use TaskBolt AI."}), flush=True)
     sys.exit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MEMORY SYSTEM — Auto-injected, categorized, persistent
+# ═══════════════════════════════════════════════════════════════════
+
+MEMORY_DIR = os.path.join(os.path.expanduser("~"), ".taskbolt", "memory")
+
+# Memory categories with descriptions
+MEMORY_CATEGORIES = {
+    "profile": "Who the user is — name, role, timezone, communication style",
+    "facts": "Environment facts — OS, installed tools, project paths, configs",
+    "preferences": "User preferences — coding style, tone, habits, pet peeves",
+    "history": "Compressed summaries of past tasks and conversations",
+}
+
+
+def load_memory(category: str = None) -> dict:
+    """Load memory from disk. If category is None, load all categories."""
+    os.makedirs(MEMORY_DIR, exist_ok=True)
+    result = {}
+    cats = [category] if category else list(MEMORY_CATEGORIES.keys())
+    for cat in cats:
+        path = os.path.join(MEMORY_DIR, f"{cat}.md")
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                if content:
+                    result[cat] = content
+            except Exception:
+                pass
+    return result
+
+
+def save_memory_to_disk(category: str, content: str):
+    """Save memory content to disk."""
+    os.makedirs(MEMORY_DIR, exist_ok=True)
+    path = os.path.join(MEMORY_DIR, f"{category}.md")
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+def append_memory(category: str, entry: str):
+    """Append a new entry to a memory category (with timestamp)."""
+    os.makedirs(MEMORY_DIR, exist_ok=True)
+    path = os.path.join(MEMORY_DIR, f"{category}.md")
+    timestamp = datetime.now().strftime("%Y-%m-%d")
+    
+    existing = ""
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            existing = f.read().strip()
+    
+    # Append new entry
+    new_entry = f"\n§ {timestamp}: {entry}" if existing else f"§ {timestamp}: {entry}"
+    content = existing + "\n" + new_entry if existing else new_entry
+    
+    # Keep memory compact — max 2000 chars per category
+    if len(content) > 2000:
+        lines = content.split('\n')
+        # Keep the header + last entries that fit
+        content = '\n'.join(lines[-20:])  # Keep last 20 lines
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+def build_memory_injection() -> str:
+    """Build the memory block to inject into the system prompt."""
+    memories = load_memory()
+    if not memories:
+        return ""
+    
+    sections = []
+    
+    # User profile — always first, most important
+    if "profile" in memories:
+        sections.append(f"USER PROFILE (who the user is):\n{memories['profile']}")
+    
+    # Preferences — how to interact
+    if "preferences" in memories:
+        sections.append(f"USER PREFERENCES (how to interact):\n{memories['preferences']}")
+    
+    # Facts — environment context
+    if "facts" in memories:
+        sections.append(f"ENVIRONMENT FACTS (system/project context):\n{memories['facts']}")
+    
+    # History — past task context
+    if "history" in memories:
+        sections.append(f"RECENT HISTORY (past task summaries):\n{memories['history']}")
+    
+    if not sections:
+        return ""
+    
+    return "\n\n═══════════════════════════════════\nPERSISTENT MEMORY (auto-loaded — these facts persist across all conversations):\n═══════════════════════════════════\n" + "\n\n".join(sections)
+
+
+def get_all_memory_entries() -> list:
+    """Get all memory entries across all categories for the frontend."""
+    memories = load_memory()
+    entries = []
+    for cat, content in memories.items():
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and line.startswith('§'):
+                entries.append({
+                    "id": f"{cat}_{hash(line) % 100000}",
+                    "target": cat,
+                    "content": line[2:].strip(),  # Remove § prefix
+                })
+    return entries
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -62,13 +182,32 @@ CORE CAPABILITIES:
 - **Education**: Create study materials (flashcards, summaries, quizzes), code tutoring, language learning practice
 - **Documents**: Resumes/CVs, invoices, meeting notes, presentations, legal contracts, business proposals
 
+MEMORY SYSTEM:
+You have persistent memory that survives across conversations. It's organized into 4 categories:
+- **profile**: Who the user is — name, role, timezone, communication style, pet peeves
+- **facts**: Environment facts — OS, installed tools, project paths, tool quirks, stable conventions
+- **preferences**: User preferences — coding style, tone, habits, corrections they've given you
+- **history**: Compressed summaries of past tasks (keep these short and factual)
+
+MEMORY RULES:
+- **SAVE PROACTIVELY** — when you learn something durable, save it immediately. Don't wait to be asked.
+- User corrections > preferences > facts > history (in priority order)
+- Use `save_memory` with the right category. Write declarative facts, not instructions:
+  - ✅ "User prefers concise responses" (good)
+  - ❌ "Always respond concisely" (bad — reads as a directive)
+  - ✅ "Project uses pytest with xdist" (good)
+  - ❌ "Run tests with pytest -n 4" (bad — that's a procedure, not a fact)
+- Use `update_profile` when you learn who the user is (name, role, timezone)
+- Use `summarize_session` at the end of complex tasks to compress what was done into history
+- Do NOT save: task progress, commit SHAs, PR numbers, file counts, temporary state
+- Memory is auto-loaded into every conversation — you already know what's stored
+
 CRITICAL RULES:
 - Always use tools to take action — don't just describe what to do
 - Be direct and practical — the user wants RESULTS, not explanations
 - Explain what you're doing and why, briefly
 - For Windows, prefer PowerShell commands; for Mac/Linux use bash
 - Read system info before making changes
-- Keep memory of what you've done for the user
 - If something fails, try alternative approaches
 - When users upload/mention files, ALWAYS use analyze_file
 - For system problems, run full diagnosis BEFORE suggesting fixes
@@ -190,14 +329,28 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "save_memory",
-            "description": "Save a piece of information to persistent memory. Use this to remember user preferences, system details, past actions, etc.",
+            "description": "Save a fact or piece of information to persistent memory. This survives across ALL conversations and is auto-loaded every time. Use categories: 'profile' (who the user is), 'facts' (environment/system details), 'preferences' (how to interact, user corrections, habits), 'history' (past task summaries). Write as declarative facts, not instructions.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "key": {"type": "string", "description": "Memory key (e.g., 'user_preferences', 'installed_software')"},
-                    "value": {"type": "string", "description": "The information to remember"}
+                    "category": {"type": "string", "enum": ["profile", "facts", "preferences", "history"], "description": "Memory category"},
+                    "content": {"type": "string", "description": "The fact to remember. Write as a declarative statement (e.g., 'User prefers dark mode', 'OS is Windows 11', 'Project uses React + TypeScript')"}
                 },
-                "required": ["key", "value"]
+                "required": ["category", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_profile",
+            "description": "Update the user's profile with who they are — name, role, timezone, communication style. This is the most important memory category. Use whenever you learn something new about the user as a person.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "Profile information to add or update (e.g., 'User's name is Alex, they are a product manager in GMT+1')"}
+                },
+                "required": ["content"]
             }
         }
     },
@@ -205,13 +358,42 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "recall_memory",
-            "description": "Recall information previously saved to memory.",
+            "description": "Read all stored memories. Memory is already auto-loaded into context, but use this to see the full raw content of a specific category.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "key": {"type": "string", "description": "Memory key to recall. Omit to see all keys."}
+                    "category": {"type": "string", "enum": ["profile", "facts", "preferences", "history"], "description": "Category to recall. Omit to see all categories."}
                 },
                 "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_memory",
+            "description": "Delete a specific memory entry or clear an entire category. Use when information becomes stale or wrong.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "enum": ["profile", "facts", "preferences", "history"], "description": "Category to modify"},
+                    "content_match": {"type": "string", "description": "Text to find and remove from the category. Omit to clear the entire category."}
+                },
+                "required": ["category"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_session",
+            "description": "Save a compressed summary of the current conversation to history memory. Use at the end of complex tasks to preserve what was accomplished without flooding future context.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {"type": "string", "description": "Brief factual summary of what was accomplished (2-3 sentences max). Focus on durable outcomes, not process."}
+                },
+                "required": ["summary"]
             }
         }
     },
@@ -358,78 +540,27 @@ TOOLS = [
 ]
 
 
-# Smart status messages — contextual feedback based on what the agent is doing
-TOOL_STATUS_MAP = {
-    "run_command": "Executing command...",
-    "run_bash": "Executing command...",
-    "read_file": "Reading file...",
-    "write_file": "Writing file...",
-    "search_files": "Searching files...",
-    "get_system_info": "Gathering system info...",
-    "install_software": "Installing software...",
-    "save_memory": "Saving to memory...",
-    "recall_memory": "Recalling memory...",
-    "analyze_file": "Analyzing file...",
-    "run_diagnosis": "Running diagnostics...",
-    "list_directory": "Listing directory...",
-    "desktop_control": "Controlling desktop...",
-    "browser_automation": "Browsing the web...",
-    "create_document": "Creating document...",
-    "translate_text": "Translating...",
-    "web_search": "Searching the web...",
-    "fetch_url": "Fetching page...",
-}
-
+# Smart status messages — generic, no technical details
 def get_tool_status(tool_name: str, tool_args: dict) -> str:
-    """Get a human-friendly status message for a tool execution."""
-    base = TOOL_STATUS_MAP.get(tool_name, f"Running {tool_name}...")
-    
-    # Add context for some tools
-    if tool_name in ("run_command", "run_bash"):
-        cmd = tool_args.get("command", "")
-        if cmd:
-            # Extract the first word/command
-            first_word = cmd.split()[0] if cmd.split() else ""
-            if first_word.lower() in ("pip", "npm", "apt", "brew", "winget", "choco"):
-                return f"Installing package..."
-            elif first_word.lower() in ("git",):
-                return f"Running git..."
-            elif first_word.lower() in ("python", "python3", "node"):
-                return f"Running script..."
-            elif "install" in cmd.lower():
-                return f"Installing software..."
-            elif "delete" in cmd.lower() or "remove" in cmd.lower() or "rm " in cmd:
-                return f"Removing files..."
-            elif "mkdir" in cmd.lower() or "mkdir" in cmd:
-                return f"Creating directory..."
-            elif "curl" in cmd.lower() or "wget" in cmd.lower():
-                return f"Downloading..."
-    elif tool_name in ("read_file", "analyze_file"):
-        path = tool_args.get("path", "")
-        if path:
-            fname = path.split("/")[-1].split("\\")[-1]
-            return f"Reading {fname}..."
-    elif tool_name == "write_file":
-        path = tool_args.get("path", "")
-        if path:
-            fname = path.split("/")[-1].split("\\")[-1]
-            return f"Writing {fname}..."
-    elif tool_name == "web_search":
-        query = tool_args.get("query", "")
-        if query:
-            return f"Searching: {query[:40]}..."
-    elif tool_name == "fetch_url":
-        url = tool_args.get("url", "")
-        if url:
-            domain = url.split("//")[-1].split("/")[0] if "//" in url else url[:30]
-            return f"Fetching {domain}..."
-    elif tool_name == "create_document":
-        path = tool_args.get("path", "")
-        if path:
-            fname = path.split("/")[-1].split("\\")[-1]
-            return f"Creating {fname}..."
-    
-    return base
+    """Get a generic, user-friendly status message for tool execution."""
+    if tool_name in ("run_command", "run_bash", "install_software"):
+        return "Executing task..."
+    elif tool_name in ("read_file", "analyze_file", "list_directory", "get_system_info"):
+        return "Analyzing..."
+    elif tool_name in ("write_file", "create_document"):
+        return "Creating..."
+    elif tool_name in ("web_search", "fetch_url", "browser_automation"):
+        return "Researching..."
+    elif tool_name in ("save_memory", "recall_memory", "update_profile", "delete_memory", "summarize_session"):
+        return "Thinking..."
+    elif tool_name in ("search_files", "run_diagnosis"):
+        return "Processing..."
+    elif tool_name == "desktop_control":
+        return "Working..."
+    elif tool_name == "translate_text":
+        return "Translating..."
+    else:
+        return "Working..."
 
 
 async def call_saas_api(messages: list, tools: list = None) -> dict:
@@ -464,9 +595,7 @@ async def call_saas_api(messages: list, tools: list = None) -> dict:
 def execute_tool(name: str, arguments: dict) -> str:
     """Execute a tool locally and return the result."""
     import subprocess
-    import tempfile
     import platform
-    import shutil
 
     try:
         if name == "run_command":
@@ -475,7 +604,6 @@ def execute_tool(name: str, arguments: dict) -> str:
             workdir = arguments.get("workdir", None)
             shell = True
             if platform.system() == "Windows":
-                # Use PowerShell on Windows
                 result = subprocess.run(
                     ["powershell", "-Command", cmd],
                     capture_output=True, text=True, timeout=timeout,
@@ -510,17 +638,14 @@ def execute_tool(name: str, arguments: dict) -> str:
             search_path = arguments.get("path", ".")
             target = arguments.get("target", "content")
             if target == "files":
-                # Find files by name
                 cmd = f'find {search_path} -name "{pattern}" 2>/dev/null | head -50'
             else:
-                # Search file contents
                 cmd = f'grep -r "{pattern}" {search_path} 2>/dev/null | head -50'
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
             output = result.stdout.strip()
             return output if output else f"No matches found for '{pattern}'"
 
         elif name == "get_system_info":
-            import platform
             info = {
                 "os": platform.system(),
                 "os_version": platform.version(),
@@ -530,7 +655,6 @@ def execute_tool(name: str, arguments: dict) -> str:
                 "cwd": os.getcwd(),
                 "home": os.path.expanduser("~"),
             }
-            # Disk info
             if platform.system() == "Windows":
                 result = subprocess.run(["wmic", "logicaldisk", "get", "caption,freespace,size"],
                                        capture_output=True, text=True, timeout=10)
@@ -564,41 +688,83 @@ def execute_tool(name: str, arguments: dict) -> str:
             output = (result.stdout or "") + (result.stderr or "")
             return output[:5000] if output else f"Installation command completed for {sw_name}"
 
+        # ═══ MEMORY TOOLS ═══
+
         elif name == "save_memory":
-            key = arguments.get("key", "default")
-            value = arguments.get("value", "")
-            mem_dir = os.path.join(os.path.expanduser("~"), ".taskbolt", "memory")
-            os.makedirs(mem_dir, exist_ok=True)
-            mem_file = os.path.join(mem_dir, f"{key}.md")
-            with open(mem_file, 'w', encoding='utf-8') as f:
-                f.write(value)
-            return f"✓ Saved to memory: {key}"
+            category = arguments.get("category", "facts")
+            content = arguments.get("content", "")
+            if not content.strip():
+                return "Error: content is required"
+            if category not in MEMORY_CATEGORIES:
+                return f"Error: invalid category '{category}'. Use: {', '.join(MEMORY_CATEGORIES.keys())}"
+            append_memory(category, content)
+            return f"✓ Saved to {category} memory: {content[:100]}"
+
+        elif name == "update_profile":
+            content = arguments.get("content", "")
+            if not content.strip():
+                return "Error: content is required"
+            append_memory("profile", content)
+            return f"✓ Profile updated: {content[:100]}"
 
         elif name == "recall_memory":
-            key = arguments.get("key", "")
-            mem_dir = os.path.join(os.path.expanduser("~"), ".taskbolt", "memory")
-            if not os.path.exists(mem_dir):
-                return "No memories stored yet."
-            if key:
-                mem_file = os.path.join(mem_dir, f"{key}.md")
-                if os.path.exists(mem_file):
-                    with open(mem_file, 'r', encoding='utf-8') as f:
-                        return f.read()
-                return f"No memory found for key: {key}"
+            category = arguments.get("category", "")
+            if category:
+                memories = load_memory(category)
+                if category in memories:
+                    return f"═══ {category.upper()} ═══\n{memories[category]}"
+                return f"No {category} memories stored yet."
             else:
-                files = [f.replace('.md', '') for f in os.listdir(mem_dir) if f.endswith('.md')]
-                return f"Available memory keys: {', '.join(files)}" if files else "No memories stored yet."
+                memories = load_memory()
+                if not memories:
+                    return "No memories stored yet. Memory is empty — start saving facts with save_memory."
+                parts = []
+                for cat in MEMORY_CATEGORIES:
+                    if cat in memories:
+                        parts.append(f"═══ {cat.upper()} ═══\n{memories[cat]}")
+                return "\n\n".join(parts)
+
+        elif name == "delete_memory":
+            category = arguments.get("category", "")
+            content_match = arguments.get("content_match", "")
+            if not category or category not in MEMORY_CATEGORIES:
+                return f"Error: invalid category. Use: {', '.join(MEMORY_CATEGORIES.keys())}"
+            
+            path = os.path.join(MEMORY_DIR, f"{category}.md")
+            if not os.path.exists(path):
+                return f"No {category} memory to delete."
+            
+            if not content_match:
+                # Clear entire category
+                os.remove(path)
+                return f"✓ Cleared all {category} memory."
+            else:
+                # Remove specific line
+                with open(path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                new_lines = [l for l in lines if content_match.lower() not in l.lower()]
+                with open(path, 'w', encoding='utf-8') as f:
+                    f.writelines(new_lines)
+                removed = len(lines) - len(new_lines)
+                return f"✓ Removed {removed} entries matching '{content_match}' from {category}."
+
+        elif name == "summarize_session":
+            summary = arguments.get("summary", "")
+            if not summary.strip():
+                return "Error: summary is required"
+            append_memory("history", summary)
+            return f"✓ Session summary saved to history: {summary[:100]}"
+
+        # ═══ FILE & SYSTEM TOOLS ═══
 
         elif name == "analyze_file":
             path = arguments.get("path", "")
             ext = os.path.splitext(path)[1].lower()
-            # Text files
             if ext in ['.txt', '.md', '.csv', '.json', '.xml', '.yaml', '.yml', '.log',
                        '.py', '.js', '.ts', '.html', '.css', '.sh', '.bat', '.ps1']:
                 with open(path, 'r', encoding='utf-8', errors='replace') as f:
                     content = f.read()
                 return content[:15000]
-            # For other file types, return metadata
             size = os.path.getsize(path)
             return f"File: {path}\nType: {ext}\nSize: {size:,} bytes\n(Advanced file analysis for this format requires additional tools.)"
 
@@ -643,7 +809,7 @@ def execute_tool(name: str, arguments: dict) -> str:
             path = arguments.get("path", ".")
             recursive = arguments.get("recursive", False)
             if platform.system() == "Windows":
-                cmd = f'dir "{path}" {"-R" if recursive else ""}'
+                cmd = f'dir "{path}" {"" if recursive else ""}'
             else:
                 cmd = f'ls -la {path}' + (" -R" if recursive else "")
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
@@ -660,7 +826,6 @@ def execute_tool(name: str, arguments: dict) -> str:
             if action == "open_url":
                 url = arguments.get("url", "")
                 resp = httpx.get(url, timeout=30, follow_redirects=True)
-                # Strip HTML tags for readability
                 import re
                 text = re.sub(r'<[^>]+>', '', resp.text)
                 text = re.sub(r'\s+', ' ', text).strip()
@@ -688,7 +853,6 @@ def execute_tool(name: str, arguments: dict) -> str:
         elif name == "translate_text":
             text = arguments.get("text", "")
             to_lang = arguments.get("to_lang", "English")
-            # Translation requires the AI itself — return a prompt for the model
             return f"[Translation request: '{text[:200]}' → {to_lang}]\nNote: Please provide the translation directly in your response."
 
         elif name == "web_search":
@@ -725,11 +889,15 @@ def execute_tool(name: str, arguments: dict) -> str:
 async def run_agent(user_message: str, conversation_history: list):
     """
     Run the agent loop:
-    1. Send messages + tools to SaaS API
-    2. If AI wants to use tools → execute locally → send results back
-    3. Repeat until AI gives a final text response
+    1. Build system prompt WITH auto-injected memory
+    2. Send messages + tools to SaaS API
+    3. If AI wants to use tools → execute locally → send results back
+    4. Repeat until AI gives a final text response
     """
-    # Read user context from ~/.taskbolt/user_context.txt
+    # Build system prompt
+    system_content = SYSTEM_PROMPT + f"\n\nCurrent working directory: {os.getcwd()}\nUser's home: {os.path.expanduser('~')}"
+    
+    # Read user context from ~/.taskbolt/user_context.txt (legacy — still supported)
     user_ctx = ""
     try:
         ctx_path = os.path.join(os.path.expanduser("~"), ".taskbolt", "user_context.txt")
@@ -738,10 +906,14 @@ async def run_agent(user_message: str, conversation_history: list):
                 user_ctx = f.read().strip()
     except Exception:
         pass
-
-    system_content = SYSTEM_PROMPT + f"\n\nCurrent working directory: {os.getcwd()}\nUser's home: {os.path.expanduser('~')}"
     if user_ctx:
-        system_content += f"\n\nUSER CONTEXT (what the user told you about themselves):\n{user_ctx}"
+        system_content += f"\n\nUSER CONTEXT (manually set by user in Settings):\n{user_ctx}"
+    
+    # ═══ AUTO-INJECT MEMORY ═══
+    memory_block = build_memory_injection()
+    if memory_block:
+        system_content += memory_block
+        logger.info(f"Injected {len(memory_block)} chars of memory into system prompt")
 
     messages = [
         {"role": "system", "content": system_content}
@@ -754,16 +926,10 @@ async def run_agent(user_message: str, conversation_history: list):
     for round_num in range(max_rounds):
         logger.info(f"Agent round {round_num + 1}")
 
-        if round_num > 0:
-            print(json.dumps({
-                "type": "status",
-                "message": f"Thinking..."
-            }), flush=True)
-        else:
-            print(json.dumps({
-                "type": "status",
-                "message": "Thinking..."
-            }), flush=True)
+        print(json.dumps({
+            "type": "status",
+            "message": "Thinking..."
+        }), flush=True)
 
         # Call SaaS API
         result = await call_saas_api(messages, tools=TOOLS)

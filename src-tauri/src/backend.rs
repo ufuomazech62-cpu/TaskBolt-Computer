@@ -175,8 +175,10 @@ pub async fn disconnect_gateway_platform(platform_id: String) -> Result<(), Stri
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MEMORY COMMANDS
+// MEMORY COMMANDS — Category-based (profile, facts, preferences, history)
 // ═══════════════════════════════════════════════════════════════
+
+const MEMORY_CATEGORIES: &[&str] = &["profile", "facts", "preferences", "history"];
 
 #[tauri::command]
 pub async fn get_memory_entries() -> Result<Vec<MemoryEntry>, String> {
@@ -188,6 +190,48 @@ pub async fn get_memory_entries() -> Result<Vec<MemoryEntry>, String> {
     }
 
     let mut entries = vec![];
+
+    for category in MEMORY_CATEGORIES {
+        let path = memory_dir.join(format!("{}.md", category));
+        if !path.exists() {
+            continue;
+        }
+
+        let content = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {}: {}", category, e))?;
+
+        let metadata = fs::metadata(&path)
+            .map_err(|e| format!("Failed to get metadata: {}", e))?;
+        let file_modified = metadata
+            .created()
+            .or_else(|_| metadata.modified())
+            .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
+            .unwrap_or(0);
+
+        // Parse lines starting with § as individual entries
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('§') {
+                let entry_content = trimmed.trim_start_matches('§').trim().to_string();
+                if entry_content.is_empty() {
+                    continue;
+                }
+                
+                // Generate a stable ID from category + content hash
+                let hash = entry_content.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+                let id = format!("{}_{}", category, hash % 100000);
+
+                entries.push(MemoryEntry {
+                    id,
+                    target: category.to_string(),
+                    content: entry_content,
+                    created_at: file_modified,
+                });
+            }
+        }
+    }
+
+    // Also read legacy single-file entries (non-category .md files)
     let read_dir = fs::read_dir(&memory_dir)
         .map_err(|e| format!("Failed to read memory dir: {}", e))?;
 
@@ -200,10 +244,15 @@ pub async fn get_memory_entries() -> Result<Vec<MemoryEntry>, String> {
                 .and_then(|s| s.to_str())
                 .unwrap_or("unknown")
                 .to_string();
-            
+
+            // Skip category files (already parsed above)
+            if MEMORY_CATEGORIES.contains(&filename.as_str()) {
+                continue;
+            }
+
             let content = fs::read_to_string(&path)
                 .map_err(|e| format!("Failed to read {}: {}", filename, e))?;
-            
+
             let metadata = fs::metadata(&path)
                 .map_err(|e| format!("Failed to get metadata: {}", e))?;
             let created_at = metadata
@@ -212,15 +261,9 @@ pub async fn get_memory_entries() -> Result<Vec<MemoryEntry>, String> {
                 .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs())
                 .unwrap_or(0);
 
-            let target = if filename.starts_with("user_") {
-                "user".to_string()
-            } else {
-                "memory".to_string()
-            };
-
             entries.push(MemoryEntry {
                 id: filename,
-                target,
+                target: "legacy".to_string(),
                 content,
                 created_at,
             });
@@ -236,22 +279,80 @@ pub async fn add_memory_entry(target: String, content: String) -> Result<String,
     fs::create_dir_all(&memory_dir)
         .map_err(|e| format!("Failed to create memory dir: {}", e))?;
 
-    let id = format!(
-        "{}_{}",
-        if target == "user" { "user" } else { "note" },
-        chrono::Utc::now().timestamp()
-    );
-    let path = memory_dir.join(format!("{}.md", id));
-    
-    fs::write(&path, content)
+    // Map target to category
+    let category = match target.as_str() {
+        "profile" | "user" => "profile",
+        "facts" => "facts",
+        "preferences" => "preferences",
+        "history" => "history",
+        _ => "facts", // Default to facts for unknown targets
+    };
+
+    let path = memory_dir.join(format!("{}.md", category));
+    let timestamp = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let new_line = format!("\n§ {}: {}", timestamp, content.trim());
+
+    // Append to existing content
+    let mut existing = if path.exists() {
+        fs::read_to_string(&path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    if existing.is_empty() {
+        existing = format!("§ {}: {}", timestamp, content.trim());
+    } else {
+        existing.push_str(&new_line);
+    }
+
+    // Keep compact — max 2000 chars
+    if existing.len() > 2000 {
+        let lines: Vec<&str> = existing.lines().collect();
+        let start = if lines.len() > 20 { lines.len() - 20 } else { 0 };
+        existing = lines[start..].join("\n");
+    }
+
+    fs::write(&path, &existing)
         .map_err(|e| format!("Failed to write memory: {}", e))?;
 
-    Ok(id)
+    let hash = content.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+    Ok(format!("{}_{}", category, hash % 100000))
 }
 
 #[tauri::command]
 pub async fn delete_memory_entry(id: String) -> Result<(), String> {
-    let path = get_hermes_home().join("memory").join(format!("{}.md", id));
+    let memory_dir = get_hermes_home().join("memory");
+
+    // Try category-based delete first (id format: "category_hash")
+    if let Some(underscore_pos) = id.find('_') {
+        let category = &id[..underscore_pos];
+        if MEMORY_CATEGORIES.contains(&category) {
+            let path = memory_dir.join(format!("{}.md", category));
+            if path.exists() {
+                let content = fs::read_to_string(&path)
+                    .map_err(|e| format!("Failed to read {}: {}", category, e))?;
+                let hash_val: u64 = id[underscore_pos + 1..].parse().unwrap_or(0);
+                
+                // Remove lines whose content hash matches
+                let new_content: String = content
+                    .lines()
+                    .filter(|line| {
+                        let trimmed = line.trim().trim_start_matches('§').trim();
+                        let line_hash = trimmed.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+                        line_hash % 100000 != hash_val
+                    })
+                    .collect::<Vec<&str>>()
+                    .join("\n");
+                
+                fs::write(&path, new_content)
+                    .map_err(|e| format!("Failed to write {}: {}", category, e))?;
+                return Ok(());
+            }
+        }
+    }
+
+    // Fallback: legacy single-file delete
+    let path = memory_dir.join(format!("{}.md", id));
     if path.exists() {
         fs::remove_file(&path)
             .map_err(|e| format!("Failed to delete memory: {}", e))?;

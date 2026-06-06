@@ -60,17 +60,23 @@ fn find_python() -> String {
     }
 }
 
-/// Find the engine directory (where taskbolt_engine.py lives)
+/// Find the engine directory (where main.py lives)
 fn find_engine_dir() -> Option<PathBuf> {
     // Check relative to the executable
     if let Ok(exe) = std::env::current_exe() {
-        let candidate = exe.parent()?.join("engine");
-        if candidate.join("taskbolt_engine.py").exists() {
+        // Production: engine bundled next to executable
+        let candidate = exe.parent()?.join("engine").join("odysseus-core");
+        if candidate.join("main.py").exists() {
             return Some(candidate);
         }
         // Dev mode: engine is in the project root
-        let candidate = exe.parent()?.join("../../engine");
-        if candidate.join("taskbolt_engine.py").exists() {
+        let candidate = exe.parent()?.join("../../engine/odysseus-core");
+        if candidate.join("main.py").exists() {
+            return Some(candidate.canonicalize().unwrap_or(candidate));
+        }
+        // Dev mode: engine is in the project root (direct)
+        let candidate = exe.parent()?.join("../../../../engine/odysseus-core");
+        if candidate.join("main.py").exists() {
             return Some(candidate.canonicalize().unwrap_or(candidate));
         }
     }
@@ -80,13 +86,13 @@ fn find_engine_dir() -> Option<PathBuf> {
 
     // In the project workspace (dev mode)
     let candidates = vec![
-        home.join(".taskbolt").join("engine"),
         home.join(".openclaw-autoclaw").join("agents").join("zechy-computer")
-            .join("workspace").join("TaskBolt-Computer").join("engine"),
+            .join("workspace").join("TaskBolt-Computer").join("engine").join("odysseus-core"),
+        home.join(".taskbolt").join("engine").join("odysseus-core"),
     ];
 
     for candidate in &candidates {
-        if candidate.join("taskbolt_engine.py").exists() {
+        if candidate.join("main.py").exists() {
             return Some(candidate.clone());
         }
     }
@@ -97,7 +103,7 @@ fn find_engine_dir() -> Option<PathBuf> {
 /// Check if engine dependencies are installed
 async fn check_dependencies(python: &str, engine_dir: &PathBuf) -> bool {
     let output = Command::new(python)
-        .args(["-c", "import httpx; import pydantic; print('ok')"])
+        .args(["-c", "import httpx; print('ok')"])
         .current_dir(engine_dir)
         .output()
         .await;
@@ -119,7 +125,7 @@ async fn install_dependencies(
         "content": "Installing TaskBolt engine dependencies..."
     }).to_string()).ok();
 
-    let req_file = engine_dir.join("taskbolt_requirements.txt");
+    let req_file = engine_dir.join("requirements.txt");
 
     let output = Command::new(python)
         .args(["-m", "pip", "install", "-r", req_file.to_str().unwrap_or("requirements.txt"),
@@ -168,11 +174,9 @@ pub async fn initialize_engine(
 
     // Spawn the Python engine process
     let mut child = Command::new(&python)
-        .args(["taskbolt_engine.py"])
+        .args(["main.py"])
         .current_dir(&engine_dir)
         .env("TASKBOLT_SAAS_URL", VERCEL_SAAS_URL)
-        .env("TASKBOLT_JWT_TOKEN", jwt_token)
-        .env("TASKBOLT_MODEL", DEFAULT_MODEL)
         .env("PYTHONUNBUFFERED", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -211,26 +215,50 @@ pub async fn initialize_engine(
 
             // Engine outputs JSON lines — forward as agent-event
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                let event_type = parsed.get("type").and_then(|t| t.as_str()).unwrap_or("content");
+                let event_type = parsed.get("type").and_then(|t| t.as_str()).unwrap_or("unknown");
 
                 match event_type {
                     "ready" => {
                         app_clone.emit("agent-event", serde_json::json!({
                             "type": "status",
-                            "content": "TaskBolt engine ready!"
+                            "content": format!("TaskBolt engine v{} ready ({} tools)",
+                                parsed.get("version").and_then(|v| v.as_str()).unwrap_or("?"),
+                                parsed.get("tools").and_then(|t| t.as_u64()).unwrap_or(0))
                         }).to_string()).ok();
                     }
-                    "content" => {
-                        // Stream content chunks
+                    "stream_delta" => {
+                        // Stream text content chunks
                         app_clone.emit("agent-event", serde_json::json!({
                             "type": "content",
-                            "content": parsed.get("content").and_then(|c| c.as_str()).unwrap_or("")
+                            "content": parsed.get("text").and_then(|c| c.as_str()).unwrap_or("")
                         }).to_string()).ok();
+                    }
+                    "tool_start" => {
+                        let tool = parsed.get("tool").and_then(|t| t.as_str()).unwrap_or("unknown");
+                        let round = parsed.get("round").and_then(|r| r.as_u64()).unwrap_or(0);
+                        let args = parsed.get("args").and_then(|a| a.as_str()).unwrap_or("");
+                        let display = if args.len() > 80 { &args[..80] } else { args };
+                        app_clone.emit("agent-event", serde_json::json!({
+                            "type": "status",
+                            "content": format!("Round {}: Running {}...", round, tool)
+                        }).to_string()).ok();
+                    }
+                    "tool_output" => {
+                        // Tool output — emit as content for now
+                        let output = parsed.get("output").and_then(|o| o.as_str()).unwrap_or("");
+                        if !output.is_empty() {
+                            app_clone.emit("agent-event", serde_json::json!({
+                                "type": "tool_output",
+                                "tool": parsed.get("tool").and_then(|t| t.as_str()).unwrap_or(""),
+                                "output": output,
+                                "exit_code": parsed.get("exit_code").and_then(|e| e.as_i64()).unwrap_or(0)
+                            }).to_string()).ok();
+                        }
                     }
                     "status" => {
                         app_clone.emit("agent-event", serde_json::json!({
                             "type": "status",
-                            "content": parsed.get("message").and_then(|m| m.as_str()).unwrap_or("")
+                            "content": parsed.get("text").and_then(|m| m.as_str()).unwrap_or("")
                         }).to_string()).ok();
                     }
                     "error" => {
@@ -244,22 +272,35 @@ pub async fn initialize_engine(
                             "type": "done"
                         }).to_string()).ok();
                     }
-                    "thinking" => {
+                    "auth_ok" => {
                         app_clone.emit("agent-event", serde_json::json!({
-                            "type": "thinking",
-                            "content": parsed.get("content").and_then(|c| c.as_str()).unwrap_or("")
+                            "type": "auth_ok",
+                            "user": parsed.get("user").unwrap_or(&serde_json::Value::Null)
                         }).to_string()).ok();
                     }
-                    "credits" => {
+                    "auth_fail" => {
                         app_clone.emit("agent-event", serde_json::json!({
-                            "type": "credits",
-                            "used": parsed.get("used").unwrap_or(&serde_json::Value::Null),
-                            "remaining": parsed.get("remaining").unwrap_or(&serde_json::Value::Null)
+                            "type": "auth_fail",
+                            "error": parsed.get("error").and_then(|e| e.as_str()).unwrap_or("Auth failed")
                         }).to_string()).ok();
+                    }
+                    "pong" => {
+                        // Ignore ping responses
+                    }
+                    "ok" => {
+                        // Acknowledgement events (memory added, session deleted, etc.)
+                    }
+                    "session_list" | "memory_list" | "mcp_list" | "preference" => {
+                        // Data responses — forward as-is for frontend to handle
+                        app_clone.emit("engine-data", trimmed.to_string()).ok();
+                    }
+                    "setup_progress" => {
+                        // Setup progress events
+                        app_clone.emit("setup-progress", trimmed.to_string()).ok();
                     }
                     _ => {
                         // Forward unknown events as-is
-                        app_clone.emit("agent-event", trimmed.to_string()).ok();
+                        app_clone.emit("engine-data", trimmed.to_string()).ok();
                     }
                 }
             }
@@ -287,6 +328,15 @@ pub async fn initialize_engine(
         "type": "status",
         "content": "TaskBolt engine starting up..."
     }).to_string()).ok();
+
+    // Send auth command to authenticate the engine
+    let auth_cmd = serde_json::json!({
+        "type": "auth",
+        "token": jwt_token
+    });
+    if let Err(e) = stdin_tx.send(auth_cmd.to_string()).await {
+        eprintln!("[engine] Failed to send auth command: {}", e);
+    }
 
     Ok(EngineHandle {
         child: Arc::new(tokio::sync::Mutex::new(Some(child))),

@@ -43,7 +43,7 @@ async fn send_message(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     content: String,
-    _thread_id: String,
+    thread_id: String,
     auth_token: String,
 ) -> Result<(), String> {
     // Auth token is required — SaaS billing won't work without it
@@ -79,8 +79,10 @@ async fn send_message(
 
     // Send the message to the engine via stdin
     let msg = serde_json::json!({
-        "type": "message",
-        "content": content
+        "type": "chat",
+        "message": content,
+        "session_id": thread_id,
+        "model": "qwen-plus"
     });
 
     {
