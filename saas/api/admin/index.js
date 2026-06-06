@@ -101,7 +101,24 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    return res.status(400).json({ error: "Unknown action. Use: status, credit, fix_pending" });
+    // --- DEBUG: test connectivity ---
+    if (action === "debug") {
+      const results = { env: {} };
+      results.env.DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY ? `set (${process.env.DASHSCOPE_API_KEY.slice(0,15)}...)` : "NOT SET";
+      results.env.NEON_DATABASE_URL = process.env.NEON_DATABASE_URL ? "set" : "NOT SET";
+      results.env.COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY ? "set" : "NOT SET";
+      const API_BASE = process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+      if (process.env.DASHSCOPE_API_KEY) {
+        try {
+          const r = await fetch(API_BASE + "/chat/completions", { method: "POST", headers: { Authorization: "Bearer " + process.env.DASHSCOPE_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ model: "qwen-plus", messages: [{role:"user",content:"ok"}], max_tokens: 5 }) });
+          results.dashscope = { status: r.status, ok: r.ok };
+        } catch(e) { results.dashscope = { error: e.message }; }
+      }
+      try { const u = await sql`SELECT COUNT(*) as c FROM users`; results.db = { ok: true, users: u[0]?.c }; } catch(e) { results.db = { ok: false, error: e.message }; }
+      return res.json(results);
+    }
+
+    return res.status(400).json({ error: "Unknown action. Use: status, credit, fix_pending, debug" });
   } catch (err) {
     console.error("[admin] error:", err.message);
     return res.status(500).json({ error: err.message });
