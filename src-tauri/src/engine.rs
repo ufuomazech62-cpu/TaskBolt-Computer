@@ -6,8 +6,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tauri::Emitter;
 
 // Vercel SaaS endpoint — JWT auth + credit deduction + API key stays server-side
-const VERCEL_SAAS_URL: &str = "https://taskbolt.space/api/ai/agent";
-const DEFAULT_MODEL: &str = "deepseek-v4-flash";
+const VERCEL_SAAS_URL: &str = "https://taskbolt.space/api/v1/chat/completions";
 
 pub struct EngineHandle {
     pub child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
@@ -236,8 +235,7 @@ pub async fn initialize_engine(
                     "tool_start" => {
                         let tool = parsed.get("tool").and_then(|t| t.as_str()).unwrap_or("unknown");
                         let round = parsed.get("round").and_then(|r| r.as_u64()).unwrap_or(0);
-                        let args = parsed.get("args").and_then(|a| a.as_str()).unwrap_or("");
-                        let display = if args.len() > 80 { &args[..80] } else { args };
+                        let _args = parsed.get("args").and_then(|a| a.as_str()).unwrap_or("");
                         app_clone.emit("agent-event", serde_json::json!({
                             "type": "status",
                             "content": format!("Round {}: Running {}...", round, tool)
