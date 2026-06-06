@@ -120,6 +120,58 @@ async fn cancel_message(
     Ok(())
 }
 
+/// Send an arbitrary command to the engine (MCP, sessions, etc.)
+/// Auto-starts the engine if not running (requires auth_token)
+#[tauri::command]
+async fn send_engine_command(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    command: serde_json::Value,
+    auth_token: Option<String>,
+) -> Result<(), String> {
+    // Auto-start engine if not running
+    {
+        let mut guard = state.engine.lock().await;
+        if guard.is_none() {
+            // Need to start engine — try to get auth token
+            let token = auth_token.clone().unwrap_or_default();
+            if token.is_empty() {
+                // Try loading from saved auth file
+                let home = dirs::home_dir().unwrap_or_default();
+                let auth_path = home.join(".taskbolt").join("auth.json");
+                if let Ok(auth_json) = std::fs::read_to_string(&auth_path) {
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&auth_json) {
+                        let saved = parsed.get("token").or(parsed.get("access_token"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        if !saved.is_empty() {
+                            let handle = engine::initialize_engine(app.clone(), &saved).await?;
+                            *guard = Some(handle);
+                        } else {
+                            return Err("Please sign in first to use connectors.".to_string());
+                        }
+                    } else {
+                        return Err("Please sign in first to use connectors.".to_string());
+                    }
+                } else {
+                    return Err("Please sign in first to use connectors.".to_string());
+                }
+            } else {
+                let handle = engine::initialize_engine(app.clone(), &token).await?;
+                *guard = Some(handle);
+            }
+        }
+    }
+
+    let guard = state.engine.lock().await;
+    let handle = guard
+        .as_ref()
+        .ok_or_else(|| "Engine not started.".to_string())?;
+    handle.send_message(&command.to_string()).await?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -135,6 +187,7 @@ pub fn run() {
             send_message,
             cancel_message,
             save_user_context,
+            send_engine_command,
             backend::get_gateway_config,
             backend::set_gateway_platform,
             backend::disconnect_gateway_platform,

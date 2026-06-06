@@ -20,8 +20,8 @@ import httpx
 
 logger = logging.getLogger("taskbolt.auth")
 
-# TaskBolt SaaS base URL
-SAAS_BASE = os.environ.get("TASKBOLT_SAAS_URL", "https://taskbolt.space")
+# TaskBolt SaaS base URL — hardcoded, never read from env var
+SAAS_BASE = "https://taskbolt.space"
 
 # Local auth cache
 _auth_cache: Optional[Dict[str, Any]] = None

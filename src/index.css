@@ -4388,7 +4388,7 @@ select.input-field option {
 
 .connector-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
 }
 
@@ -4398,12 +4398,12 @@ select.input-field option {
   border-radius: 12px;
   padding: 16px;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .connector-card:hover {
   border-color: rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04);
-  transform: translateY(-1px);
 }
 
 .connector-connected {
@@ -4411,8 +4411,14 @@ select.input-field option {
   background: rgba(52, 168, 83, 0.04);
 }
 
-.connector-connected:hover {
-  border-color: rgba(52, 168, 83, 0.4);
+.connector-connecting {
+  border-color: rgba(251, 188, 4, 0.3);
+  background: rgba(251, 188, 4, 0.04);
+}
+
+.connector-error {
+  border-color: rgba(234, 67, 53, 0.3);
+  background: rgba(234, 67, 53, 0.04);
 }
 
 .connector-card-top {
@@ -4426,7 +4432,6 @@ select.input-field option {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4457,27 +4462,70 @@ select.input-field option {
 }
 
 .connector-status-badge {
-  color: #34a853;
   font-weight: 500;
 }
+.connector-status-badge.connected { color: #34a853; }
+.connector-status-badge.connecting { color: #fbbc04; }
+.connector-status-badge.error { color: #ea4335; }
+.connector-status-badge.disconnected { color: var(--text-tertiary); }
 
-.connector-connect-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
+/* ── Toggle Switch ── */
+.connector-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
   flex-shrink: 0;
 }
 
-.connector-connect-btn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.2);
+.connector-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.connector-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+
+.connector-toggle input:checked + .connector-toggle-track {
+  background: #34a853;
+}
+
+.connector-toggle input:disabled + .connector-toggle-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connector-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+
+.connector-toggle input:checked ~ .connector-toggle-thumb {
+  transform: translateX(20px);
+}
+
+.connector-tools-count {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  background: rgba(255,255,255,0.06);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .connector-desc {
@@ -4485,6 +4533,16 @@ select.input-field option {
   color: var(--text-tertiary);
   line-height: 1.4;
   margin: 0;
+}
+
+.connector-error-msg {
+  font-size: 0.74rem;
+  color: #ea4335;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(234,67,53,0.08);
+  border-radius: 6px;
+  line-height: 1.3;
 }
 
 /* ═══════════════════════════════════════════════════════

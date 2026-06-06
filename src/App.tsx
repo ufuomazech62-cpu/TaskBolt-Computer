@@ -72,20 +72,79 @@ interface McpConnector {
   description: string
   capabilities: string[]
   connected: boolean
+  status: 'idle' | 'connecting' | 'connected' | 'error'
+  toolCount: number
+  errorMsg?: string
   serverPkg?: string
+  needsAuth?: boolean
+  authLabel?: string
+  authUrl?: string
+  authPlaceholder?: string
+  authValue?: string
+  brandColor?: string
 }
 
 const INITIAL_MCP_CONNECTORS: McpConnector[] = [
-  { id: 'gmail', name: 'Gmail', icon: 'gmail', description: 'Read, search, and send emails right from your conversations.', capabilities: ['Read inbox', 'Search emails', 'Send emails', 'Organize labels'], connected: false, serverPkg: '@anthropic/mcp-gmail' },
-  { id: 'gcal', name: 'Google Calendar', icon: 'googlecalendar', description: 'Check your schedule, create events, and find free time.', capabilities: ['View schedule', 'Create events', 'Find availability', 'Update events'], connected: false, serverPkg: '@anthropic/mcp-gcal' },
-  { id: 'gdrive', name: 'Google Drive', icon: 'googledrive', description: 'Access your cloud files, documents, and spreadsheets.', capabilities: ['Search files', 'Read documents', 'Browse folders', 'Upload files'], connected: false, serverPkg: '@anthropic/mcp-gdrive' },
-  { id: 'github', name: 'GitHub', icon: 'github', description: 'Manage projects, track issues, and review code with your team.', capabilities: ['Track issues', 'Review code', 'Manage projects', 'Browse repos'], connected: false, serverPkg: '@modelcontextprotocol/server-github' },
-  { id: 'slack', name: 'Slack', icon: 'slack', description: 'Send messages and search your team channels without switching apps.', capabilities: ['Send messages', 'Search chats', 'Browse channels', 'Read threads'], connected: false, serverPkg: '@anthropic/mcp-slack' },
-  { id: 'notion', name: 'Notion', icon: 'notion', description: 'Read, create, and organize your notes, docs, and databases.', capabilities: ['Read pages', 'Create pages', 'Search workspace', 'Manage databases'], connected: false, serverPkg: '@anthropic/mcp-notion' },
-  { id: 'linear', name: 'Linear', icon: 'linear', description: 'Track work items, manage sprints, and stay on top of tasks.', capabilities: ['Create tasks', 'View work', 'Manage sprints', 'Search tasks'], connected: false, serverPkg: '@anthropic/mcp-linear' },
-  { id: 'postgres', name: 'PostgreSQL', icon: 'postgresql', description: 'Query and explore your databases through conversation.', capabilities: ['Run queries', 'Explore structure', 'List tables', 'Understand data'], connected: false, serverPkg: '@modelcontextprotocol/server-postgres' },
-  { id: 'vercel', name: 'Vercel', icon: 'vercel', description: 'Deploy and manage your websites and apps in the cloud.', capabilities: ['Deploy projects', 'View analytics', 'Manage domains', 'Check deployments'], connected: false, serverPkg: '@anthropic/mcp-vercel' },
-  { id: 'paystack', name: 'Paystack', icon: 'paystack', description: 'Manage payments, check transactions, and track revenue.', capabilities: ['View transactions', 'Check payments', 'Track revenue', 'Manage customers'], connected: false, serverPkg: '@anthropic/mcp-paystack' },
+  // Google Workspace
+  { id: 'gmail', name: 'Gmail', icon: 'gmail', description: 'Read, draft, and send emails. Search your inbox and manage labels.', capabilities: ['Draft emails', 'Send emails', 'Search inbox', 'Manage labels'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:gmail', brandColor: '#EA4335' },
+  { id: 'google-calendar', name: 'Google Calendar', icon: 'googlecalendar', description: 'View, create, and manage your calendar events and meetings.', capabilities: ['View events', 'Create events', 'Schedule meetings', 'Set reminders'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:google-calendar', brandColor: '#4285F4' },
+  { id: 'google-drive', name: 'Google Drive', icon: 'googledrive', description: 'Search, read, and manage files in your Google Drive.', capabilities: ['Search files', 'Read documents', 'Upload files', 'Share links'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:google-drive', brandColor: '#0F9D58' },
+  { id: 'google-docs', name: 'Google Docs', icon: 'googledocs', description: 'Create, edit, and manage your Google documents.', capabilities: ['Create documents', 'Edit content', 'Share docs', 'Export to PDF'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:google-docs', brandColor: '#4285F4' },
+  { id: 'google-sheets', name: 'Google Sheets', icon: 'googlesheets', description: 'Create, edit, and analyze spreadsheets.', capabilities: ['Create sheets', 'Edit data', 'Formulas', 'Charts and graphs'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:google-sheets', brandColor: '#0F9D58' },
+  { id: 'google-workspace', name: 'Google Workspace', icon: 'googleworkspace', description: 'Unified access to all Google Workspace apps.', capabilities: ['Gmail', 'Calendar', 'Drive', 'Docs', 'Sheets'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:google-workspace', brandColor: '#4285F4' },
+  
+  // Microsoft 365
+  { id: 'outlook', name: 'Outlook', icon: 'microsoftoutlook', description: 'Manage your Outlook email, calendar, and contacts.', capabilities: ['Send emails', 'Manage calendar', 'Contacts', 'Tasks'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:outlook', brandColor: '#0078D4' },
+  { id: 'microsoft-word', name: 'Word', icon: 'microsoftword', description: 'Create and edit Word documents.', capabilities: ['Create documents', 'Edit content', 'Formatting', 'Export to PDF'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:microsoft-word', brandColor: '#2B579A' },
+  { id: 'microsoft-excel', name: 'Excel', icon: 'microsoftexcel', description: 'Create and analyze Excel spreadsheets.', capabilities: ['Create spreadsheets', 'Edit data', 'Formulas', 'Pivot tables'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:microsoft-excel', brandColor: '#217346' },
+  { id: 'microsoft-powerpoint', name: 'PowerPoint', icon: 'microsoftpowerpoint', description: 'Create and edit presentations.', capabilities: ['Create slides', 'Edit content', 'Animations', 'Presentations'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:microsoft-powerpoint', brandColor: '#D24726' },
+  
+  // Social Media
+  { id: 'youtube', name: 'YouTube', icon: 'youtube', description: 'Manage your YouTube channel, videos, and comments.', capabilities: ['Upload videos', 'Manage channel', 'Read comments', 'Analytics'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:youtube', brandColor: '#FF0000' },
+  { id: 'x', name: 'X (Twitter)', icon: 'x', description: 'Post tweets, manage your profile, and engage with your audience.', capabilities: ['Post tweets', 'Read timeline', 'Manage profile', 'Analytics'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:x', brandColor: '#000000' },
+  { id: 'linkedin', name: 'LinkedIn', icon: 'linkedin', description: 'Post updates, manage your professional network.', capabilities: ['Post updates', 'Manage profile', 'Send messages', 'Analytics'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:linkedin', brandColor: '#0A66C2' },
+  
+  // Development
+  { id: 'github', name: 'GitHub', icon: 'github', description: 'Manage issues, review code, and interact with your repositories.', capabilities: ['Browse repos', 'Create issues', 'Review PRs', 'Manage projects'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:github', brandColor: '#181717' },
+  { id: 'vercel', name: 'Vercel', icon: 'vercel', description: 'Deploy, monitor, and manage your Vercel projects and domains.', capabilities: ['Deploy projects', 'View logs', 'Manage domains', 'Rollback deploys'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:vercel', brandColor: '#000000' },
+  
+  // Communication
+  { id: 'slack', name: 'Slack', icon: 'slack', description: 'Send messages and search your team channels without switching apps.', capabilities: ['Send messages', 'Search chats', 'Browse channels', 'Read threads'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:slack', brandColor: '#4A154B' },
+  { id: 'discord', name: 'Discord', icon: 'discord', description: 'Manage Discord servers, channels, and messages.', capabilities: ['Send messages', 'Manage channels', 'Server management', 'Voice channels'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:discord', brandColor: '#5865F2' },
+  { id: 'telegram', name: 'Telegram', icon: 'telegram', description: 'Send messages and manage Telegram chats.', capabilities: ['Send messages', 'Manage groups', 'Bot commands', 'File sharing'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:telegram', brandColor: '#26A5E4' },
+  { id: 'zoom', name: 'Zoom', icon: 'zoom', description: 'Schedule and manage Zoom meetings.', capabilities: ['Schedule meetings', 'Join meetings', 'Manage recordings', 'Contacts'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:zoom', brandColor: '#2D8CFF' },
+  
+  // Productivity
+  { id: 'notion', name: 'Notion', icon: 'notion', description: 'Create pages, manage databases, and organize your workspace.', capabilities: ['Create pages', 'Update content', 'Manage databases', 'Search workspace'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:notion', brandColor: '#000000' },
+  { id: 'trello', name: 'Trello', icon: 'trello', description: 'Manage boards, cards, and tasks.', capabilities: ['Create boards', 'Manage cards', 'Assign tasks', 'Track progress'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:trello', brandColor: '#0079BF' },
+  { id: 'asana', name: 'Asana', icon: 'asana', description: 'Manage projects, tasks, and team workflows.', capabilities: ['Create projects', 'Manage tasks', 'Assign work', 'Track progress'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:asana', brandColor: '#F06A6A' },
+  { id: 'linear', name: 'Linear', icon: 'linear', description: 'Manage issues and projects in Linear.', capabilities: ['Create issues', 'Manage projects', 'Assign work', 'Track progress'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:linear', brandColor: '#5E6AD2' },
+  
+  // E-commerce & CMS
+  { id: 'shopify', name: 'Shopify', icon: 'shopify', description: 'Manage your Shopify store, products, and orders.', capabilities: ['Manage products', 'Process orders', 'Customer management', 'Analytics'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:shopify', brandColor: '#7AB55C' },
+  { id: 'wordpress', name: 'WordPress', icon: 'wordpress', description: 'Manage your WordPress site content and posts.', capabilities: ['Create posts', 'Manage pages', 'Media library', 'Comments'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:wordpress', brandColor: '#21759B' },
+  
+  // Design
+  { id: 'canva', name: 'Canva', icon: 'canva', description: 'Create designs and graphics with Canva.', capabilities: ['Create designs', 'Edit templates', 'Export graphics', 'Brand kits'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:canva', brandColor: '#00C4CC' },
+  { id: 'figma', name: 'Figma', icon: 'figma', description: 'Manage Figma files and design collaboration.', capabilities: ['Access files', 'View designs', 'Comments', 'Export assets'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:figma', brandColor: '#F24E1E' },
+  
+  // Storage
+  { id: 'dropbox', name: 'Dropbox', icon: 'dropbox', description: 'Access and manage files in your Dropbox.', capabilities: ['Browse files', 'Upload files', 'Share links', 'Search files'], connected: false, status: 'idle', toolCount: 0, serverPkg: 'composio:dropbox', brandColor: '#0061FF' },
+  
+  // Local tools (non-Composio)
+  { id: 'filesystem', name: 'File System', icon: 'filesystem', description: 'Access your local files and folders directly from conversations.', capabilities: ['Read files', 'Write files', 'List directories', 'Search files'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-filesystem', brandColor: '#6B7280' },
+  { id: 'puppeteer', name: 'Browser', icon: 'browser', description: 'Control a real browser to navigate sites, fill forms, and take screenshots.', capabilities: ['Navigate pages', 'Click elements', 'Take screenshots', 'Fill forms'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-puppeteer', brandColor: '#4285F4' },
+  
+  // Databases
+  { id: 'postgres', name: 'PostgreSQL', icon: 'postgresql', description: 'Query and explore your local or remote databases through conversation.', capabilities: ['Run queries', 'Explore schema', 'List tables', 'Understand data'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-postgres', needsAuth: true, authLabel: 'Connection String', authPlaceholder: 'postgresql://user:***@localhost:5432/mydb', brandColor: '#336791' },
+  { id: 'sqlite', name: 'SQLite', icon: 'sqlite', description: 'Read and query local SQLite databases for data analysis and exploration.', capabilities: ['Run SQL', 'Explore tables', 'Schema info', 'Data analysis'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-sqlite', needsAuth: true, authLabel: 'Database Path', authPlaceholder: 'C:/Users/you/mydata.db', brandColor: '#003B57' },
+  
+  // Search & Maps
+  { id: 'brave-search', name: 'Brave Search', icon: 'brave', description: 'Private web search without tracking. Get results from across the internet.', capabilities: ['Web search', 'News search', 'Local results', 'No tracking'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@anthropic-ai/mcp-server-brave-search', needsAuth: true, authLabel: 'API Key', authUrl: 'https://brave.com/search/api/', brandColor: '#FB542B' },
+  { id: 'google-maps', name: 'Google Maps', icon: 'googlemaps', description: 'Search places, get directions, and explore local businesses.', capabilities: ['Find places', 'Get directions', 'Local search', 'Place details'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-google-maps', needsAuth: true, authLabel: 'API Key', authUrl: 'https://console.cloud.google.com/apis/credentials', brandColor: '#4285F4' },
+  
+  // AI & Reasoning
+  { id: 'sequential-thinking', name: 'Reasoning', icon: 'brain', description: 'Advanced step-by-step reasoning for complex problems and multi-step tasks.', capabilities: ['Chain of thought', 'Problem solving', 'Analysis', 'Planning'], connected: false, status: 'idle', toolCount: 0, serverPkg: '@modelcontextprotocol/server-sequential-thinking', brandColor: '#8B5CF6' },
 ]
 
 // ── Types ──────────────────────────────────────────────
@@ -325,13 +384,21 @@ const CORE_SKILLS: Skill[] = [
 
 // ── Connector Brand Icons (real logos via CDN) ──
 function ConnectorIcon({ id, size = 28 }: { id: string; size?: number }) {
+  const fallbackIcons: Record<string, string> = {
+    filesystem: '📁',
+    browser: '🌐',
+    brain: '🧠',
+    memory: '🧠',
+  }
+  if (fallbackIcons[id]) {
+    return <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>{fallbackIcons[id]}</span>
+  }
   return (
     <img
       src={`https://cdn.simpleicons.org/${id}`}
       alt={id}
       width={size}
       height={size}
-      style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }}
       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
     />
   )
@@ -417,6 +484,92 @@ function App() {
   const [kanbanCards, setKanbanCards] = useState<KanbanCard[]>([])
   const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(INITIAL_MCP_CONNECTORS)
   const [showConnectorModal, setShowConnectorModal] = useState(false)
+  const [showMcpAuthModal, setShowMcpAuthModal] = useState(false)
+  const [pendingMcpAuth, setPendingMcpAuth] = useState<string | null>(null)
+  const [mcpAuthValue, setMcpAuthValue] = useState('')
+
+  // Toggle a connector on/off — communicates with engine MCP client
+  const toggleConnector = async (connectorId: string) => {
+    const connector = mcpConnectors.find(c => c.id === connectorId)
+    if (!connector) return
+
+    if (connector.status === 'connecting') return // prevent double-toggle
+
+    if (connector.connected) {
+      // Disconnect
+      setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, connected: false, status: 'idle' as const, toolCount: 0, errorMsg: undefined } : c))
+      try {
+        await invoke('send_engine_command', { command: { type: 'mcp_disconnect', server_id: connectorId }, authToken: authToken || '' })
+      } catch (e) {
+        console.warn('MCP disconnect failed:', e)
+      }
+    } else {
+      // If connector needs auth and no value set yet, show the setup modal
+      if (connector.needsAuth && !connector.authValue) {
+        setPendingMcpAuth(connectorId)
+        setMcpAuthValue('')
+        setShowMcpAuthModal(true)
+        return
+      }
+
+      // Connect
+      setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'connecting' as const, errorMsg: undefined } : c))
+      try {
+        // Build env vars from auth value if needed
+        const env: Record<string, string> = {}
+        if (connector.needsAuth && connector.authValue) {
+          // Map connector IDs to their expected env var names
+          const envMap: Record<string, string> = {
+            'github': 'GITHUB_PERSONAL_ACCESS_TOKEN',
+            'postgres': 'POSTGRES_CONNECTION_STRING',
+            'brave-search': 'BRAVE_API_KEY',
+            'slack': 'SLACK_BOT_TOKEN',
+            'google-maps': 'GOOGLE_MAPS_API_KEY',
+            'sqlite': 'SQLITE_DB_PATH',
+          }
+          const envKey = envMap[connectorId]
+          if (envKey) env[envKey] = connector.authValue
+        }
+        // Build args — some servers need special args
+        let args = ['-y', connector.serverPkg || `@modelcontextprotocol/server-${connectorId}`]
+        
+        // Determine the command based on connector type
+        let command = 'npx'
+        if (connector.serverPkg?.startsWith('composio:')) {
+          // Composio connector — send the serverPkg as the command
+          command = connector.serverPkg
+          args = []  // Composio doesn't use npx args
+        } else if (connectorId === 'filesystem') {
+          args = ['-y', connector.serverPkg || '@modelcontextprotocol/server-filesystem', '--']
+          // Default to user's home directory
+          args.push(connector.authValue || 'C:\\Users')
+        }
+
+        // Send to engine — it will emit mcp_connect_result when done
+        await invoke('send_engine_command', {
+          command: {
+            type: 'mcp_save',
+            server: {
+              id: connectorId,
+              name: connector.name,
+              transport: 'stdio',
+              command: command,
+              args: args,
+              env: Object.keys(env).length > 0 ? JSON.stringify(env) : undefined,
+              enabled: true,
+              authValue: connector.authValue,
+            }
+          },
+          authToken: authToken || ''
+        })
+        // Don't fake "connected" — the global listener will update when engine reports back
+      } catch (e) {
+        setMcpConnectors(prev => prev.map(c => c.id === connectorId ? {
+          ...c, status: 'error' as const, errorMsg: String(e),
+        } : c))
+      }
+    }
+  }
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
     { id: 'telegram', name: 'Telegram', icon: '✈️', connected: false },
@@ -487,6 +640,30 @@ function App() {
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
+  }, [])
+
+  // ── Global MCP event listener ────────────────────────
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    listen<string>('agent-event', (event) => {
+      try {
+        const data = JSON.parse(event.payload)
+        if (data.type === 'mcp_connect_result') {
+          const serverId = data.server_id
+          setMcpConnectors(prev => prev.map(c => {
+            if (c.id !== serverId) return c
+            if (data.success) {
+              return { ...c, connected: true, status: 'connected' as const, toolCount: data.tool_count || 0, errorMsg: undefined }
+            } else {
+              return { ...c, connected: false, status: 'error' as const, toolCount: 0, errorMsg: data.error || 'Connection failed' }
+            }
+          }))
+        }
+      } catch {
+        // skip
+      }
+    }).then(fn => { unlisten = fn })
+    return () => { if (unlisten) unlisten() }
   }, [])
 
   useEffect(() => {
@@ -2384,54 +2561,65 @@ function App() {
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px'}}>
                   <div>
                     <h3 style={{margin:0}}>Connectors</h3>
-                    <p className="setting-desc" style={{margin:'4px 0 0'}}>Link your apps so TaskBolt can help you get more done</p>
+                    <p className="setting-desc" style={{margin:'4px 0 0'}}>Toggle apps on to give TaskBolt access. Everything runs locally — your data stays yours.</p>
                   </div>
                   <button className="btn-primary" onClick={() => setShowConnectorModal(true)} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',fontSize:'0.84rem',whiteSpace:'nowrap'}}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add App
+                    Add Custom
                   </button>
                 </div>
 
-                {/* Connected section */}
-                {mcpConnectors.some(c => c.connected) && (
+                {/* Active section */}
+                {mcpConnectors.some(c => c.connected || c.status === 'connecting' || c.status === 'error') && (
                   <div style={{marginBottom:'20px'}}>
                     <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
-                      Connected ({mcpConnectors.filter(c => c.connected).length})
+                      Active ({mcpConnectors.filter(c => c.connected || c.status === 'connecting').length})
                     </h4>
                     <div className="connector-grid">
-                      {mcpConnectors.filter(c => c.connected).map(connector => (
-                        <div key={connector.id} className="connector-card connector-connected">
+                      {mcpConnectors.filter(c => c.connected || c.status === 'connecting' || c.status === 'error').map(connector => (
+                        <div key={connector.id} className={`connector-card ${connector.status === 'connected' ? 'connector-connected' : connector.status === 'connecting' ? 'connector-connecting' : connector.status === 'error' ? 'connector-error' : ''}`}>
                           <div className="connector-card-top">
                             <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
                             <div className="connector-info">
                               <span className="connector-name">{connector.name}</span>
-                              <span className="connector-status-badge">Connected</span>
+                              <span className={`connector-status-badge ${connector.status}`}>
+                                {connector.status === 'connecting' ? 'Connecting...' : connector.status === 'connected' ? `Connected${connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}` : connector.status === 'error' ? 'Error' : 'Active'}
+                              </span>
                             </div>
-                            <button className="btn-icon" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: false } : c))} title="Disconnect" style={{color:'var(--text-tertiary)'}}>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
+                            <label className="connector-toggle">
+                              <input type="checkbox" checked={connector.connected || connector.status === 'connecting'} disabled={connector.status === 'connecting'} onChange={() => toggleConnector(connector.id)} />
+                              <span className="connector-toggle-track" />
+                              <span className="connector-toggle-thumb" />
+                            </label>
                           </div>
                           <p className="connector-desc">{connector.description}</p>
+                          {connector.status === 'error' && connector.errorMsg && (
+                            <div className="connector-error-msg">{connector.errorMsg}</div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Available section */}
+                {/* All apps */}
                 <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
-                  Available Apps
+                  All Apps
                 </h4>
                 <div className="connector-grid">
-                  {mcpConnectors.filter(c => !c.connected).map(connector => (
-                    <div key={connector.id} className="connector-card" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: true } : c))} style={{cursor:'pointer'}}>
+                  {mcpConnectors.filter(c => !c.connected && c.status !== 'connecting' && c.status !== 'error').map(connector => (
+                    <div key={connector.id} className="connector-card">
                       <div className="connector-card-top">
                         <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
                         <div className="connector-info">
                           <span className="connector-name">{connector.name}</span>
                           <span className="connector-desc-short">{connector.capabilities[0]}</span>
                         </div>
-                        <button className="connector-connect-btn">Connect</button>
+                        <label className="connector-toggle">
+                          <input type="checkbox" checked={false} disabled={false} onChange={() => toggleConnector(connector.id)} />
+                          <span className="connector-toggle-track" />
+                          <span className="connector-toggle-thumb" />
+                        </label>
                       </div>
                       <p className="connector-desc">{connector.description}</p>
                     </div>
@@ -3256,57 +3444,83 @@ function App() {
               <div>
                 <h2 style={{margin:0,fontSize:'1.25rem'}}>Connectors</h2>
                 <p style={{margin:'4px 0 0',fontSize:'0.82rem',color:'var(--text-tertiary)'}}>
-                  Link your apps so TaskBolt can help you get more done
+                  Toggle apps on to give TaskBolt access. Everything runs locally on your machine — your data stays yours.
                 </p>
               </div>
               <button className="btn-primary" onClick={() => setShowConnectorModal(true)} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',fontSize:'0.84rem',whiteSpace:'nowrap'}}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add App
+                Add Custom
               </button>
             </div>
             <div className="screen-body" style={{padding:'20px 24px'}}>
-              {/* Connected section */}
-              {mcpConnectors.some(c => c.connected) && (
-                <div style={{marginBottom:'24px'}}>
-                  <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
-                    Connected ({mcpConnectors.filter(c => c.connected).length})
+              {/* Active connectors section */}
+              {mcpConnectors.some(c => c.connected || c.status === 'connecting' || c.status === 'error') && (
+                <div style={{marginBottom:'32px'}}>
+                  <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'16px',fontWeight:600}}>
+                    Active ({mcpConnectors.filter(c => c.connected || c.status === 'connecting').length})
                   </h3>
-                  <div className="connector-grid">
-                    {mcpConnectors.filter(c => c.connected).map(connector => (
-                      <div key={connector.id} className="connector-card connector-connected">
-                        <div className="connector-card-top">
-                          <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
-                          <div className="connector-info">
-                            <span className="connector-name">{connector.name}</span>
-                            <span className="connector-status-badge">Connected</span>
+                  <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                    {mcpConnectors.filter(c => c.connected || c.status === 'connecting' || c.status === 'error').map(connector => (
+                      <div key={connector.id} className={`connector-card ${connector.status === 'connected' ? 'connector-connected' : connector.status === 'connecting' ? 'connector-connecting' : connector.status === 'error' ? 'connector-error' : ''}`} style={{padding:'16px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                          <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:connector.brandColor || 'var(--bg-tertiary)'}}>
+                            <ConnectorIcon id={connector.icon} size={22} />
                           </div>
-                          <button className="btn-icon" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: false } : c))} title="Disconnect" style={{color:'var(--text-tertiary)'}}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                          </button>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}}>
+                              <span style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)'}}>{connector.name}</span>
+                              <span className={`connector-status-badge ${connector.status}`} style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:connector.status === 'connected' ? 'rgba(34,197,94,0.15)' : connector.status === 'connecting' ? 'rgba(59,130,246,0.15)' : 'rgba(239,68,68,0.15)',color:connector.status === 'connected' ? '#22c55e' : connector.status === 'connecting' ? '#3b82f6' : '#ef4444'}}>
+                                {connector.status === 'connecting' ? 'Connecting...' : connector.status === 'connected' ? `Connected${connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}` : connector.status === 'error' ? 'Error' : 'Active'}
+                              </span>
+                            </div>
+                            <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
+                          </div>
+                          <label className="connector-toggle">
+                            <input
+                              type="checkbox"
+                              checked={connector.connected || connector.status === 'connecting'}
+                              disabled={connector.status === 'connecting'}
+                              onChange={() => toggleConnector(connector.id)}
+                            />
+                            <span className="connector-toggle-track" />
+                            <span className="connector-toggle-thumb" />
+                          </label>
                         </div>
-                        <p className="connector-desc">{connector.description}</p>
+                        {connector.status === 'error' && connector.errorMsg && (
+                          <div style={{marginTop:'12px',padding:'10px 14px',background:'rgba(239,68,68,0.1)',borderRadius:'8px',fontSize:'0.84rem',color:'#ef4444'}}>{connector.errorMsg}</div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Available section */}
-              <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
-                Available Apps
+              {/* All apps section */}
+              <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'16px',fontWeight:600}}>
+                All Apps
               </h3>
-              <div className="connector-grid">
-                {mcpConnectors.filter(c => !c.connected).map(connector => (
-                  <div key={connector.id} className="connector-card" onClick={() => setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, connected: true } : c))} style={{cursor:'pointer'}}>
-                    <div className="connector-card-top">
-                      <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
-                      <div className="connector-info">
-                        <span className="connector-name">{connector.name}</span>
-                        <span className="connector-desc-short">{connector.capabilities[0]}</span>
+              <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                {mcpConnectors.filter(c => !c.connected && c.status !== 'connecting' && c.status !== 'error').map(connector => (
+                  <div key={connector.id} style={{padding:'14px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)',transition:'all 0.2s',cursor:'pointer'}} onClick={() => toggleConnector(connector.id)}>
+                    <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                      <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:connector.brandColor || 'var(--bg-tertiary)'}}>
+                        <ConnectorIcon id={connector.icon} size={22} />
                       </div>
-                      <button className="connector-connect-btn">Connect</button>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)',marginBottom:'2px'}}>{connector.name}</div>
+                        <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
+                      </div>
+                      <label className="connector-toggle" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={false}
+                          onChange={() => toggleConnector(connector.id)}
+                        />
+                        <span className="connector-toggle-track" />
+                        <span className="connector-toggle-thumb" />
+                      </label>
                     </div>
-                    <p className="connector-desc">{connector.description}</p>
                   </div>
                 ))}
               </div>
@@ -3320,7 +3534,7 @@ function App() {
         <div className="modal-overlay" onClick={() => setShowConnectorModal(false)}>
           <div className="connector-modal" onClick={e => e.stopPropagation()}>
             <div className="connector-modal-header">
-              <h3>Add a New App</h3>
+              <h3>Add a Custom App</h3>
               <button className="btn-icon" onClick={() => setShowConnectorModal(false)}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -3382,6 +3596,101 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* MCP Auth Modal — clean sign-in experience */}
+      {showMcpAuthModal && pendingMcpAuth && (() => {
+        const connector = mcpConnectors.find(c => c.id === pendingMcpAuth)
+        if (!connector) return null
+        const isOAuth = connector.authLabel?.includes('Sign in') || connector.authLabel?.includes('Account')
+        return (
+          <div className="modal-overlay" onClick={() => { setShowMcpAuthModal(false); setPendingMcpAuth(null) }}>
+            <div className="connector-modal" onClick={e => e.stopPropagation()} style={{maxWidth:'420px'}}>
+              <div className="connector-modal-header">
+                <h3>Connect {connector.name}</h3>
+                <button className="btn-icon" onClick={() => { setShowMcpAuthModal(false); setPendingMcpAuth(null) }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div className="connector-modal-body">
+                <p style={{color:'var(--text-tertiary)',fontSize:'0.88rem',marginBottom:'24px',textAlign:'center'}}>
+                  {isOAuth ? `Sign in to ${connector.name} to get started.` : `Enter your ${connector.authLabel || 'credentials'} to connect.`}
+                </p>
+                
+                {isOAuth && connector.authUrl ? (
+                  <a
+                    href={connector.authUrl}
+                    target="_blank"
+                    rel="noopener"
+                    className="btn-primary"
+                    onClick={() => {
+                      // Auto-connect after opening OAuth URL
+                      setShowMcpAuthModal(false)
+                      setPendingMcpAuth(null)
+                      setMcpConnectors(prev => prev.map(c => c.id === connector.id ? { ...c, authValue: 'oauth_pending' } : c))
+                      setTimeout(() => toggleConnector(connector.id), 100)
+                    }}
+                    style={{
+                      width:'100%',
+                      padding:'16px',
+                      fontSize:'0.95rem',
+                      display:'flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      gap:'10px',
+                      textDecoration:'none',
+                      marginBottom:'16px'
+                    }}
+                  >
+                    <ConnectorIcon id={connector.icon} size={22} />
+                    {connector.authLabel}
+                  </a>
+                ) : (
+                  <>
+                    <div style={{marginBottom:'20px'}}>
+                      <label style={{fontSize:'0.82rem',fontWeight:500,marginBottom:'6px',display:'block'}}>
+                        {connector.authLabel || 'Credentials'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={connector.authPlaceholder || 'Enter your credentials...'}
+                        value={mcpAuthValue}
+                        onChange={e => setMcpAuthValue(e.target.value)}
+                        className="input-field"
+                        style={{width:'100%'}}
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && mcpAuthValue.trim()) {
+                            setMcpConnectors(prev => prev.map(c => c.id === pendingMcpAuth ? { ...c, authValue: mcpAuthValue.trim() } : c))
+                            setShowMcpAuthModal(false)
+                            const savedId = pendingMcpAuth
+                            setPendingMcpAuth(null)
+                            setTimeout(() => toggleConnector(savedId), 50)
+                          }
+                        }}
+                      />
+                    </div>
+                    <button
+                      className="btn-primary"
+                      style={{width:'100%',padding:'12px',fontSize:'0.92rem'}}
+                      disabled={!mcpAuthValue.trim()}
+                      onClick={() => {
+                        if (!mcpAuthValue.trim()) return
+                        setMcpConnectors(prev => prev.map(c => c.id === pendingMcpAuth ? { ...c, authValue: mcpAuthValue.trim() } : c))
+                        setShowMcpAuthModal(false)
+                        const savedId = pendingMcpAuth
+                        setPendingMcpAuth(null)
+                        setTimeout(() => toggleConnector(savedId), 50)
+                      }}
+                    >
+                      Connect
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Delete Thread Confirmation Modal */}
       {deleteThreadConfirm && (

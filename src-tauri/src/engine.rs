@@ -5,8 +5,8 @@ use tokio::process::Command;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tauri::Emitter;
 
-// Vercel SaaS endpoint — JWT auth + credit deduction + API key stays server-side
-const VERCEL_SAAS_URL: &str = "https://taskbolt.space/api/v1/chat/completions";
+// Vercel SaaS base URL
+const VERCEL_SAAS_URL: &str = "https://taskbolt.space";
 
 pub struct EngineHandle {
     pub child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
@@ -332,7 +332,7 @@ pub async fn initialize_engine(
         "type": "auth",
         "token": jwt_token
     });
-    if let Err(e) = stdin_tx.send(auth_cmd.to_string()).await {
+    if let Err(e) = stdin_tx.send(format!("{}\n", auth_cmd)).await {
         eprintln!("[engine] Failed to send auth command: {}", e);
     }
 
