@@ -1,0 +1,9 @@
+# TaskBolt Engine Dependencies
+# Core
+httpx>=0.27.0
+
+# Optional (for advanced features — installed later)
+# tiktoken>=0.7.0          # Token counting (context management)
+# numpy>=1.26.0            # Vector similarity (memory)
+# beautifulsoup4>=4.12.0   # Better web content extraction
+# lxml>=5.0.0              # Fast HTML parsing
