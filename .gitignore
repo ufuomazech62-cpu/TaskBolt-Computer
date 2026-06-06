@@ -8,3 +8,6 @@ hermes-engine/
 .vercel
 saas/.env*
 *.exe
+saas/.vercel_token
+saas/deploy.sh
+saas/_deploy.sh
