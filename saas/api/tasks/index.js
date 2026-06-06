@@ -8,6 +8,25 @@ module.exports = async function handler(req, res) {
   const user = requireAuth(req);
   if (!user) return jsonResponse(res, { error: "Unauthorized" }, 401);
 
+  // --- Skills endpoint (routed via rewrite from /api/skills) ---
+  if (req.query._route === 'skills' || req.headers['x-route'] === 'skills') {
+    if (req.method === "GET") {
+      const skills = await sql`SELECT * FROM user_skills WHERE user_id = ${user.id}::uuid ORDER BY created_at`;
+      return jsonResponse(res, { ok: true, skills });
+    }
+    if (req.method === "POST") {
+      const { name, description, config } = req.body || {};
+      if (!name) return jsonResponse(res, { error: "name required" }, 400);
+      const skills = await sql`
+        INSERT INTO user_skills (user_id, name, description, config)
+        VALUES (${user.id}::uuid, ${name}, ${description || ""}, ${JSON.stringify(config || {})})
+        RETURNING *
+      `;
+      return jsonResponse(res, { ok: true, skill: skills[0] });
+    }
+    return jsonResponse(res, { error: "Method not allowed" }, 405);
+  }
+
   const id = req.query.id; // If present, operate on single task
 
   // --- Single task operations (when ?id= is provided) ---
