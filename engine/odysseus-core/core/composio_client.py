@@ -353,17 +353,18 @@ class ComposioClient:
     async def _fetch_tools(self, service_id: str, service_slug: str):
         """Fetch available tools for a connected service."""
         composio_slug = SLUG_MAP.get(service_slug, service_slug)
-        result = self._api("GET", f"/toolkits/{composio_slug}")
+        # Use /tools endpoint with toolkit_slug filter (returns paginated items)
+        result = self._api("GET", f"/tools?toolkit_slug={composio_slug}")
 
         tools = []
         if result["ok"]:
-            toolkit_data = result["data"]
-            # Get actions/tools from toolkit
-            actions = toolkit_data.get("actions", toolkit_data.get("tools", []))
-            for action in actions[:30]:
-                tool_name = action.get("slug", action.get("name", ""))
-                tool_desc = action.get("description", "")[:200]
-                tool_params = action.get("input_parameters", action.get("parameters", {}))
+            data = result["data"]
+            # Response is paginated: {items: [...], total_items, current_page, total_pages}
+            items = data.get("items", [])
+            for item in items[:30]:  # Cap at 30 tools per service
+                tool_name = item.get("slug", item.get("name", ""))
+                tool_desc = item.get("description", "")[:200]
+                tool_params = item.get("input_parameters", item.get("parameters", {}))
                 if not isinstance(tool_params, dict):
                     tool_params = {}
                 tools.append({
