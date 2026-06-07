@@ -575,6 +575,77 @@ class ComposioClient:
         return sum(len(tools) for tools in self._tools.values())
 
     def get_tool_descriptions_for_prompt(self) -> str:
+        """Build actionable tool descriptions grouped by service with usage examples."""
+        # Common request mappings per service
+        COMMON_REQUESTS = {
+            "gmail": [
+                ("check my email / inbox", "composio__gmail__GMAIL_FETCH_EMAILS"),
+                ("send an email", "composio__gmail__GMAIL_SEND_EMAIL"),
+                ("search emails from X", "composio__gmail__GMAIL_FETCH_EMAILS (with query)"),
+                ("reply to an email", "composio__gmail__GMAIL_REPLY_TO_EMAIL"),
+            ],
+            "google-calendar": [
+                ("schedule a meeting / event", "composio__google-calendar__GOOGLECALENDAR_CREATE_EVENT"),
+                ("what's on my calendar", "composio__google-calendar__GOOGLECALENDAR_LIST_EVENTS"),
+                ("delete/cancel an event", "composio__google-calendar__GOOGLECALENDAR_DELETE_EVENT"),
+                ("update event details", "composio__google-calendar__GOOGLECALENDAR_UPDATE_EVENT"),
+            ],
+            "google-drive": [
+                ("find a file in Drive", "composio__google-drive__GOOGLEDRIVE_FIND_FILE"),
+                ("upload a file", "composio__google-drive__GOOGLEDRIVE_CREATE_FILE"),
+                ("list my Drive files", "composio__google-drive__GOOGLEDRIVE_LIST_FILES"),
+            ],
+            "google-sheets": [
+                ("read a spreadsheet", "composio__google-sheets__GOOGLESHEETS_GET_SPREADSHEET"),
+                ("update cells", "composio__google-sheets__GOOGLESHEETS_UPDATE_RANGE"),
+                ("create a spreadsheet", "composio__google-sheets__GOOGLESHEETS_CREATE_SPREADSHEET"),
+            ],
+            "slack": [
+                ("send a Slack message", "composio__slack__SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL"),
+                ("list channels", "composio__slack__SLACK_LIST_CHANNELS"),
+                ("search messages", "composio__slack__SLACK_SEARCH_MESSAGES"),
+            ],
+            "github": [
+                ("create an issue", "composio__github__GITHUB_CREATE_AN_ISSUE"),
+                ("list my repos", "composio__github__GITHUB_LIST_REPOS"),
+                ("create a pull request", "composio__github__GITHUB_CREATE_A_PULL_REQUEST"),
+                ("review PRs", "composio__github__GITHUB_LIST_PULL_REQUESTS"),
+            ],
+            "notion": [
+                ("create a page", "composio__notion__NOTION_CREATE_PAGE"),
+                ("search Notion", "composio__notion__NOTION_SEARCH_PAGES"),
+                ("update a page", "composio__notion__NOTION_UPDATE_PAGE"),
+            ],
+            "discord": [
+                ("send a Discord message", "composio__discord__DISCORD_SEND_MESSAGE"),
+                ("list channels", "composio__discord__DISCORD_LIST_CHANNELS"),
+            ],
+            "trello": [
+                ("create a card", "composio__trello__TRELLO_CREATE_CARD"),
+                ("list my boards", "composio__trello__TRELLO_LIST_BOARDS"),
+            ],
+            "asana": [
+                ("create a task", "composio__asana__ASANA_CREATE_TASK"),
+                ("list my projects", "composio__asana__ASANA_LIST_PROJECTS"),
+            ],
+            "linear": [
+                ("create an issue", "composio__linear__LINEAR_CREATE_ISSUE"),
+                ("list my issues", "composio__linear__LINEAR_LIST_ISSUES"),
+            ],
+            "outlook": [
+                ("check Outlook email", "composio__outlook__OUTLOOK_FETCH_EMAILS"),
+                ("send via Outlook", "composio__outlook__OUTLOOK_SEND_EMAIL"),
+            ],
+            "linkedin": [
+                ("post to LinkedIn", "composio__linkedin__LINKEDIN_CREATE_POST"),
+                ("view my profile", "composio__linkedin__LINKEDIN_GET_PROFILE"),
+            ],
+            "youtube": [
+                ("search YouTube", "composio__youtube__YOUTUBE_SEARCH"),
+                ("get video details", "composio__youtube__YOUTUBE_GET_VIDEO"),
+            ],
+        }
+
         all_tools = []
         for service_id, tools in self._tools.items():
             conn = self._connections.get(service_id, {})
@@ -583,23 +654,44 @@ class ComposioClient:
             service_name = conn.get("name", service_id)
             for tool in tools:
                 all_tools.append({
+                    "service_id": service_id,
                     "service_name": service_name,
-                    "name": f"composio__{service_id}__{tool['name']}",
-                    "description": tool.get("description", "")[:120],
+                    "name": tool["name"],
+                    "full_name": f"composio__{service_id}__{tool['name']}",
+                    "description": tool.get("description", "")[:200],
                 })
         if not all_tools:
             return ""
-        lines = ["\n\n## Connected Apps (via Composio)"]
+
+        lines = ["\n\n## Connected App Tools (Composio)"]
+        lines.append("\nThese tools are LIVE and ready. Call them directly — you are authorized.")
+
         by_service: Dict[str, list] = {}
         for t in all_tools:
             sn = t["service_name"]
             if sn not in by_service:
                 by_service[sn] = []
             by_service[sn].append(t)
+
         for service_name, service_tools in by_service.items():
-            lines.append(f"\n**{service_name}:**")
+            service_id = service_tools[0]["service_id"]
+            lines.append(f"\n### {service_name} ({len(service_tools)} tools)")
+            lines.append(f"\n**HOW TO USE:** Call `composio__{service_id}__{{ACTION}}` with the required parameters.")
+            lines.append("\n**Available actions:**")
             for t in service_tools:
-                lines.append(f"  - `{t['name']}`: {t['description']}")
+                desc = t["description"]
+                if desc:
+                    lines.append(f"- `{t['full_name']}`: {desc}")
+                else:
+                    lines.append(f"- `{t['full_name']}`")
+
+            # Add common request mappings
+            common = COMMON_REQUESTS.get(service_id, [])
+            if common:
+                lines.append(f"\n**Common requests for {service_name}:**")
+                for user_intent, tool_name in common:
+                    lines.append(f'- "{user_intent}" → `{tool_name}`')
+
         return "\n".join(lines)
 
     @staticmethod
