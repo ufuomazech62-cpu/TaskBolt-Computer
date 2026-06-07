@@ -138,7 +138,10 @@ class McpClient:
                 await session.initialize()
                 tools_result = await session.list_tools()
             except Exception:
-                await stack.aclose()
+                try:
+                    await stack.aclose()
+                except (RuntimeError, Exception):
+                    pass  # anyio cancel scope may fail on cross-task cleanup
                 raise
 
             # Parse discovered tools
@@ -452,7 +455,7 @@ class McpClient:
                     env = {}
 
             try:
-                ok = await asyncio.wait_for(
+                task = asyncio.create_task(
                     self.connect_server(
                         server_id=server_id,
                         name=name,
@@ -461,18 +464,30 @@ class McpClient:
                         args=args,
                         env=env,
                         url=url,
-                    ),
-                    timeout=30,  # 30s per server max
+                    )
                 )
-                if ok:
-                    connected += 1
-            except asyncio.TimeoutError:
-                logger.warning("MCP server %s timed out during connection (30s)", name)
-                self._connections[server_id] = {
-                    "status": "error",
-                    "error": "Connection timed out (30s)",
-                    "name": name,
-                }
+                try:
+                    ok = await asyncio.wait_for(task, timeout=10)
+                except asyncio.TimeoutError:
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, RuntimeError, Exception):
+                        pass
+                    logger.warning("MCP server %s timed out during connection (10s)", name)
+                    self._connections[server_id] = {
+                        "status": "error",
+                        "error": "Connection timed out (10s)",
+                        "name": name,
+                    }
+                else:
+                    if ok:
+                        connected += 1
+            except RuntimeError as e:
+                if "cancel scope" in str(e):
+                    logger.warning("MCP server %s cleanup error suppressed, skipping", name)
+                else:
+                    logger.warning("MCP server %s failed: %s", name, e)
             except Exception as e:
                 logger.warning("MCP server %s failed: %s", name, e)
 

@@ -382,25 +382,151 @@ const CORE_SKILLS: Skill[] = [
   { id: 'print-setup', name: 'Printer setup', description: 'Install and configure printers, scanners, and shared devices', icon: 'printer', enabled: true, isCore: false },
 ]
 
-// ── Connector Brand Icons (real logos via CDN) ──
+// ── Connector Brand Icons (colored original logos via Dashboard Icons CDN + icon.horse fallback) ──
+// Dashboard Icons = full-color, official brand logos (PNG/SVG). Not monochrome silhouettes.
+// URL: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@main/svg/{slug}.svg
+const DASHBOARD_ICONS: Record<string, string> = {
+  // Google products (their own colored logos — NOT the Google "G")
+  gmail: 'gmail',
+  'google-calendar': 'google-calendar',
+  googlecalendar: 'google-calendar',
+  'google-drive': 'google-drive',
+  googledrive: 'google-drive',
+  'google-docs': 'google-docs',
+  googledocs: 'google-docs',
+  'google-sheets': 'google-sheets',
+  googlesheets: 'google-sheets',
+  googlemaps: 'google-maps',
+  'google-maps': 'google-maps',
+  // Microsoft products (their own colored logos — NOT the MS365 logo)
+  outlook: 'microsoft-outlook',
+  microsoftoutlook: 'microsoft-outlook',
+  'microsoft-word': 'microsoft-word',
+  microsoftword: 'microsoft-word',
+  'microsoft-excel': 'microsoft-excel',
+  microsoftexcel: 'microsoft-excel',
+  'microsoft-powerpoint': 'microsoft-powerpoint',
+  microsoftpowerpoint: 'microsoft-powerpoint',
+  // Social
+  youtube: 'youtube',
+  x: 'x',
+  linkedin: 'linkedin',
+  // Dev
+  github: 'github',
+  vercel: 'vercel',
+  // Communication
+  slack: 'slack',
+  discord: 'discord',
+  telegram: 'telegram',
+  zoom: 'zoom',
+  whatsapp: 'whatsapp',
+  // Productivity
+  notion: 'notion',
+  asana: 'asana',
+  linear: 'linear',
+  // E-commerce & CMS
+  shopify: 'shopify',
+  wordpress: 'wordpress',
+  // Design
+  figma: 'figma',
+  // Storage
+  dropbox: 'dropbox',
+  // Databases
+  postgresql: 'postgresql',
+  postgres: 'postgresql',
+  // Browsers
+  brave: 'brave',
+  // Others
+  hubspot: 'hubspot',
+  salesforce: 'salesforce',
+  airtable: 'airtable',
+  clickup: 'clickup',
+  stripe: 'stripe',
+}
+
+// icon.horse fallback for apps not in Dashboard Icons (colored favicons from the domain)
+const LOGO_DOMAINS: Record<string, string> = {
+  'google-workspace': 'workspace.google.com',
+  googleworkspace: 'workspace.google.com',
+  canva: 'canva.com',
+  trello: 'trello.com',
+  sqlite: 'sqlite.org',
+  intercom: 'intercom.com',
+  zendesk: 'zendesk.com',
+  jira: 'atlassian.com',
+  confluence: 'atlassian.com',
+}
+
 function ConnectorIcon({ id, size = 28 }: { id: string; size?: number }) {
   const fallbackIcons: Record<string, string> = {
     filesystem: '📁',
     browser: '🌐',
     brain: '🧠',
     memory: '🧠',
+    puppeteer: '🌐',
   }
   if (fallbackIcons[id]) {
     return <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>{fallbackIcons[id]}</span>
   }
+
+  const makeLetterFallback = (imgEl: HTMLImageElement | null) => {
+    if (imgEl) imgEl.style.display = 'none'
+    const parent = imgEl?.parentElement
+    if (parent && !parent.querySelector('.icon-fallback')) {
+      const span = document.createElement('span')
+      span.className = 'icon-fallback'
+      span.style.cssText = `fontSize:${size * 0.55}px;fontWeight:700;color:var(--text)`
+      span.textContent = id.charAt(0).toUpperCase()
+      parent.appendChild(span)
+    }
+  }
+
+  // Priority 1: Dashboard Icons CDN — full-color official brand logos
+  const dashSlug = DASHBOARD_ICONS[id]
+  if (dashSlug) {
+    return (
+      <img
+        src={`https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@main/svg/${dashSlug}.svg`}
+        alt={id}
+        width={size}
+        height={size}
+        loading="lazy"
+        style={{ borderRadius: '4px' }}
+        onError={(e) => {
+          const img = e.target as HTMLImageElement
+          const domain = LOGO_DOMAINS[id]
+          if (domain) {
+            img.src = `https://icon.horse/icon/${domain}`
+            img.onerror = () => makeLetterFallback(img)
+          } else {
+            makeLetterFallback(img)
+          }
+        }}
+      />
+    )
+  }
+
+  // Priority 2: icon.horse — colored favicons from the domain
+  const domain = LOGO_DOMAINS[id]
+  if (domain) {
+    return (
+      <img
+        src={`https://icon.horse/icon/${domain}`}
+        alt={id}
+        width={size}
+        height={size}
+        loading="lazy"
+        style={{ borderRadius: '4px' }}
+        onError={(e) => makeLetterFallback(e.target as HTMLImageElement)}
+      />
+    )
+  }
+
+  // Final: letter initial
   return (
-    <img
-      src={`https://cdn.simpleicons.org/${id}`}
-      alt={id}
-      width={size}
-      height={size}
-      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-    />
+    <span className="icon-fallback" style={{ fontSize: size * 0.55, fontWeight: 700, color: 'var(--text)' }}>
+      {id.charAt(0).toUpperCase()}
+    </span>
   )
 }
 
@@ -482,39 +608,89 @@ function App() {
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([])
   const [memoryProfile, setMemoryProfile] = useState('')
   const [kanbanCards, setKanbanCards] = useState<KanbanCard[]>([])
-  const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(INITIAL_MCP_CONNECTORS)
+  const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(() => {
+    // Restore saved connector states from localStorage
+    try {
+      const saved = localStorage.getItem('tb_connector_states')
+      if (saved) {
+        const savedMap: Record<string, { connected: boolean; toolCount: number }> = JSON.parse(saved)
+        return INITIAL_MCP_CONNECTORS.map(c => {
+          const s = savedMap[c.id]
+          if (s && s.connected) {
+            return { ...c, connected: true, status: 'connected' as const, toolCount: s.toolCount || 0 }
+          }
+          return c
+        })
+      }
+    } catch {}
+    return INITIAL_MCP_CONNECTORS
+  })
+
+  // Persist connector states to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const stateMap: Record<string, { connected: boolean; toolCount: number }> = {}
+      for (const c of mcpConnectors) {
+        if (c.connected) {
+          stateMap[c.id] = { connected: true, toolCount: c.toolCount }
+        }
+      }
+      localStorage.setItem('tb_connector_states', JSON.stringify(stateMap))
+    } catch {}
+  }, [mcpConnectors])
   const [showConnectorModal, setShowConnectorModal] = useState(false)
   const [showMcpAuthModal, setShowMcpAuthModal] = useState(false)
   const [pendingMcpAuth, setPendingMcpAuth] = useState<string | null>(null)
   const [mcpAuthValue, setMcpAuthValue] = useState('')
+  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null)
+  const [connectingLock, setConnectingLock] = useState(false)
+
+  // Actually disconnect a connector (after confirmation)
+  const doDisconnect = async (connectorId: string) => {
+    setConfirmDisconnect(null)
+    setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, connected: false, status: 'idle' as const, toolCount: 0, errorMsg: undefined } : c))
+    try {
+      await invoke('send_engine_command', { command: { type: 'mcp_disconnect', server_id: connectorId }, authToken: authToken || '' })
+    } catch (e) {
+      console.warn('MCP disconnect failed:', e)
+    }
+    // Persist
+    try { localStorage.setItem('taskbolt_connectors', JSON.stringify(mcpConnectors.map(c => ({ id: c.id, connected: c.id === connectorId ? false : c.connected })))) } catch {}
+  }
 
   // Toggle a connector on/off — communicates with engine MCP client
   const toggleConnector = async (connectorId: string) => {
     const connector = mcpConnectors.find(c => c.id === connectorId)
     if (!connector) return
 
-    if (connector.status === 'connecting') return // prevent double-toggle
+    if (connector.status === 'connecting') {
+      // Cancel connecting — toggle back to idle
+      setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'idle' as const, connected: false, errorMsg: undefined } : c))
+      setConnectingLock(false)
+      return
+    }
 
     if (connector.connected) {
-      // Disconnect
-      setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, connected: false, status: 'idle' as const, toolCount: 0, errorMsg: undefined } : c))
-      try {
-        await invoke('send_engine_command', { command: { type: 'mcp_disconnect', server_id: connectorId }, authToken: authToken || '' })
-      } catch (e) {
-        console.warn('MCP disconnect failed:', e)
-      }
-    } else {
-      // If connector needs auth and no value set yet, show the setup modal
-      if (connector.needsAuth && !connector.authValue) {
-        setPendingMcpAuth(connectorId)
-        setMcpAuthValue('')
-        setShowMcpAuthModal(true)
-        return
-      }
+      // Show confirmation modal before disconnecting
+      setConfirmDisconnect(connectorId)
+      return
+    }
 
-      // Connect
-      setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'connecting' as const, errorMsg: undefined } : c))
-      try {
+    // Block if another connector is currently connecting
+    if (connectingLock) return
+
+    // If connector needs auth and no value set yet, show the setup modal
+    if (connector.needsAuth && !connector.authValue) {
+      setPendingMcpAuth(connectorId)
+      setMcpAuthValue('')
+      setShowMcpAuthModal(true)
+      return
+    }
+
+    // Connect — lock other toggles
+    setConnectingLock(true)
+    setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'connecting' as const, errorMsg: undefined } : c))
+    try {
         // Build env vars from auth value if needed
         const env: Record<string, string> = {}
         if (connector.needsAuth && connector.authValue) {
@@ -564,11 +740,11 @@ function App() {
         })
         // Don't fake "connected" — the global listener will update when engine reports back
       } catch (e) {
+        setConnectingLock(false)
         setMcpConnectors(prev => prev.map(c => c.id === connectorId ? {
           ...c, status: 'error' as const, errorMsg: String(e),
         } : c))
       }
-    }
   }
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
@@ -648,13 +824,35 @@ function App() {
     listen<string>('agent-event', (event) => {
       try {
         const data = JSON.parse(event.payload)
+        // Handle mcp_list response — restore connector states from engine DB
+        if (data.type === 'mcp_list' && data.servers) {
+          const savedIds = new Set<string>()
+          for (const srv of data.servers) {
+            if (srv.enabled && srv.command && String(srv.command).startsWith('composio:')) {
+              savedIds.add(srv.id || srv.name?.toLowerCase().replace(/\s+/g, '-'))
+            }
+          }
+          if (savedIds.size > 0) {
+            setMcpConnectors(prev => prev.map(c => {
+              if (savedIds.has(c.id) && !c.connected) {
+                return { ...c, connected: true, status: 'connected' as const }
+              }
+              return c
+            }))
+          }
+          return
+        }
         if (data.type === 'mcp_connect_result') {
           const serverId = data.server_id
           setMcpConnectors(prev => prev.map(c => {
             if (c.id !== serverId) return c
             if (data.success) {
+              setConnectingLock(false)
               return { ...c, connected: true, status: 'connected' as const, toolCount: data.tool_count || 0, errorMsg: undefined }
+            } else if (data.auth_pending) {
+              return { ...c, status: 'connecting' as const, errorMsg: undefined }
             } else {
+              setConnectingLock(false)
               return { ...c, connected: false, status: 'error' as const, toolCount: 0, errorMsg: data.error || 'Connection failed' }
             }
           }))
@@ -673,6 +871,17 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threads, activeThreadId, isStreaming])
+
+  // ── Query engine for saved connector states on auth ──
+  useEffect(() => {
+    if (authToken) {
+      // Ask engine for saved MCP server list to restore connector states
+      invoke('send_engine_command', {
+        command: { type: 'mcp_list' },
+        authToken: authToken,
+      }).catch(() => {})
+    }
+  }, [authToken])
 
   // ── Auth ─────────────────────────────────────────────
   const handleAuthSuccess = (token: string, user: AuthUser) => {
@@ -2249,7 +2458,7 @@ function App() {
             <div className="settings-tabs">
               {(['general', 'account', 'billing', 'usage', 'skills', 'mcp', 'feedback', 'advanced'] as SettingsTab[]).map(tab => (
                 <button key={tab} className={`tab-btn ${settingsTab === tab ? 'active' : ''}`} onClick={() => setSettingsTab(tab)}>
-                  {tab === 'mcp' ? 'Connectors' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === 'mcp' ? 'Connect Apps' : tab === 'billing' ? 'Credits' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
@@ -2560,7 +2769,7 @@ function App() {
               <div className="settings-section">
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px'}}>
                   <div>
-                    <h3 style={{margin:0}}>Connectors</h3>
+                    <h3 style={{margin:0}}>Connect Apps</h3>
                     <p className="setting-desc" style={{margin:'4px 0 0'}}>Toggle apps on to give TaskBolt access. Everything runs locally — your data stays yours.</p>
                   </div>
                   <button className="btn-primary" onClick={() => setShowConnectorModal(true)} style={{display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',fontSize:'0.84rem',whiteSpace:'nowrap'}}>
@@ -2569,59 +2778,68 @@ function App() {
                   </button>
                 </div>
 
-                {/* Active section */}
-                {mcpConnectors.some(c => c.connected || c.status === 'connecting' || c.status === 'error') && (
-                  <div style={{marginBottom:'20px'}}>
+                {/* Active section — only truly connected apps */}
+                {mcpConnectors.some(c => c.connected) && (
+                  <div style={{marginBottom:'24px'}}>
                     <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
-                      Active ({mcpConnectors.filter(c => c.connected || c.status === 'connecting').length})
+                      Active ({mcpConnectors.filter(c => c.connected).length})
                     </h4>
-                    <div className="connector-grid">
-                      {mcpConnectors.filter(c => c.connected || c.status === 'connecting' || c.status === 'error').map(connector => (
-                        <div key={connector.id} className={`connector-card ${connector.status === 'connected' ? 'connector-connected' : connector.status === 'connecting' ? 'connector-connecting' : connector.status === 'error' ? 'connector-error' : ''}`}>
-                          <div className="connector-card-top">
-                            <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
-                            <div className="connector-info">
-                              <span className="connector-name">{connector.name}</span>
-                              <span className={`connector-status-badge ${connector.status}`}>
-                                {connector.status === 'connecting' ? 'Connecting...' : connector.status === 'connected' ? `Connected${connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}` : connector.status === 'error' ? 'Error' : 'Active'}
-                              </span>
+                    <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                      {mcpConnectors.filter(c => c.connected).map(connector => (
+                        <div key={connector.id} style={{padding:'16px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                            <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:'#ffffff',border:'1px solid rgba(0,0,0,0.08)'}}>
+                              <ConnectorIcon id={connector.icon} size={22} />
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}}>
+                                <span style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)'}}>{connector.name}</span>
+                                <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(34,197,94,0.15)',color:'#22c55e'}}>
+                                  Connected{connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}
+                                </span>
+                              </div>
+                              <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
                             </div>
                             <label className="connector-toggle">
-                              <input type="checkbox" checked={connector.connected || connector.status === 'connecting'} disabled={connector.status === 'connecting'} onChange={() => toggleConnector(connector.id)} />
+                              <input type="checkbox" checked={true} disabled={false} onChange={() => toggleConnector(connector.id)} />
                               <span className="connector-toggle-track" />
                               <span className="connector-toggle-thumb" />
                             </label>
                           </div>
-                          <p className="connector-desc">{connector.description}</p>
-                          {connector.status === 'error' && connector.errorMsg && (
-                            <div className="connector-error-msg">{connector.errorMsg}</div>
-                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* All apps */}
+                {/* All apps — includes connecting/error/idle */}
                 <h4 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'12px',fontWeight:600}}>
                   All Apps
                 </h4>
-                <div className="connector-grid">
-                  {mcpConnectors.filter(c => !c.connected && c.status !== 'connecting' && c.status !== 'error').map(connector => (
-                    <div key={connector.id} className="connector-card">
-                      <div className="connector-card-top">
-                        <div className="connector-logo"><ConnectorIcon id={connector.icon} size={24} /></div>
-                        <div className="connector-info">
-                          <span className="connector-name">{connector.name}</span>
-                          <span className="connector-desc-short">{connector.capabilities[0]}</span>
+                <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                  {mcpConnectors.filter(c => !c.connected).map(connector => (
+                    <div key={connector.id} style={{padding:'14px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)',transition:'all 0.2s',cursor:'pointer',opacity:connectingLock && connector.status !== 'connecting' ? 0.5 : 1}} onClick={() => toggleConnector(connector.id)}>
+                      <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                        <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:'#ffffff',border:'1px solid rgba(0,0,0,0.08)'}}>
+                          <ConnectorIcon id={connector.icon} size={22} />
                         </div>
-                        <label className="connector-toggle">
-                          <input type="checkbox" checked={false} disabled={false} onChange={() => toggleConnector(connector.id)} />
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}}>
+                            <div style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)'}}>{connector.name}</div>
+                            {connector.status === 'connecting' && <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(59,130,246,0.15)',color:'#3b82f6'}}>Connecting...</span>}
+                            {connector.status === 'error' && <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(239,68,68,0.15)',color:'#ef4444'}}>Error</span>}
+                          </div>
+                          <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
+                          {connector.status === 'error' && connector.errorMsg && (
+                            <div style={{marginTop:'6px',fontSize:'0.78rem',color:'#ef4444'}}>{connector.errorMsg}</div>
+                          )}
+                        </div>
+                        <label className="connector-toggle" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={connector.status === 'connecting'} disabled={connectingLock && connector.status !== 'connecting'} onChange={() => toggleConnector(connector.id)} />
                           <span className="connector-toggle-track" />
                           <span className="connector-toggle-thumb" />
                         </label>
                       </div>
-                      <p className="connector-desc">{connector.description}</p>
                     </div>
                   ))}
                 </div>
@@ -2733,7 +2951,7 @@ function App() {
             { view: 'kanban' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: 'Task Board' },
             { view: 'skills' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Skills' },
             { view: 'memory' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 0110 10c0 5.52-4.48 10-10 10S2 17.52 2 12"/><path d="M12 6v6l4 2"/></svg>, label: 'Memory' },
-            { view: 'connectors' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>, label: 'Connectors' },
+            { view: 'connectors' as SidebarView, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>, label: 'Connect Apps' },
           ]).map(item => (
             <button
               key={item.view}
@@ -3442,7 +3660,7 @@ function App() {
           <div className="screen-view">
             <div className="screen-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
-                <h2 style={{margin:0,fontSize:'1.25rem'}}>Connectors</h2>
+                <h2 style={{margin:0,fontSize:'1.25rem'}}>Connect Apps</h2>
                 <p style={{margin:'4px 0 0',fontSize:'0.82rem',color:'var(--text-tertiary)'}}>
                   Toggle apps on to give TaskBolt access. Everything runs locally on your machine — your data stays yours.
                 </p>
@@ -3453,70 +3671,64 @@ function App() {
               </button>
             </div>
             <div className="screen-body" style={{padding:'20px 24px'}}>
-              {/* Active connectors section */}
-              {mcpConnectors.some(c => c.connected || c.status === 'connecting' || c.status === 'error') && (
+              {/* Active connectors section — only truly connected */}
+              {mcpConnectors.some(c => c.connected) && (
                 <div style={{marginBottom:'32px'}}>
                   <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'16px',fontWeight:600}}>
-                    Active ({mcpConnectors.filter(c => c.connected || c.status === 'connecting').length})
+                    Active ({mcpConnectors.filter(c => c.connected).length})
                   </h3>
                   <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                    {mcpConnectors.filter(c => c.connected || c.status === 'connecting' || c.status === 'error').map(connector => (
-                      <div key={connector.id} className={`connector-card ${connector.status === 'connected' ? 'connector-connected' : connector.status === 'connecting' ? 'connector-connecting' : connector.status === 'error' ? 'connector-error' : ''}`} style={{padding:'16px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)'}}>
+                    {mcpConnectors.filter(c => c.connected).map(connector => (
+                      <div key={connector.id} style={{padding:'16px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-                          <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:connector.brandColor || 'var(--bg-tertiary)'}}>
+                          <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:'#ffffff',border:'1px solid rgba(0,0,0,0.08)'}}>
                             <ConnectorIcon id={connector.icon} size={22} />
                           </div>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}}>
                               <span style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)'}}>{connector.name}</span>
-                              <span className={`connector-status-badge ${connector.status}`} style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:connector.status === 'connected' ? 'rgba(34,197,94,0.15)' : connector.status === 'connecting' ? 'rgba(59,130,246,0.15)' : 'rgba(239,68,68,0.15)',color:connector.status === 'connected' ? '#22c55e' : connector.status === 'connecting' ? '#3b82f6' : '#ef4444'}}>
-                                {connector.status === 'connecting' ? 'Connecting...' : connector.status === 'connected' ? `Connected${connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}` : connector.status === 'error' ? 'Error' : 'Active'}
+                              <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(34,197,94,0.15)',color:'#22c55e'}}>
+                                Connected{connector.toolCount > 0 ? ` · ${connector.toolCount} tools` : ''}
                               </span>
                             </div>
                             <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
                           </div>
                           <label className="connector-toggle">
-                            <input
-                              type="checkbox"
-                              checked={connector.connected || connector.status === 'connecting'}
-                              disabled={connector.status === 'connecting'}
-                              onChange={() => toggleConnector(connector.id)}
-                            />
+                            <input type="checkbox" checked={true} disabled={false} onChange={() => toggleConnector(connector.id)} />
                             <span className="connector-toggle-track" />
                             <span className="connector-toggle-thumb" />
                           </label>
                         </div>
-                        {connector.status === 'error' && connector.errorMsg && (
-                          <div style={{marginTop:'12px',padding:'10px 14px',background:'rgba(239,68,68,0.1)',borderRadius:'8px',fontSize:'0.84rem',color:'#ef4444'}}>{connector.errorMsg}</div>
-                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* All apps section */}
+              {/* All apps — includes connecting/error/idle */}
               <h3 style={{fontSize:'0.78rem',textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--text-tertiary)',marginBottom:'16px',fontWeight:600}}>
                 All Apps
               </h3>
               <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-                {mcpConnectors.filter(c => !c.connected && c.status !== 'connecting' && c.status !== 'error').map(connector => (
-                  <div key={connector.id} style={{padding:'14px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)',transition:'all 0.2s',cursor:'pointer'}} onClick={() => toggleConnector(connector.id)}>
+                {mcpConnectors.filter(c => !c.connected).map(connector => (
+                  <div key={connector.id} style={{padding:'14px 20px',borderRadius:'12px',background:'var(--bg-secondary)',border:'1px solid var(--border)',transition:'all 0.2s',cursor:'pointer',opacity:connectingLock && connector.status !== 'connecting' ? 0.5 : 1}} onClick={() => toggleConnector(connector.id)}>
                     <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-                      <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:connector.brandColor || 'var(--bg-tertiary)'}}>
+                      <div style={{width:'40px',height:'40px',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',background:'#ffffff',border:'1px solid rgba(0,0,0,0.08)'}}>
                         <ConnectorIcon id={connector.icon} size={22} />
                       </div>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)',marginBottom:'2px'}}>{connector.name}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'2px'}}>
+                          <div style={{fontSize:'0.95rem',fontWeight:500,color:'var(--text)'}}>{connector.name}</div>
+                          {connector.status === 'connecting' && <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(59,130,246,0.15)',color:'#3b82f6'}}>Connecting...</span>}
+                          {connector.status === 'error' && <span style={{fontSize:'0.72rem',padding:'3px 10px',borderRadius:'6px',background:'rgba(239,68,68,0.15)',color:'#ef4444'}}>Error</span>}
+                        </div>
                         <p style={{fontSize:'0.82rem',color:'var(--text-secondary)',margin:0,lineHeight:1.4}}>{connector.description}</p>
+                        {connector.status === 'error' && connector.errorMsg && (
+                          <div style={{marginTop:'6px',fontSize:'0.78rem',color:'#ef4444'}}>{connector.errorMsg}</div>
+                        )}
                       </div>
                       <label className="connector-toggle" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          disabled={false}
-                          onChange={() => toggleConnector(connector.id)}
-                        />
+                        <input type="checkbox" checked={connector.status === 'connecting'} disabled={connectingLock && connector.status !== 'connecting'} onChange={() => toggleConnector(connector.id)} />
                         <span className="connector-toggle-track" />
                         <span className="connector-toggle-thumb" />
                       </label>
@@ -3596,6 +3808,26 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Disconnect Confirmation Modal */}
+      {confirmDisconnect && (() => {
+        const connector = mcpConnectors.find(c => c.id === confirmDisconnect)
+        if (!connector) return null
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmDisconnect(null)}>
+            <div style={{background:'var(--bg-primary)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'var(--text)',marginBottom:'12px'}}>Disconnect {connector.name}?</h3>
+              <p style={{fontSize:'0.9rem',color:'var(--text-secondary)',marginBottom:'24px',lineHeight:1.5}}>
+                This will remove TaskBolt's access to {connector.name}. You can reconnect anytime.
+              </p>
+              <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+                <button onClick={() => setConfirmDisconnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid var(--border)',background:'transparent',color:'var(--text)',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
+                <button onClick={() => doDisconnect(confirmDisconnect)} style={{padding:'10px 20px',borderRadius:'10px',border:'none',background:'#ef4444',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Disconnect</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* MCP Auth Modal — clean sign-in experience */}
       {showMcpAuthModal && pendingMcpAuth && (() => {

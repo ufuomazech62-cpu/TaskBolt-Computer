@@ -1,0 +1,5 @@
+src-tauri/target
+node_modules
+.git
+engine
+saas/node_modules

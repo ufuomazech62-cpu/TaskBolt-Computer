@@ -1901,16 +1901,30 @@ async def handle_command(data: dict):
                         auth_token=server.get("authValue"),
                     )
                     logger.info("Composio service save+connect: %s (%s) → %s", server_name, composio_slug, "ok" if ok else "failed")
-                    status = composio.get_status(server_id)
-                    emit({
-                        "type": "mcp_connect_result",
-                        "server_id": server_id,
-                        "name": server_name,
-                        "success": ok,
-                        "status": status.get("status", "error"),
-                        "tool_count": status.get("tool_count", 0),
-                        "error": status.get("error", ""),
-                    })
+                    if ok:
+                        # Auth is pending — browser opened for OAuth. Don't say 'connected' yet.
+                        # The polling task will emit the real mcp_connect_result when auth completes.
+                        emit({
+                            "type": "mcp_connect_result",
+                            "server_id": server_id,
+                            "name": server_name,
+                            "success": False,
+                            "status": "auth_pending",
+                            "tool_count": 0,
+                            "error": "",
+                            "auth_pending": True,
+                        })
+                    else:
+                        status = composio.get_status(server_id)
+                        emit({
+                            "type": "mcp_connect_result",
+                            "server_id": server_id,
+                            "name": server_name,
+                            "success": False,
+                            "status": "error",
+                            "tool_count": 0,
+                            "error": status.get("error", "Failed to initiate connection"),
+                        })
                 else:
                     emit({
                         "type": "mcp_connect_result",
@@ -2033,6 +2047,18 @@ async def handle_command(data: dict):
 
 async def main():
     """Main event loop — read JSON from stdin, process, emit to stdout."""
+    # Install a safety net for unretrieved task exceptions (e.g. MCP/anyio cancel scope errors)
+    # so they log a warning instead of poisoning the main event loop.
+    loop = asyncio.get_event_loop()
+    def _handle_task_exception(loop, context):
+        exc = context.get("exception")
+        msg = context.get("message", "unknown")
+        if exc and "cancel scope" in str(exc):
+            logger.warning("Suppressed unretrieved task exception (anyio cancel scope): %s", msg)
+        else:
+            logger.error("Unretrieved task exception: %s — %s", msg, exc)
+    loop.set_exception_handler(_handle_task_exception)
+
     logger.info("TaskBolt Engine v%s starting...", VERSION)
 
     # Initialize database
