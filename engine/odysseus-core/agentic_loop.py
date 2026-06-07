@@ -51,8 +51,7 @@ CONTEXT_TOKEN_BUDGET= 8000    # Approximate token budget for message history
 CONTEXT_KEEP_RECENT = 6         # Number of recent messages to always preserve
 API_TIMEOUT_SECONDS = 120       # HTTP timeout for each LLM call
 FORCE_ANSWER_PROMPT = (
-    "Stop using tools. You have used enough tools to gather information. "
-    "Write your complete final answer now based on what you have learned. "
+    "Stop using tools. Write your complete final answer now based on what you have learned. "
     "Do NOT call any more tools."
 )
 
@@ -149,24 +148,32 @@ def compact_context(
 
 class StallDetector:
     """
+    Odysseus-style stall detector with multiple independent strategies.
+
     Tracks tool-call signatures across rounds and detects when the agent is
     stuck in a loop or has exhausted its useful tool budget.
 
-    Detection criteria:
-      1. Same tool+args signature repeated >= REPEATED_TOOL_THRESHOLD times
-         in the most recent window.
-      2. Any single tool name fired >= INDIVIDUAL_TOOL_LIMIT times total.
-      3. Total tool executions >= MAX_TOTAL_TOOL_CALLS.
-      4. Consecutive identical rounds (same set of tool calls) >= 4.
+    Detection criteria (checked in order of severity):
+      1. Total tool call ceiling — hard cap on executions.
+      2. Individual tool overuse — any single tool fired too many times.
+      3. Repeated identical signature in recent window — same tool+args.
+      4. Consecutive identical rounds — same set of tool calls repeated.
+      5. No-text rounds — tool calls with no assistant content (sign of
+         mechanical looping without reasoning).
     """
+
+    NO_TEXT_THRESHOLD = 5        # Consecutive tool-only rounds with no text
+    IDENTICAL_ROUNDS_THRESHOLD = 4  # Same tool-call set this many times
 
     def __init__(self) -> None:
         self.signatures: List[str] = []           # Full sig history (name:args_preview)
         self.tool_name_counts: Counter = Counter() # Counts per tool name
         self.round_signatures: List[str] = []      # Hash of each round's tool-call set
         self.total_calls: int = 0
+        self.consecutive_no_text: int = 0          # Rounds with tool calls but no content
+        self.effectful_tools_used: List[str] = []  # Track effectful tools for completion verification
 
-    def record_round(self, tool_calls: List[dict]) -> None:
+    def record_round(self, tool_calls: List[dict], has_text: bool = False) -> None:
         """Record a round of tool calls for stall tracking."""
         round_sigs: List[str] = []
         for tc in tool_calls:
@@ -179,8 +186,19 @@ class StallDetector:
             round_sigs.append(sig)
             self.total_calls += 1
 
+            # Track effectful tools for completion verification
+            effectful = {"run_shell", "write_file", "edit_file", "run_python"}
+            if name in effectful:
+                self.effectful_tools_used.append(sig)
+
         # Store a canonical hash of this round's tool-call set
         self.round_signatures.append("|".join(sorted(round_sigs)))
+
+        # Track no-text rounds
+        if has_text:
+            self.consecutive_no_text = 0
+        else:
+            self.consecutive_no_text += 1
 
     def detect(self) -> Optional[str]:
         """
@@ -209,10 +227,17 @@ class StallDetector:
                 )
 
         # 4. Consecutive identical rounds (same set of tool calls)
-        if len(self.round_signatures) >= 4:
-            last_four = self.round_signatures[-4:]
-            if len(set(last_four)) == 1:
-                return "4 consecutive rounds with identical tool calls"
+        if len(self.round_signatures) >= self.IDENTICAL_ROUNDS_THRESHOLD:
+            last_n = self.round_signatures[-self.IDENTICAL_ROUNDS_THRESHOLD:]
+            if len(set(last_n)) == 1:
+                return f"{self.IDENTICAL_ROUNDS_THRESHOLD} consecutive rounds with identical tool calls"
+
+        # 5. No-text rounds — agent calling tools without any reasoning text
+        if self.consecutive_no_text >= self.NO_TEXT_THRESHOLD:
+            return (
+                f"{self.consecutive_no_text} consecutive rounds with tool calls but no "
+                f"assistant text (threshold: {self.NO_TEXT_THRESHOLD})"
+            )
 
         return None
 
@@ -381,6 +406,132 @@ def build_args_preview(tool_args: dict, max_length: int = 200) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ERROR RECOVERY HINTS (Odysseus pattern)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_error_recovery_hint(tool_output: str, tool_name: str) -> Optional[str]:
+    """
+    Analyze a tool error and return a recovery hint for the LLM to adapt.
+    Returns None if no specific hint is available.
+    """
+    output_lower = tool_output.lower()
+
+    # Timeout / connection errors → retry with different approach
+    if any(kw in output_lower for kw in ["timeout", "timed out", "connection", "connect"]):
+        return (
+            "This was a timeout/connection error. Try a shorter/simpler command, "
+            "increase timeout, or use an alternative approach."
+        )
+
+    # Permission errors → suggest checking permissions
+    if any(kw in output_lower for kw in ["permission denied", "access denied", "eacces", "read-only"]):
+        return (
+            "Permission error. Try running without elevated privileges, check file "
+            "permissions, or use a different path the user has write access to."
+        )
+
+    # Not found errors → suggest alternatives
+    if any(kw in output_lower for kw in ["not found", "no such file", "does not exist", "cannot find"]):
+        return (
+            "File/command not found. Try list_directory or search_files to find the "
+            "correct path, or check if the command is installed."
+        )
+
+    # Module/package not found → suggest install
+    if any(kw in output_lower for kw in ["modulenotfounderror", "no module named", "importerror"]):
+        return (
+            "Python module missing. Try: pip install <module_name> or use an "
+            "alternative stdlib approach."
+        )
+
+    # Syntax errors → suggest fixing
+    if any(kw in output_lower for kw in ["syntaxerror", "invalid syntax", "parse error"]):
+        return (
+            "Syntax error in code/command. Review the syntax and fix before retrying."
+        )
+
+    # Shell command not found → suggest which/where
+    if tool_name == "run_shell" and "command not found" in output_lower:
+        return (
+            "Shell command not available. Try 'where' (Windows) or 'which' (Linux) "
+            "to find the correct command, or install it first."
+        )
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETION VERIFICATION (Odysseus pattern)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def _verify_completion(
+    full_response: str,
+    user_message: str,
+    effectful_tools: List[str],
+    messages: List[dict],
+    model: str,
+    session_id: str,
+) -> str:
+    """
+    After the agentic loop, verify that the task was actually completed.
+    If effectful tools were used, make a quick LLM check.
+
+    Returns the (possibly augmented) full_response.
+    """
+    if not effectful_tools:
+        return full_response
+
+    # Build a summary of actions taken
+    actions_summary = "\n".join(f"- {sig}" for sig in effectful_tools[-15:])
+
+    verification_prompt = (
+        f"You are a task completion verifier. The user requested:\n"
+        f"\"{user_message[:500]}\"\n\n"
+        f"The agent performed these actions:\n{actions_summary}\n\n"
+        f"The agent's final response was:\n\"{full_response[:1000]}\"\n\n"
+        f"Did the agent actually complete the task? "
+        f"Answer YES or NO with a brief reason. "
+        f"If NO, explain what's still missing."
+    )
+
+    verify_messages = [
+        {"role": "system", "content": "You are a strict task completion verifier. Answer YES or NO with brief reasoning."},
+        {"role": "user", "content": verification_prompt},
+    ]
+
+    try:
+        result = await call_llm(verify_messages, None, model, session_id)
+        verdict = result.get("content", "")
+        logger.info("Completion verification: %s", verdict[:200])
+
+        if verdict.strip().upper().startswith("NO"):
+            logger.warning("Completion verification: task NOT complete. Attempting one more round.")
+            emit_status("Verifying completion...", session_id)
+
+            # Add a verification message to the existing context
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"A verification check found the task may not be fully complete. "
+                    f"Issue: {verdict[:300]}\n\n"
+                    f"Please verify your work and fix anything that's missing. "
+                    f"If the task IS actually done, explain why and confirm."
+                ),
+            })
+
+            fix_result = await call_llm(messages, None, model, session_id)
+            if fix_result.get("content"):
+                full_response += "\n\n" + fix_result["content"]
+                emit_stream(fix_result["content"], session_id)
+                logger.info("Post-verification round added %d chars", len(fix_result["content"]))
+
+    except Exception as e:
+        logger.warning("Completion verification failed: %s", e)
+
+    return full_response
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN AGENTIC LOOP
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -481,7 +632,7 @@ async def run_agentic_loop(
             break
 
         # ── Record tool calls for stall detection ─────────────────────────
-        stall_detector.record_round(tool_calls)
+        stall_detector.record_round(tool_calls, has_text=bool(assistant_content))
         stall_reason = stall_detector.detect()
 
         if stall_reason and not force_answer:
@@ -492,19 +643,14 @@ async def run_agentic_loop(
             emit_status("Wrapping up...", session_id)
 
             # Append the current assistant message (with tool calls) and
-            # a directive to stop using tools
+            # a user-role directive to stop using tools (Odysseus pattern)
             messages.append({
                 "role": "assistant",
                 "content": assistant_content or None,
                 "tool_calls": tool_calls,
             })
-            messages.append({
-                "role": "system",
-                "content": FORCE_ANSWER_PROMPT,
-            })
 
-            # Execute any pending tool calls first so context is complete,
-            # then make one final call without tools
+            # Execute any pending tool calls first so context is complete
             for tc in tool_calls:
                 func = tc.get("function", {})
                 tool_name = func.get("name", "unknown")
@@ -524,6 +670,12 @@ async def run_agentic_loop(
                     "tool_call_id": tc.get("id", ""),
                     "content": tool_result.get("output", "No output"),
                 })
+
+            # User-role directive forces the model to stop calling tools
+            messages.append({
+                "role": "user",
+                "content": FORCE_ANSWER_PROMPT,
+            })
 
             # One final call without tools to get the concluding answer
             force_answer = True
@@ -558,6 +710,17 @@ async def run_agentic_loop(
             tool_output = tool_result.get("output", "No output")
             tool_exit_code = tool_result.get("exit_code", 0)
 
+            # ── Error recovery (Odysseus pattern) ─────────────────────
+            if tool_exit_code != 0 and tool_exit_code != -1:
+                recovery_hint = _get_error_recovery_hint(tool_output, tool_name)
+                if recovery_hint:
+                    # Append recovery guidance to the tool output so the LLM can adapt
+                    tool_output = tool_output + f"\n\n[Recovery hint: {recovery_hint}]"
+                    logger.info(
+                        "Round %d: tool '%s' failed (exit=%d), recovery hint: %s",
+                        round_num, tool_name, tool_exit_code, recovery_hint,
+                    )
+
             # Notify frontend of tool result
             emit_tool_output(tool_name, tool_output, tool_exit_code, session_id)
 
@@ -583,8 +746,9 @@ async def run_agentic_loop(
             max_rounds,
         )
         emit_status("Generating final answer...", session_id)
+        # Use user-role message for stronger directive (Odysseus pattern)
         messages.append({
-            "role": "system",
+            "role": "user",
             "content": FORCE_ANSWER_PROMPT,
         })
         final_result = await call_llm(messages, None, model, session_id)
@@ -592,12 +756,24 @@ async def run_agentic_loop(
             full_response += "\n\n" + final_result["content"]
             emit_stream(final_result["content"], session_id)
 
+    # ── Step 4: Completion verification (Odysseus pattern) ───────────────
+    if stall_detector.effectful_tools_used:
+        full_response = await _verify_completion(
+            full_response=full_response,
+            user_message=user_message,
+            effectful_tools=stall_detector.effectful_tools_used,
+            messages=messages,
+            model=model,
+            session_id=session_id,
+        )
+
     # ── Done ──────────────────────────────────────────────────────────────
     elapsed = time.time() - loop_start
     logger.info(
         "═══ Agentic loop complete | session=%s | rounds=%d | "
-        "tools_used=%d | response=%d chars | elapsed=%.1fs ═══",
+        "tools_used=%d | effectful=%d | response=%d chars | elapsed=%.1fs ═══",
         session_id, round_num, stall_detector.total_calls,
+        len(stall_detector.effectful_tools_used),
         len(full_response), elapsed,
     )
 
