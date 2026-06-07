@@ -643,6 +643,7 @@ function App() {
   const [pendingMcpAuth, setPendingMcpAuth] = useState<string | null>(null)
   const [mcpAuthValue, setMcpAuthValue] = useState('')
   const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null)
+  const [confirmConnect, setConfirmConnect] = useState<string | null>(null)
   const [connectingLock, setConnectingLock] = useState(false)
 
   // Actually disconnect a connector (after confirmation)
@@ -656,6 +657,71 @@ function App() {
     }
     // Persist
     try { localStorage.setItem('taskbolt_connectors', JSON.stringify(mcpConnectors.map(c => ({ id: c.id, connected: c.id === connectorId ? false : c.connected })))) } catch {}
+  }
+
+  // Actually connect a connector (after confirmation)
+  const doConnect = async (connectorId: string) => {
+    setConfirmConnect(null)
+    const connector = mcpConnectors.find(c => c.id === connectorId)
+    if (!connector) return
+
+    // If connector needs auth and no value set yet, show the setup modal
+    if (connector.needsAuth && !connector.authValue) {
+      setPendingMcpAuth(connectorId)
+      setMcpAuthValue('')
+      setShowMcpAuthModal(true)
+      return
+    }
+
+    // Connect — lock other toggles
+    setConnectingLock(true)
+    setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'connecting' as const, errorMsg: undefined } : c))
+    try {
+        // Build env vars from auth value if needed
+        const env: Record<string, string> = {}
+        if (connector.needsAuth && connector.authValue) {
+          const envMap: Record<string, string> = {
+            'github': 'GITHUB_PERSONAL_ACCESS_TOKEN',
+            'postgres': 'POSTGRES_CONNECTION_STRING',
+            'brave-search': 'BRAVE_API_KEY',
+            'slack': 'SLACK_BOT_TOKEN',
+            'google-maps': 'GOOGLE_MAPS_API_KEY',
+            'sqlite': 'SQLITE_DB_PATH',
+          }
+          const envKey = envMap[connectorId]
+          if (envKey) env[envKey] = connector.authValue
+        }
+        let args = ['-y', connector.serverPkg || `@modelcontextprotocol/server-${connectorId}`]
+        let command = 'npx'
+        if (connector.serverPkg?.startsWith('composio:')) {
+          command = connector.serverPkg
+          args = []
+        } else if (connectorId === 'filesystem') {
+          args = ['-y', connector.serverPkg || '@modelcontextprotocol/server-filesystem', '--']
+          args.push(connector.authValue || 'C:\\\\Users')
+        }
+        await invoke('send_engine_command', {
+          command: {
+            type: 'mcp_save',
+            server: {
+              id: connectorId,
+              name: connector.name,
+              transport: 'stdio',
+              command: command,
+              args: args,
+              env: Object.keys(env).length > 0 ? JSON.stringify(env) : undefined,
+              enabled: true,
+              authValue: connector.authValue,
+            }
+          },
+          authToken: authToken || ''
+        })
+      } catch (e) {
+        setConnectingLock(false)
+        setMcpConnectors(prev => prev.map(c => c.id === connectorId ? {
+          ...c, status: 'error' as const, errorMsg: String(e),
+        } : c))
+      }
   }
 
   // Toggle a connector on/off — communicates with engine MCP client
@@ -679,72 +745,8 @@ function App() {
     // Block if another connector is currently connecting
     if (connectingLock) return
 
-    // If connector needs auth and no value set yet, show the setup modal
-    if (connector.needsAuth && !connector.authValue) {
-      setPendingMcpAuth(connectorId)
-      setMcpAuthValue('')
-      setShowMcpAuthModal(true)
-      return
-    }
-
-    // Connect — lock other toggles
-    setConnectingLock(true)
-    setMcpConnectors(prev => prev.map(c => c.id === connectorId ? { ...c, status: 'connecting' as const, errorMsg: undefined } : c))
-    try {
-        // Build env vars from auth value if needed
-        const env: Record<string, string> = {}
-        if (connector.needsAuth && connector.authValue) {
-          // Map connector IDs to their expected env var names
-          const envMap: Record<string, string> = {
-            'github': 'GITHUB_PERSONAL_ACCESS_TOKEN',
-            'postgres': 'POSTGRES_CONNECTION_STRING',
-            'brave-search': 'BRAVE_API_KEY',
-            'slack': 'SLACK_BOT_TOKEN',
-            'google-maps': 'GOOGLE_MAPS_API_KEY',
-            'sqlite': 'SQLITE_DB_PATH',
-          }
-          const envKey = envMap[connectorId]
-          if (envKey) env[envKey] = connector.authValue
-        }
-        // Build args — some servers need special args
-        let args = ['-y', connector.serverPkg || `@modelcontextprotocol/server-${connectorId}`]
-        
-        // Determine the command based on connector type
-        let command = 'npx'
-        if (connector.serverPkg?.startsWith('composio:')) {
-          // Composio connector — send the serverPkg as the command
-          command = connector.serverPkg
-          args = []  // Composio doesn't use npx args
-        } else if (connectorId === 'filesystem') {
-          args = ['-y', connector.serverPkg || '@modelcontextprotocol/server-filesystem', '--']
-          // Default to user's home directory
-          args.push(connector.authValue || 'C:\\Users')
-        }
-
-        // Send to engine — it will emit mcp_connect_result when done
-        await invoke('send_engine_command', {
-          command: {
-            type: 'mcp_save',
-            server: {
-              id: connectorId,
-              name: connector.name,
-              transport: 'stdio',
-              command: command,
-              args: args,
-              env: Object.keys(env).length > 0 ? JSON.stringify(env) : undefined,
-              enabled: true,
-              authValue: connector.authValue,
-            }
-          },
-          authToken: authToken || ''
-        })
-        // Don't fake "connected" — the global listener will update when engine reports back
-      } catch (e) {
-        setConnectingLock(false)
-        setMcpConnectors(prev => prev.map(c => c.id === connectorId ? {
-          ...c, status: 'error' as const, errorMsg: String(e),
-        } : c))
-      }
+    // Show confirmation modal before connecting
+    setConfirmConnect(connectorId)
   }
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [gatewayPlatforms, setGatewayPlatforms] = useState<GatewayPlatform[]>([
@@ -3794,6 +3796,8 @@ function App() {
                     description: 'Connected to ' + newMcpName.trim(),
                     capabilities: ['Custom tools'],
                     connected: false,
+                    status: 'idle' as const,
+                    toolCount: 0,
                     serverPkg: newMcpUrl.trim(),
                   }
                   setMcpConnectors(prev => [...prev, custom])
@@ -3808,6 +3812,26 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Connect Confirmation Modal */}
+      {confirmConnect && (() => {
+        const connector = mcpConnectors.find(c => c.id === confirmConnect)
+        if (!connector) return null
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmConnect(null)}>
+            <div style={{background:'var(--bg-primary)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'var(--text)',marginBottom:'12px'}}>Connect {connector.name}?</h3>
+              <p style={{fontSize:'0.9rem',color:'var(--text-secondary)',marginBottom:'24px',lineHeight:1.5}}>
+                You'll be redirected to authenticate with {connector.name}. TaskBolt will have access once connected.
+              </p>
+              <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+                <button onClick={() => setConfirmConnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid var(--border)',background:'transparent',color:'var(--text)',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
+                <button onClick={() => doConnect(confirmConnect)} style={{padding:'10px 20px',borderRadius:'10px',border:'none',background:'#3b82f6',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Connect</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Disconnect Confirmation Modal */}
       {confirmDisconnect && (() => {
