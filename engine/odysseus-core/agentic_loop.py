@@ -37,6 +37,7 @@ from main import (
     emit_tool_start,
     execute_tool,
     get_tool_definitions,
+    select_tools_for_message,
 )
 
 logger = logging.getLogger("taskbolt.agentic_loop")
@@ -419,15 +420,20 @@ async def run_agentic_loop(
     history = db.get_conversation_context(session_id, max_messages=50)
     history.append({"role": "user", "content": user_message})
 
-    system_msg = build_system_message()
+    system_msg = build_system_message(user_message=user_message)
     messages: List[dict] = [system_msg] + history
 
     # Compact to fit within token budget
     messages = compact_context(messages)
 
-    # Get tool definitions (11 tools)
-    tools = get_tool_definitions()
-    logger.info("Tool definitions loaded: %d tools", len(tools))
+    # Load disabled tools from DB
+    disabled_tools = db.get_disabled_tools()
+    if disabled_tools:
+        logger.info("Disabled tools loaded: %s", sorted(disabled_tools))
+
+    # Get tool definitions with keyword-based selection
+    tools = get_tool_definitions(user_message=user_message, disabled_tools=disabled_tools)
+    logger.info("Tool definitions loaded: %d tools (filtered from all available)", len(tools))
 
     # ── Loop state ────────────────────────────────────────────────────────
     full_response = ""           # Accumulated text from all rounds

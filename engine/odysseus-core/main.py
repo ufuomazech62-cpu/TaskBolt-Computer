@@ -318,8 +318,48 @@ When something fails:
 """
 
 
-def build_system_message() -> dict:
-    """Build the system message with injected memories."""
+# ═══════════════════════════════════════════════════════════════
+# SYSTEM PROMPT CACHING (Odysseus pattern)
+# ═══════════════════════════════════════════════════════════════
+_cached_system_prompt: Optional[str] = None
+_cache_key: Optional[tuple] = None
+
+def _compute_cache_key() -> tuple:
+    """Compute a hash of everything that affects the system prompt."""
+    try:
+        mcp = get_mcp_client()
+        mcp_count = mcp.get_connected_count() if mcp.is_available else 0
+    except Exception:
+        mcp_count = 0
+    try:
+        composio = get_composio_client()
+        composio_count = composio.get_connected_count() if composio.is_available else 0
+    except Exception:
+        composio_count = 0
+    try:
+        mem_count = db.get_connection().execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+    except Exception:
+        mem_count = 0
+    return (mcp_count, composio_count, mem_count)
+
+
+def build_system_message(user_message: str = "") -> dict:
+    """Build the system message with caching and keyword-based tool selection.
+    
+    Odysseus pattern: cache the base prompt, rebuild only when tools/memories change.
+    Keyword-based tool filtering: send only relevant tools per user message.
+    """
+    global _cached_system_prompt, _cache_key
+    
+    # Check if cache is still valid
+    current_key = _compute_cache_key()
+    if _cached_system_prompt and _cache_key == current_key:
+        # Cache hit — reuse base prompt, just update timestamp
+        parts = [_cached_system_prompt]
+        parts.append(f"\n\nCurrent time: {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        return {"role": "system", "content": "".join(parts)}
+    
+    # Cache miss — rebuild full prompt
     parts = [SYSTEM_PROMPT]
 
     # Inject relevant memories
@@ -349,9 +389,6 @@ def build_system_message() -> dict:
     except Exception as e:
         logger.warning("Failed to inject memories: %s", e)
 
-    # Add current timestamp
-    parts.append(f"\n\nCurrent time: {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-
     # Inject MCP tool descriptions if any servers are connected
     try:
         mcp = get_mcp_client()
@@ -370,6 +407,13 @@ def build_system_message() -> dict:
     except Exception as e:
         logger.warning("Failed to inject Composio tool descriptions: %s", e)
 
+    # Cache the base prompt (without timestamp)
+    _cached_system_prompt = "".join(parts)
+    _cache_key = current_key
+    logger.info("System prompt cache rebuilt (key: %s)", current_key)
+
+    # Add timestamp for this request
+    parts.append(f"\n\nCurrent time: {time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     return {"role": "system", "content": "".join(parts)}
 
 
@@ -735,10 +779,84 @@ async def handle_chat(data: dict):
 
 
 # ═══════════════════════════════════════════════════════════════
+# KEYWORD-BASED TOOL SELECTION (Odysseus pattern)
+# ═══════════════════════════════════════════════════════════════
+
+# Keywords that trigger specific tool categories
+# Maps keyword sets to tool name prefixes
+KEYWORD_TOOL_HINTS = {
+    frozenset(["file", "files", "read", "write", "edit", "open", "save"]): ["file"],
+    frozenset(["shell", "bash", "terminal", "command", "run", "execute", "script"]): ["shell"],
+    frozenset(["python", "code", "script", "program", "function", "class"]): ["python", "code"],
+    frozenset(["web", "search", "google", "browse", "fetch", "url", "link"]): ["web"],
+    frozenset(["memory", "remember", "recall", "forget", "note"]): ["memory"],
+    frozenset(["gmail", "email", "mail", "inbox", "send"]): ["composio__gmail"],
+    frozenset(["calendar", "schedule", "meeting", "event", "appointment"]): ["composio__google-calendar"],
+    frozenset(["drive", "docs", "document", "spreadsheet", "sheet"]): ["composio__google-drive", "composio__google-docs"],
+    frozenset(["github", "repo", "repository", "commit", "pull", "push"]): ["composio__github"],
+    frozenset(["slack", "discord", "message", "chat"]): ["composio__slack", "composio__discord"],
+    frozenset(["notion", "trello", "asana", "linear"]): ["composio__notion", "composio__trello", "composio__asana", "composio__linear"],
+}
+
+# Tools that are ALWAYS available regardless of keywords
+ALWAYS_AVAILABLE_TOOLS = frozenset([
+    "run_shell", "run_python", "read_file", "write_file", "edit_file",
+    "web_search", "web_fetch", "save_memory", "recall_memory",
+    "system_info", "list_directory", "search_files",
+])
+
+
+def select_tools_for_message(user_message: str, all_tools: List[dict], disabled_tools: set) -> List[dict]:
+    """
+    Select relevant tools based on user message keywords (Odysseus pattern).
+    
+    Returns a filtered list of tools that match the user's intent.
+    Always includes ALWAYS_AVAILABLE_TOOLS.
+    Respects disabled_tools set.
+    """
+    if not user_message or not all_tools:
+        return all_tools
+    
+    msg_lower = user_message.lower()
+    
+    # Start with always-available tools
+    selected_names = set(ALWAYS_AVAILABLE_TOOLS)
+    
+    # Add tools matching keywords
+    for keywords, tool_prefixes in KEYWORD_TOOL_HINTS.items():
+        if any(kw in msg_lower for kw in keywords):
+            for prefix in tool_prefixes:
+                # Add all tools starting with this prefix
+                for tool in all_tools:
+                    tool_name = tool.get("function", {}).get("name", "")
+                    if tool_name.startswith(prefix):
+                        selected_names.add(tool_name)
+    
+    # Filter the full tool list
+    filtered = []
+    for tool in all_tools:
+        tool_name = tool.get("function", {}).get("name", "")
+        # Include if: (in selected_names OR is always-available) AND not disabled
+        if tool_name in selected_names and tool_name not in disabled_tools:
+            filtered.append(tool)
+    
+    # If filtering removed everything, fall back to always-available
+    if not filtered:
+        filtered = [t for t in all_tools if t.get("function", {}).get("name") in ALWAYS_AVAILABLE_TOOLS]
+    
+    logger.info(
+        "Keyword tool selection: %d/%d tools selected (always=%d, matched=%d)",
+        len(filtered), len(all_tools), len(ALWAYS_AVAILABLE_TOOLS), len(selected_names) - len(ALWAYS_AVAILABLE_TOOLS)
+    )
+    
+    return filtered
+
+
+# ═══════════════════════════════════════════════════════════════
 # TOOL DEFINITIONS
 # ═══════════════════════════════════════════════════════════════
 
-def get_tool_definitions() -> list:
+def get_tool_definitions(user_message: str = "", disabled_tools: Optional[set] = None) -> list:
     """Return OpenAI-compatible tool definitions (built-in + MCP)."""
     builtins = [
         {
@@ -1052,7 +1170,17 @@ def get_tool_definitions() -> list:
     if composio_schemas:
         logger.info("Merging %d Composio tools into tool definitions", len(composio_schemas))
 
-    return builtins + mcp_schemas + composio_schemas
+    all_tools = builtins + mcp_schemas + composio_schemas
+    
+    # Apply disabled tools filtering
+    if disabled_tools:
+        all_tools = [t for t in all_tools if t.get("function", {}).get("name") not in disabled_tools]
+    
+    # Apply keyword-based selection if user_message provided
+    if user_message:
+        all_tools = select_tools_for_message(user_message, all_tools, disabled_tools or set())
+    
+    return all_tools
 
 
 # ═══════════════════════════════════════════════════════════════

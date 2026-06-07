@@ -299,3 +299,21 @@ def update_mcp_auth_status(server_id: str, auth_status: str):
 def delete_mcp_server(server_id: str):
     with get_connection() as conn:
         conn.execute("DELETE FROM mcp_servers WHERE id = ?", (server_id,))
+
+
+# === Disabled Tools (per-server tool exclusion) ===
+
+def get_disabled_tools() -> set:
+    """Return the set of disabled tool names (stored as JSON array in preferences)."""
+    try:
+        val = get_preference("disabled_tools")
+        if val:
+            return set(val)
+    except Exception:
+        pass
+    return set()
+
+
+def set_disabled_tools(tools: set):
+    """Save the set of disabled tool names."""
+    set_preference("disabled_tools", list(tools))
