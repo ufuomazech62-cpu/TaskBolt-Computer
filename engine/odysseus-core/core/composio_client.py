@@ -291,6 +291,9 @@ class ComposioClient:
                     "service_slug": service_slug,
                     "connected_account_id": connected_account_id,
                 }
+                # Update DB auth_status
+                from . import taskbolt_db as db
+                db.update_mcp_auth_status(service_id, "ACTIVE")
                 # Fetch available tools
                 await self._fetch_tools(service_id, service_slug)
                 tool_count = len(self._tools.get(service_id, []))
@@ -314,6 +317,9 @@ class ComposioClient:
                     "error": error_msg,
                     "name": name,
                 }
+                # Update DB auth_status
+                from . import taskbolt_db as db
+                db.update_mcp_auth_status(service_id, "FAILED")
                 # Emit error to frontend
                 _emit_status({
                     "type": "mcp_connect_result",

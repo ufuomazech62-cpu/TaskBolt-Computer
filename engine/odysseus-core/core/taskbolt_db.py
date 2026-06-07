@@ -85,6 +85,7 @@ def init_db():
                 command TEXT,
                 args TEXT DEFAULT '[]',
                 enabled INTEGER DEFAULT 1,
+                auth_status TEXT DEFAULT 'NONE',
                 created_at REAL DEFAULT (strftime('%s', 'now'))
             );
 
@@ -92,6 +93,14 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category, created_at DESC);
         """)
+
+    # Migration: add auth_status column if missing (for existing databases)
+    try:
+        conn.execute("ALTER TABLE mcp_servers ADD COLUMN auth_status TEXT DEFAULT 'NONE'")
+        conn.commit()
+        logger.info("Migrated: added auth_status column to mcp_servers")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
 
     logger.info("Database initialized at %s", DB_PATH)
 
@@ -263,20 +272,29 @@ def get_mcp_servers() -> List[Dict[str, Any]]:
             d = dict(r)
             d["args"] = json.loads(d.get("args", "[]"))
             d["enabled"] = bool(d.get("enabled", 1))
+            if "auth_status" not in d:
+                d["auth_status"] = "NONE"
             results.append(d)
         return results
 
 
 def save_mcp_server(server_id: str, name: str, transport: str = "stdio",
-                    url: str = None, command: str = None, args: list = None, enabled: bool = True):
+                    url: str = None, command: str = None, args: list = None, enabled: bool = True,
+                    auth_status: str = "NONE"):
     args_json = json.dumps(args or [])
     with get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO mcp_servers 
-               (id, name, url, transport, command, args, enabled) 
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (server_id, name, url, transport, command, args_json, 1 if enabled else 0),
+               (id, name, url, transport, command, args, enabled, auth_status) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (server_id, name, url, transport, command, args_json, 1 if enabled else 0, auth_status),
         )
+
+
+def update_mcp_auth_status(server_id: str, auth_status: str):
+    """Update the auth_status of an MCP server (NONE, PENDING, ACTIVE, FAILED)."""
+    with get_connection() as conn:
+        conn.execute("UPDATE mcp_servers SET auth_status = ? WHERE id = ?", (auth_status, server_id))
 
 
 def delete_mcp_server(server_id: str):

@@ -608,23 +608,7 @@ function App() {
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([])
   const [memoryProfile, setMemoryProfile] = useState('')
   const [kanbanCards, setKanbanCards] = useState<KanbanCard[]>([])
-  const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(() => {
-    // Restore saved connector states from localStorage
-    try {
-      const saved = localStorage.getItem('tb_connector_states')
-      if (saved) {
-        const savedMap: Record<string, { connected: boolean; toolCount: number }> = JSON.parse(saved)
-        return INITIAL_MCP_CONNECTORS.map(c => {
-          const s = savedMap[c.id]
-          if (s && s.connected) {
-            return { ...c, connected: true, status: 'connected' as const, toolCount: s.toolCount || 0 }
-          }
-          return c
-        })
-      }
-    } catch {}
-    return INITIAL_MCP_CONNECTORS
-  })
+  const [mcpConnectors, setMcpConnectors] = useState<McpConnector[]>(INITIAL_MCP_CONNECTORS)
 
   // Persist connector states to localStorage whenever they change
   useEffect(() => {
@@ -830,7 +814,7 @@ function App() {
         if (data.type === 'mcp_list' && data.servers) {
           const savedIds = new Set<string>()
           for (const srv of data.servers) {
-            if (srv.enabled && srv.command && String(srv.command).startsWith('composio:')) {
+            if (srv.enabled && srv.command && String(srv.command).startsWith('composio:') && srv.auth_status === 'ACTIVE') {
               savedIds.add(srv.id || srv.name?.toLowerCase().replace(/\s+/g, '-'))
             }
           }
@@ -3818,14 +3802,14 @@ function App() {
         const connector = mcpConnectors.find(c => c.id === confirmConnect)
         if (!connector) return null
         return (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmConnect(null)}>
-            <div style={{background:'var(--bg-primary)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}} onClick={e => e.stopPropagation()}>
-              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'var(--text)',marginBottom:'12px'}}>Connect {connector.name}?</h3>
-              <p style={{fontSize:'0.9rem',color:'var(--text-secondary)',marginBottom:'24px',lineHeight:1.5}}>
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmConnect(null)}>
+            <div style={{background:'#1e1e1e',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'#fff',marginBottom:'12px'}}>Connect {connector.name}?</h3>
+              <p style={{fontSize:'0.9rem',color:'rgba(255,255,255,0.6)',marginBottom:'24px',lineHeight:1.5}}>
                 You'll be redirected to authenticate with {connector.name}. TaskBolt will have access once connected.
               </p>
               <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-                <button onClick={() => setConfirmConnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid var(--border)',background:'transparent',color:'var(--text)',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
+                <button onClick={() => setConfirmConnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid rgba(255,255,255,0.15)',background:'transparent',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
                 <button onClick={() => doConnect(confirmConnect)} style={{padding:'10px 20px',borderRadius:'10px',border:'none',background:'#3b82f6',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Connect</button>
               </div>
             </div>
@@ -3838,14 +3822,14 @@ function App() {
         const connector = mcpConnectors.find(c => c.id === confirmDisconnect)
         if (!connector) return null
         return (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmDisconnect(null)}>
-            <div style={{background:'var(--bg-primary)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}} onClick={e => e.stopPropagation()}>
-              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'var(--text)',marginBottom:'12px'}}>Disconnect {connector.name}?</h3>
-              <p style={{fontSize:'0.9rem',color:'var(--text-secondary)',marginBottom:'24px',lineHeight:1.5}}>
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={() => setConfirmDisconnect(null)}>
+            <div style={{background:'#1e1e1e',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'16px',padding:'32px',maxWidth:'400px',width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'1.1rem',fontWeight:600,color:'#fff',marginBottom:'12px'}}>Disconnect {connector.name}?</h3>
+              <p style={{fontSize:'0.9rem',color:'rgba(255,255,255,0.6)',marginBottom:'24px',lineHeight:1.5}}>
                 This will remove TaskBolt's access to {connector.name}. You can reconnect anytime.
               </p>
               <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-                <button onClick={() => setConfirmDisconnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid var(--border)',background:'transparent',color:'var(--text)',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
+                <button onClick={() => setConfirmDisconnect(null)} style={{padding:'10px 20px',borderRadius:'10px',border:'1px solid rgba(255,255,255,0.15)',background:'transparent',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Cancel</button>
                 <button onClick={() => doDisconnect(confirmDisconnect)} style={{padding:'10px 20px',borderRadius:'10px',border:'none',background:'#ef4444',color:'#fff',cursor:'pointer',fontSize:'0.9rem',fontWeight:500}}>Disconnect</button>
               </div>
             </div>

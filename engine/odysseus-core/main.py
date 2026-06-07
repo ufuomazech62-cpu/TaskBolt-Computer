@@ -1887,6 +1887,7 @@ async def handle_command(data: dict):
             command=server.get("command"),
             args=server.get("args", []),
             enabled=server.get("enabled", True),
+            auth_status="PENDING" if is_composio else "ACTIVE",
         )
         # Live-connect the server if enabled
         if server.get("enabled", True):
@@ -2026,6 +2027,7 @@ async def handle_command(data: dict):
         mcp = get_mcp_client()
         if mcp.is_available:
             await mcp.disconnect_server(server_id)
+        db.update_mcp_auth_status(server_id, "NONE")
         emit({"type": "ok", "action": "mcp_disconnected"})
 
     elif cmd_type == "mcp_status":
