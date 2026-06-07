@@ -288,6 +288,10 @@ pub async fn initialize_engine(
                     "ok" => {
                         // Acknowledgement events (memory added, session deleted, etc.)
                     }
+                    "mcp_connect_result" => {
+                        // Connector status updates — forward as agent-event
+                        app_clone.emit("agent-event", trimmed.to_string()).ok();
+                    }
                     "session_list" | "memory_list" | "mcp_list" | "preference" => {
                         // Data responses — forward as-is for frontend to handle
                         app_clone.emit("engine-data", trimmed.to_string()).ok();

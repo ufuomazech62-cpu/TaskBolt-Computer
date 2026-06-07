@@ -200,6 +200,7 @@ class ComposioClient:
             result = self._api("POST", "/connected_accounts/link", {
                 "auth_config_id": auth_config_id,
                 "user_id": self._user_id,
+                "callback_url": "https://taskbolt.space/connect/success.html",
             })
 
             if not result["ok"]:
@@ -262,8 +263,15 @@ class ComposioClient:
     async def _poll_connection(
         self, service_id: str, name: str, service_slug: str, connected_account_id: str
     ):
-        """Poll Composio until the connection becomes ACTIVE."""
+        """Poll Composio until the connection becomes ACTIVE. Emits status to frontend."""
         logger.info("Polling connection status for %s (%s)...", name, connected_account_id)
+
+        def _emit_status(event: dict):
+            """Emit JSON to stdout for Tauri to pick up."""
+            import sys
+            line = json.dumps(event, ensure_ascii=False)
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
 
         for attempt in range(60):  # Poll for up to 5 minutes
             await asyncio.sleep(5)
@@ -285,6 +293,17 @@ class ComposioClient:
                 }
                 # Fetch available tools
                 await self._fetch_tools(service_id, service_slug)
+                tool_count = len(self._tools.get(service_id, []))
+                # Emit connected status to frontend
+                _emit_status({
+                    "type": "mcp_connect_result",
+                    "server_id": service_id,
+                    "name": name,
+                    "success": True,
+                    "status": "connected",
+                    "tool_count": tool_count,
+                    "error": "",
+                })
                 return
 
             if status in ("FAILED", "EXPIRED", "REVOKED"):
@@ -295,15 +314,35 @@ class ComposioClient:
                     "error": error_msg,
                     "name": name,
                 }
+                # Emit error to frontend
+                _emit_status({
+                    "type": "mcp_connect_result",
+                    "server_id": service_id,
+                    "name": name,
+                    "success": False,
+                    "status": "error",
+                    "tool_count": 0,
+                    "error": error_msg,
+                })
                 return
 
         # Timeout
         if self._connections.get(service_id, {}).get("status") == "auth_pending":
+            error_msg = "Authentication timed out. Please try again."
             self._connections[service_id] = {
                 "status": "error",
-                "error": "Authentication timed out. Please try again.",
+                "error": error_msg,
                 "name": name,
             }
+            _emit_status({
+                "type": "mcp_connect_result",
+                "server_id": service_id,
+                "name": name,
+                "success": False,
+                "status": "error",
+                "tool_count": 0,
+                "error": error_msg,
+            })
 
     async def _fetch_tools(self, service_id: str, service_slug: str):
         """Fetch available tools for a connected service."""
