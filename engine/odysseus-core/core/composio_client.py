@@ -291,9 +291,10 @@ class ComposioClient:
                     "service_slug": service_slug,
                     "connected_account_id": connected_account_id,
                 }
-                # Update DB auth_status
+                # Update DB auth_status and connected_account_id
                 from . import taskbolt_db as db
                 db.update_mcp_auth_status(service_id, "ACTIVE")
+                db.update_mcp_connected_account(service_id, connected_account_id)
                 # Fetch available tools
                 await self._fetch_tools(service_id, service_slug)
                 tool_count = len(self._tools.get(service_id, []))
@@ -390,6 +391,57 @@ class ComposioClient:
         ids = list(self._connections.keys())
         for sid in ids:
             await self.disconnect_service(sid)
+
+    async def auto_reconnect_active(self):
+        """Auto-reconnect Composio services that have auth_status='ACTIVE' in DB.
+        
+        Called during engine startup to restore connections without re-authenticating.
+        Uses the stored connected_account_id to restore the in-memory state and fetch tools.
+        """
+        if not self.is_available:
+            return
+
+        from . import taskbolt_db as db
+        active_servers = db.get_active_composio_servers()
+        
+        if not active_servers:
+            logger.info("No active Composio services to auto-reconnect")
+            return
+
+        reconnected = 0
+        total_tools = 0
+        for srv in active_servers:
+            server_id = srv.get("id", "")
+            name = srv.get("name", "Unknown")
+            connected_account_id = srv.get("connected_account_id", "")
+            
+            # Extract service slug from command (e.g., "composio:gmail" -> "gmail")
+            command = srv.get("command", "")
+            if command.startswith("composio:"):
+                service_slug = command.split(":", 1)[1]
+            else:
+                logger.warning("Skipping %s: invalid command format", name)
+                continue
+
+            # Restore in-memory connection state
+            self._connections[server_id] = {
+                "status": "connected",
+                "name": name,
+                "service_slug": service_slug,
+                "connected_account_id": connected_account_id,
+            }
+
+            # Fetch tools for this service
+            await self._fetch_tools(server_id, service_slug)
+            tool_count = len(self._tools.get(server_id, []))
+            total_tools += tool_count
+            reconnected += 1
+            logger.info("Auto-reconnected %s: %d tools", name, tool_count)
+
+        logger.info(
+            "Composio auto-reconnect complete: %d/%d services reconnected, %d total tools",
+            reconnected, len(active_servers), total_tools
+        )
 
     # ═══════════════════════════════════════════════════════════════════
     # TOOL EXECUTION

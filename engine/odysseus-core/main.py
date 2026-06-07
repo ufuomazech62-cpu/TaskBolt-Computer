@@ -2236,6 +2236,11 @@ async def main():
     # Initialize Composio client
     if composio.is_available:
         logger.info("Composio ready: API key loaded")
+        # Auto-reconnect previously authenticated Composio services
+        try:
+            await composio.auto_reconnect_active()
+        except Exception as e:
+            logger.warning("Composio auto-reconnect error (non-fatal): %s", e)
     else:
         logger.info("Composio not available — Composio connectors disabled")
 

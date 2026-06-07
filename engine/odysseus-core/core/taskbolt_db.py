@@ -86,6 +86,7 @@ def init_db():
                 args TEXT DEFAULT '[]',
                 enabled INTEGER DEFAULT 1,
                 auth_status TEXT DEFAULT 'NONE',
+                connected_account_id TEXT,
                 created_at REAL DEFAULT (strftime('%s', 'now'))
             );
 
@@ -98,6 +99,13 @@ def init_db():
         try:
             conn.execute("ALTER TABLE mcp_servers ADD COLUMN auth_status TEXT DEFAULT 'NONE'")
             logger.info("Migrated: added auth_status column to mcp_servers")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        # Migration: add connected_account_id column if missing
+        try:
+            conn.execute("ALTER TABLE mcp_servers ADD COLUMN connected_account_id TEXT")
+            logger.info("Migrated: added connected_account_id column to mcp_servers")
         except sqlite3.OperationalError:
             pass  # Column already exists
 
@@ -279,14 +287,14 @@ def get_mcp_servers() -> List[Dict[str, Any]]:
 
 def save_mcp_server(server_id: str, name: str, transport: str = "stdio",
                     url: str = None, command: str = None, args: list = None, enabled: bool = True,
-                    auth_status: str = "NONE"):
+                    auth_status: str = "NONE", connected_account_id: str = None):
     args_json = json.dumps(args or [])
     with get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO mcp_servers 
-               (id, name, url, transport, command, args, enabled, auth_status) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (server_id, name, url, transport, command, args_json, 1 if enabled else 0, auth_status),
+               (id, name, url, transport, command, args, enabled, auth_status, connected_account_id) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (server_id, name, url, transport, command, args_json, 1 if enabled else 0, auth_status, connected_account_id),
         )
 
 
@@ -294,6 +302,27 @@ def update_mcp_auth_status(server_id: str, auth_status: str):
     """Update the auth_status of an MCP server (NONE, PENDING, ACTIVE, FAILED)."""
     with get_connection() as conn:
         conn.execute("UPDATE mcp_servers SET auth_status = ? WHERE id = ?", (auth_status, server_id))
+
+
+def update_mcp_connected_account(server_id: str, connected_account_id: str):
+    """Store the Composio connected_account_id for auto-reconnect on startup."""
+    with get_connection() as conn:
+        conn.execute("UPDATE mcp_servers SET connected_account_id = ? WHERE id = ?", (connected_account_id, server_id))
+
+
+def get_active_composio_servers() -> List[Dict[str, Any]]:
+    """Get all Composio servers with auth_status='ACTIVE' and a connected_account_id."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mcp_servers WHERE auth_status = 'ACTIVE' AND connected_account_id IS NOT NULL AND command LIKE 'composio:%'"
+        ).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["args"] = json.loads(d.get("args", "[]"))
+            d["enabled"] = bool(d.get("enabled", 1))
+            results.append(d)
+        return results
 
 
 def delete_mcp_server(server_id: str):
