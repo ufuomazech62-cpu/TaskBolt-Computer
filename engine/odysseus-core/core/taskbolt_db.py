@@ -94,13 +94,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category, created_at DESC);
         """)
 
-    # Migration: add auth_status column if missing (for existing databases)
-    try:
-        conn.execute("ALTER TABLE mcp_servers ADD COLUMN auth_status TEXT DEFAULT 'NONE'")
-        conn.commit()
-        logger.info("Migrated: added auth_status column to mcp_servers")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+        # Migration: add auth_status column if missing (for existing databases)
+        try:
+            conn.execute("ALTER TABLE mcp_servers ADD COLUMN auth_status TEXT DEFAULT 'NONE'")
+            logger.info("Migrated: added auth_status column to mcp_servers")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
     logger.info("Database initialized at %s", DB_PATH)
 

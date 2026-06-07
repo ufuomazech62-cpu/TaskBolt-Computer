@@ -1154,6 +1154,10 @@ def function_call_to_tool_block(name: str, arguments: str) -> Optional[ToolBlock
     if tool_type.startswith("mcp__"):
         content = json.dumps(args) if args else "{}"
         return ToolBlock(tool_type, content)
+    # Allow Composio tools through (namespaced as composio__serviceid__toolname)
+    if tool_type.startswith("composio__"):
+        content = json.dumps(args) if args else "{}"
+        return ToolBlock(tool_type, content)
     # Email tools are implemented as MCP — route them to email
     _BUILTIN_EMAIL_TOOLS = {"list_email_accounts", "send_email", "list_emails", "read_email", "reply_to_email",
                             "archive_email", "delete_email", "mark_email_read", "bulk_email", "download_attachment"}

@@ -361,6 +361,15 @@ def build_system_message() -> dict:
     except Exception as e:
         logger.warning("Failed to inject MCP tool descriptions: %s", e)
 
+    # Inject Composio tool descriptions if any services are connected
+    try:
+        composio = get_composio_client()
+        composio_desc = composio.get_tool_descriptions_for_prompt()
+        if composio_desc:
+            parts.append(composio_desc)
+    except Exception as e:
+        logger.warning("Failed to inject Composio tool descriptions: %s", e)
+
     return {"role": "system", "content": "".join(parts)}
 
 
@@ -1036,7 +1045,14 @@ def get_tool_definitions() -> list:
     mcp_schemas = mcp.get_openai_tool_schemas()
     if mcp_schemas:
         logger.info("Merging %d MCP tools into tool definitions", len(mcp_schemas))
-    return builtins + mcp_schemas
+
+    # Merge Composio tools from connected services
+    composio = get_composio_client()
+    composio_schemas = composio.get_openai_tool_schemas()
+    if composio_schemas:
+        logger.info("Merging %d Composio tools into tool definitions", len(composio_schemas))
+
+    return builtins + mcp_schemas + composio_schemas
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1050,6 +1066,11 @@ async def execute_tool(tool_name: str, tool_args: dict, session_id: str) -> dict
         if tool_name.startswith("mcp__"):
             mcp = get_mcp_client()
             return await mcp.call_tool(tool_name, tool_args)
+
+        # Route Composio tool calls to the Composio client
+        if tool_name.startswith("composio__"):
+            composio = get_composio_client()
+            return await composio.call_tool(tool_name, tool_args)
 
         if tool_name == "run_shell":
             return await tool_run_shell(tool_args)
