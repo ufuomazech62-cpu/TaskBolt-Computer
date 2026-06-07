@@ -448,7 +448,7 @@ class ComposioClient:
     # ═══════════════════════════════════════════════════════════════════
 
     async def call_tool(self, qualified_name: str, arguments: Dict) -> Dict:
-        """Call a Composio tool via tool router session."""
+        """Call a Composio tool via direct execution (v3.1 API)."""
         parts = qualified_name.split("__", 2)
         if len(parts) != 3 or parts[0] != "composio":
             return {"output": f"Invalid Composio tool name: {qualified_name}", "exit_code": 1}
@@ -463,30 +463,47 @@ class ComposioClient:
         try:
             connected_account_id = conn.get("connected_account_id")
 
-            # Ensure we have a tool router session
+            # Direct execution via v3.1 API — no session needed
+            # Try multiple endpoint patterns for compatibility
+            endpoints_to_try = [
+                # v3.1 direct action execution
+                ("POST", f"/actions/{tool_name}/execute", {
+                    "connected_account_id": connected_account_id,
+                    "input": arguments,
+                }),
+                # v3.1 connected account execution
+                ("POST", f"/connected_accounts/{connected_account_id}/actions/{tool_name}/execute", {
+                    "input": arguments,
+                }),
+                # Fallback: tool router session (if it exists)
+                None,  # Will be populated if session exists
+            ]
+
+            # Add session-based execution as fallback if session exists
             session_id = self._sessions.get(service_id)
-            if not session_id:
-                session_id = await self._create_session(service_id, connected_account_id)
-                if not session_id:
-                    return {"output": "Failed to create tool execution session", "exit_code": 1}
+            if session_id:
+                endpoints_to_try[2] = ("POST", f"/tool_router/session/{session_id}/execute", {
+                    "tool_slug": tool_name,
+                    "arguments": arguments,
+                })
 
-            # Execute tool through session
-            result = self._api("POST", f"/tool_router/session/{session_id}/execute", {
-                "tool_slug": tool_name,
-                "arguments": arguments,
-            }, timeout=30)
+            last_error = None
+            for endpoint_spec in endpoints_to_try:
+                if endpoint_spec is None:
+                    continue
+                method, path, body = endpoint_spec
+                result = self._api(method, path, body, timeout=30)
 
-            if result["ok"]:
-                data = result["data"]
-                output = json.dumps(data, indent=2, default=str)
-                return {"output": output[:15000] if output else "(no output)", "exit_code": 0}
-            else:
-                error_msg = result.get("error", "Unknown error")[:500]
-                # If session expired, recreate it
-                if result.get("status") in (404, 410):
-                    self._sessions.pop(service_id, None)
-                    return {"output": f"Session expired, retrying... Tool: {tool_name}", "exit_code": 1}
-                return {"output": f"Composio execution error: {error_msg}", "exit_code": 1}
+                if result["ok"]:
+                    data = result["data"]
+                    output = json.dumps(data, indent=2, default=str)
+                    return {"output": output[:15000] if output else "(no output)", "exit_code": 0}
+                else:
+                    last_error = result.get("error", "Unknown error")[:500]
+                    logger.debug("Composio endpoint %s failed: %s", path, last_error[:100])
+
+            # All endpoints failed
+            return {"output": f"Composio execution error: {last_error}", "exit_code": 1}
 
         except Exception as e:
             logger.error("Composio tool call failed: %s: %s", qualified_name, e)
