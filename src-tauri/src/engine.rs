@@ -59,23 +59,23 @@ fn find_python() -> String {
     }
 }
 
-/// Find the engine directory (where main.py lives)
+/// Find the engine directory (where taskbolt_main.py lives)
 fn find_engine_dir() -> Option<PathBuf> {
     // Check relative to the executable
     if let Ok(exe) = std::env::current_exe() {
         // Production: engine bundled next to executable
         let candidate = exe.parent()?.join("engine").join("odysseus-core");
-        if candidate.join("main.py").exists() {
+        if candidate.join("taskbolt_main.py").exists() {
             return Some(candidate);
         }
         // Dev mode: engine is in the project root
         let candidate = exe.parent()?.join("../../engine/odysseus-core");
-        if candidate.join("main.py").exists() {
+        if candidate.join("taskbolt_main.py").exists() {
             return Some(candidate.canonicalize().unwrap_or(candidate));
         }
         // Dev mode: engine is in the project root (direct)
         let candidate = exe.parent()?.join("../../../../engine/odysseus-core");
-        if candidate.join("main.py").exists() {
+        if candidate.join("taskbolt_main.py").exists() {
             return Some(candidate.canonicalize().unwrap_or(candidate));
         }
     }
@@ -83,13 +83,24 @@ fn find_engine_dir() -> Option<PathBuf> {
     // Check common locations
     let home = dirs::home_dir()?;
 
-    // In the project workspace (dev mode)
+    // In the project workspace (dev mode) — check for forked Odysseus first
     let candidates = vec![
+        // Forked Odysseus (preferred)
+        home.join(".openclaw-autoclaw").join("agents").join("zechy-computer")
+            .join("workspace").join("odysseus-fork"),
+        // Legacy engine
         home.join(".openclaw-autoclaw").join("agents").join("zechy-computer")
             .join("workspace").join("TaskBolt-Computer").join("engine").join("odysseus-core"),
         home.join(".taskbolt").join("engine").join("odysseus-core"),
     ];
 
+    for candidate in &candidates {
+        if candidate.join("taskbolt_main.py").exists() {
+            return Some(candidate.clone());
+        }
+    }
+
+    // Fallback: check for old main.py (legacy engine)
     for candidate in &candidates {
         if candidate.join("main.py").exists() {
             return Some(candidate.clone());
@@ -171,9 +182,16 @@ pub async fn initialize_engine(
     // Create stdin channel
     let (stdin_tx, mut stdin_rx) = tokio::sync::mpsc::channel::<String>(100);
 
+    // Determine entry point (taskbolt_main.py for forked Odysseus, main.py for legacy)
+    let entry_point = if engine_dir.join("taskbolt_main.py").exists() {
+        "taskbolt_main.py"
+    } else {
+        "main.py"
+    };
+
     // Spawn the Python engine process
     let mut child = Command::new(&python)
-        .args(["main.py"])
+        .args([entry_point])
         .current_dir(&engine_dir)
         .env("TASKBOLT_SAAS_URL", VERCEL_SAAS_URL)
         .env("PYTHONUNBUFFERED", "1")
