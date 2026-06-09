@@ -1,12 +1,13 @@
 /**
  * TaskBolt Gateway Proxy — OpenAI-compatible endpoint for desktop app
- * Routes local hermes-agent gateway requests through Vercel
- * Auth: uses TASKBOLT_GATEWAY_SECRET (shared secret with desktop app)
- * Credits: tracked per-request, deducted from service pool
+ * Routes local OpenClaw gateway requests through Vercel
+ * Auth: gateway secret (shared) + user JWT via ?token= for per-user credit deduction
+ * Credits: deducted per-request from the authenticated user's balance
  * Security: DashScope API key NEVER leaves Vercel
  */
 
 const { sql, initDB } = require("../../../lib/_db");
+const { verify } = require("../../../lib/_jwt");
 
 const API_BASE = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
 const TOKENS_PER_CREDIT = 200;
@@ -46,6 +47,14 @@ module.exports = async function handler(req, res) {
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (token !== GATEWAY_SECRET) {
     return res.status(401).json({ error: { message: "Unauthorized", type: "invalid_request_error", code: "invalid_api_key" } });
+  }
+
+  // Extract user JWT from query string for per-user credit deduction
+  let userId = null;
+  const userToken = req.query.token || "";
+  if (userToken) {
+    const payload = verify(userToken);
+    if (payload) userId = payload.userId || payload.id;
   }
 
   const apiKey = process.env.DASHSCOPE_API_KEY;
@@ -108,7 +117,7 @@ module.exports = async function handler(req, res) {
         });
         if (retry.ok) {
           // Continue with retry response
-          return handleResponse(res, retry, stream, useModel);
+          return handleResponse(res, retry, stream, useModel, userId);
         }
       }
 
@@ -116,14 +125,14 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: { message: userMsg, type: "upstream_error" } });
     }
 
-    return handleResponse(res, response, stream, useModel);
+    return handleResponse(res, response, stream, useModel, userId);
   } catch (e) {
     console.error("[gateway-proxy] Error:", e.message);
     return res.status(500).json({ error: { message: "Internal error", type: "server_error" } });
   }
 };
 
-async function handleResponse(res, response, stream, model) {
+async function handleResponse(res, response, stream, model, userId) {
   if (stream) {
     // SSE streaming
     res.writeHead(200, {
@@ -155,9 +164,9 @@ async function handleResponse(res, response, stream, model) {
           if (trimmed.startsWith("data:")) {
             const data = trimmed.slice(5).trim();
             if (data === "[DONE]") {
-              // Log usage
+              // Log usage and deduct credits
               if (promptTokens || completionTokens) {
-                await logGatewayUsage(model, promptTokens, completionTokens);
+                await logGatewayUsage(model, promptTokens, completionTokens, userId);
               }
               res.end();
               return;
@@ -178,28 +187,47 @@ async function handleResponse(res, response, stream, model) {
 
     // Final cleanup
     if (promptTokens || completionTokens) {
-      await logGatewayUsage(model, promptTokens, completionTokens);
+      await logGatewayUsage(model, promptTokens, completionTokens, userId);
     }
     res.end();
   } else {
     // Non-streaming
     const data = await response.json();
     const usage = data.usage || {};
-    await logGatewayUsage(model, usage.prompt_tokens || 0, usage.completion_tokens || 0);
+    await logGatewayUsage(model, usage.prompt_tokens || 0, usage.completion_tokens || 0, userId);
     return res.json(data);
   }
 }
 
-async function logGatewayUsage(model, promptTokens, completionTokens) {
+async function logGatewayUsage(model, promptTokens, completionTokens, userId) {
   try {
     const totalTokens = promptTokens + completionTokens;
     const creditsUsed = Math.ceil(totalTokens / TOKENS_PER_CREDIT);
-    await sql`
-      INSERT INTO usage_logs (user_id, model, prompt_tokens, completion_tokens, total_tokens, credits_deducted, endpoint)
-      SELECT id, ${model}, ${promptTokens}, ${completionTokens}, ${totalTokens}, ${creditsUsed}, 'desktop-gateway'
-      FROM users WHERE email = 'service@taskbolt.space'
-      LIMIT 1
-    `;
+
+    if (userId && creditsUsed > 0) {
+      // Deduct credits from the authenticated user
+      await sql`
+        UPDATE credits SET
+          balance = GREATEST(balance - ${creditsUsed}, 0),
+          total_used = total_used + ${creditsUsed},
+          updated_at = NOW()
+        WHERE user_id = ${userId}::uuid
+      `;
+
+      // Log usage for the user
+      await sql`
+        INSERT INTO usage_logs (user_id, model, prompt_tokens, completion_tokens, total_tokens, credits_deducted, endpoint)
+        VALUES (${userId}::uuid, ${model}, ${promptTokens}, ${completionTokens}, ${totalTokens}, ${creditsUsed}, 'desktop-gateway')
+      `;
+    } else if (!userId) {
+      // No user JWT — log to service account
+      await sql`
+        INSERT INTO usage_logs (user_id, model, prompt_tokens, completion_tokens, total_tokens, credits_deducted, endpoint)
+        SELECT id, ${model}, ${promptTokens}, ${completionTokens}, ${totalTokens}, ${creditsUsed}, 'desktop-gateway'
+        FROM users WHERE email = 'service@taskbolt.space'
+        LIMIT 1
+      `;
+    }
   } catch (e) {
     console.error("[gateway-proxy] Usage log error:", e.message);
   }
