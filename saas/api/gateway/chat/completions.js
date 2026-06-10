@@ -42,18 +42,24 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
-  // Auth: check gateway secret (shared between desktop app and Vercel)
+  // Auth: check gateway secret + extract user JWT from combined apiKey
+  // Desktop sends: "gateway-secret:user-jwt" in the Authorization header
   const auth = req.headers["authorization"] || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (token !== GATEWAY_SECRET) {
+  const rawToken = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+
+  // Parse combined token: "secret:jwt" or just "secret"
+  let userId = null;
+  const parts = rawToken.split(":");
+  const gatewayToken = parts[0];
+  const userJwt = parts[1] || req.headers["x-user-token"] || "";
+
+  if (gatewayToken !== GATEWAY_SECRET) {
     return res.status(401).json({ error: { message: "Unauthorized", type: "invalid_request_error", code: "invalid_api_key" } });
   }
 
-  // Extract user JWT from custom header for per-user credit deduction
-  let userId = null;
-  const userToken = req.headers["x-user-token"] || "";
-  if (userToken) {
-    const payload = verify(userToken);
+  // Extract user ID from JWT
+  if (userJwt) {
+    const payload = verify(userJwt);
     if (payload) userId = payload.userId || payload.id;
   }
 
