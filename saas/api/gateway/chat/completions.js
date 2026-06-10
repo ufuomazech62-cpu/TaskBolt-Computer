@@ -49,9 +49,9 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: { message: "Unauthorized", type: "invalid_request_error", code: "invalid_api_key" } });
   }
 
-  // Extract user JWT from query string for per-user credit deduction
+  // Extract user JWT from custom header for per-user credit deduction
   let userId = null;
-  const userToken = req.query.token || "";
+  const userToken = req.headers["x-user-token"] || "";
   if (userToken) {
     const payload = verify(userToken);
     if (payload) userId = payload.userId || payload.id;
