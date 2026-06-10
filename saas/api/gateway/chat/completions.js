@@ -57,6 +57,24 @@ module.exports = async function handler(req, res) {
     if (payload) userId = payload.userId || payload.id;
   }
 
+  // Pre-check: block requests if user has no credits
+  if (userId) {
+    await initDB();
+    const credRows = await sql`SELECT balance FROM credits WHERE user_id = ${userId}::uuid`;
+    const balance = credRows[0]?.balance || 0;
+    if (balance <= 0) {
+      return res.status(402).json({
+        error: {
+          message: "No credits remaining",
+          type: "payment_required",
+          code: "insufficient_credits",
+        },
+        credits: 0,
+        rateLimited: true,
+      });
+    }
+  }
+
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: "Service unavailable", type: "server_error" } });
 
