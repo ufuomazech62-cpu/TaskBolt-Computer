@@ -39,10 +39,11 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
   background: white; color: #1a1a1a;
 }
 .btn-google:hover { background: #f0f0f0; transform: translateY(-1px); }
-.btn-github {
-  background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15);
+.btn-email {
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92); color: white;
 }
-.btn-github:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+.btn-email:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-email:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .btn svg { width: 20px; height: 20px; }
 .divider {
   display: flex; align-items: center; gap: 16px;
@@ -57,6 +58,7 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
 .status { display: none; margin-top: 1rem; padding: 12px; border-radius: 10px; font-size: 0.85rem; }
 .status.loading { display: block; background: rgba(59,130,246,0.15); color: #60a5fa; }
 .status.error { display: block; background: rgba(239,68,68,0.15); color: #f87171; }
+.status.success { display: block; background: rgba(34,197,94,0.15); color: #4ade80; }
 .spinner {
   display: inline-block; width: 16px; height: 16px;
   border: 2px solid rgba(96,165,250,0.3); border-top-color: #60a5fa;
@@ -64,6 +66,34 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
   vertical-align: middle; margin-right: 8px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Email form */
+.email-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.email-input {
+  flex: 1; padding: 14px 16px; border-radius: 12px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: white; font-size: 0.95rem; outline: none;
+  transition: border-color 0.2s;
+}
+.email-input:focus { border-color: rgba(255,154,31,0.5); }
+.email-input::placeholder { color: rgba(255,255,255,0.3); }
+
+/* OTP input */
+.otp-section { display: none; }
+.otp-section.active { display: block; }
+.otp-input {
+  width: 100%; padding: 14px 16px; border-radius: 12px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: white; font-size: 1.2rem; text-align: center; letter-spacing: 8px;
+  outline: none; transition: border-color 0.2s; margin-bottom: 12px;
+}
+.otp-input:focus { border-color: rgba(255,154,31,0.5); }
+.otp-input::placeholder { letter-spacing: normal; font-size: 0.9rem; color: rgba(255,255,255,0.3); }
+.otp-label { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-bottom: 8px; text-align: left; }
+.back-link { color: rgba(255,255,255,0.4); font-size: 0.8rem; cursor: pointer; margin-top: 12px; }
+.back-link:hover { color: rgba(255,255,255,0.7); }
+.credits-note { color: rgba(255,255,255,0.35); font-size: 0.8rem; margin-top: 0.5rem; }
+.credits-note span { color: #4ade80; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -77,9 +107,29 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
     Continue with Google
   </a>
 
-  <div id="status" class="status"></div>
-
   <div class="divider">or</div>
+
+  <!-- Email passwordless -->
+  <div id="emailSection">
+    <div class="email-form">
+      <input type="email" id="emailInput" class="email-input" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <button class="btn btn-email" id="sendCodeBtn" onclick="sendCode()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      Sign in with Email
+    </button>
+    <p class="credits-note">New here? You'll get <span>500 free credits</span></p>
+  </div>
+
+  <!-- OTP verification -->
+  <div id="otpSection" class="otp-section">
+    <p class="otp-label">Enter the 6-digit code sent to <strong id="otpEmail"></strong></p>
+    <input type="text" id="otpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+    <button class="btn btn-email" id="verifyBtn" onclick="verifyCode()">Verify & Sign In</button>
+    <p class="back-link" onclick="goBackToEmail()">← Use a different email</p>
+  </div>
+
+  <div id="status" class="status"></div>
 
   <p class="note">
     Don't have the app yet? <a href="/">Download TaskBolt</a>
@@ -88,6 +138,7 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
 
 <script>
 let signing = false;
+let pendingEmail = '';
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
@@ -95,22 +146,117 @@ function showStatus(msg, type) {
   el.innerHTML = (type === 'loading' ? '<span class="spinner"></span>' : '') + msg;
 }
 
+function hideStatus() {
+  document.getElementById('status').className = 'status';
+}
+
+// Enter key handlers
+document.getElementById('emailInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendCode();
+});
+document.getElementById('otpInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') verifyCode();
+});
+
+async function sendCode() {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email || !email.includes('@')) {
+    showStatus('Please enter a valid email', 'error');
+    return;
+  }
+  if (signing) return;
+  signing = true;
+  hideStatus();
+  document.getElementById('sendCodeBtn').disabled = true;
+  
+  try {
+    const res = await fetch('https://taskbolt.space/api/auth/email?action=send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    
+    if (data.ok) {
+      pendingEmail = email;
+      document.getElementById('otpEmail').textContent = email;
+      document.getElementById('emailSection').style.display = 'none';
+      document.getElementById('otpSection').classList.add('active');
+      document.getElementById('otpInput').focus();
+      showStatus('Code sent! Check your inbox (and spam).', 'success');
+    } else {
+      showStatus(data.error || 'Failed to send code', 'error');
+    }
+  } catch (e) {
+    showStatus('Network error. Please try again.', 'error');
+  }
+  signing = false;
+  document.getElementById('sendCodeBtn').disabled = false;
+}
+
+async function verifyCode() {
+  const code = document.getElementById('otpInput').value.trim();
+  if (!code || code.length < 6) {
+    showStatus('Enter the 6-digit code', 'error');
+    return;
+  }
+  if (signing) return;
+  signing = true;
+  showStatus('Verifying...', 'loading');
+  document.getElementById('verifyBtn').disabled = true;
+  
+  try {
+    const res = await fetch('https://taskbolt.space/api/auth/email?action=verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingEmail, code })
+    });
+    const data = await res.json();
+    
+    if (data.ok && data.token) {
+      localStorage.setItem('tb_auth_token', data.token);
+      hideStatus();
+      
+      const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
+      
+      if (isDesktop) {
+        showStatus('Signed in! Redirecting...', 'loading');
+        window.location.href = `https://taskbolt.space/api/desktop-callback?token=${encodeURIComponent(data.token)}`;
+      } else {
+        showStatus('Signed in! Redirecting to dashboard...', 'loading');
+        window.location.href = '/dashboard.html';
+      }
+    } else {
+      showStatus(data.error || 'Invalid code', 'error');
+    }
+  } catch (e) {
+    showStatus('Network error. Please try again.', 'error');
+  }
+  signing = false;
+  document.getElementById('verifyBtn').disabled = false;
+}
+
+function goBackToEmail() {
+  document.getElementById('otpSection').classList.remove('active');
+  document.getElementById('emailSection').style.display = 'block';
+  document.getElementById('emailInput').value = pendingEmail;
+  document.getElementById('emailInput').focus();
+  hideStatus();
+}
+
 async function signInWithGoogle() {
   if (signing) return;
   signing = true;
   showStatus('Opening Google sign-in...', 'loading');
   
-  // Generate a session ID for polling
   const session = crypto.randomUUID();
   
-  // Open Google OAuth in a popup
   const popup = window.open(
     `https://taskbolt.space/api/auth/google?session=${session}`,
     'google-auth',
     'width=500,height=600,menubar=no,toolbar=no'
   );
   
-  // Poll for the auth result
   const pollInterval = setInterval(async () => {
     try {
       const res = await fetch(`https://taskbolt.space/api/auth/google?action=poll&session=${session}`);
@@ -120,26 +266,21 @@ async function signInWithGoogle() {
         clearInterval(pollInterval);
         popup.close();
         
-        // Store token
         localStorage.setItem('tb_auth_token', data.token);
         
         showStatus('Signed in! Redirecting...', 'loading');
         
-        // Check if this is from desktop app
         const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
         
         if (isDesktop) {
-          // Generate API key and redirect to desktop — pass token as query param
           window.location.href = `https://taskbolt.space/api/desktop-callback?token=${encodeURIComponent(data.token)}`;
         } else {
-          // Redirect to dashboard
           window.location.href = '/dashboard.html';
         }
       }
     } catch (e) {}
   }, 1500);
   
-  // Timeout after 2 minutes
   setTimeout(() => {
     clearInterval(pollInterval);
     if (!popup.closed) popup.close();
