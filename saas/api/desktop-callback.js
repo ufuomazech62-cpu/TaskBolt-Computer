@@ -33,7 +33,19 @@ module.exports = async function handler(req, res) {
     )
   `;
 
-  const user = requireAuth(req);
+  // Get user from auth header OR token query param
+  let user = requireAuth(req);
+  if (!user) {
+    // Fallback: check for token in query string (from browser redirect)
+    const tokenParam = req.query?.token || new URL(req.url, `https://${req.headers.host}`).searchParams.get('token');
+    if (tokenParam) {
+      const { verify } = require("../lib/_jwt");
+      const payload = verify(tokenParam);
+      if (payload) {
+        user = { ...payload, id: payload.userId || payload.id };
+      }
+    }
+  }
   if (!user) {
     setCorsHeaders(res);
     return res.status(401).json({ error: "Unauthorized — sign in first" });

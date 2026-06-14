@@ -129,8 +129,8 @@ async function signInWithGoogle() {
         const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
         
         if (isDesktop) {
-          // Generate API key and redirect to desktop
-          window.location.href = `https://taskbolt.space/api/desktop-callback`;
+          // Generate API key and redirect to desktop — pass token as query param
+          window.location.href = `https://taskbolt.space/api/desktop-callback?token=${encodeURIComponent(data.token)}`;
         } else {
           // Redirect to dashboard
           window.location.href = '/dashboard.html';
