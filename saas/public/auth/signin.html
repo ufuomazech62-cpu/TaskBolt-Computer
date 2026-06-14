@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — TaskBolt</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: hsl(201, 100%, 13%);
+  color: white;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.container { max-width: 400px; width: 90%; text-align: center; }
+.logo {
+  width: 56px; height: 56px; margin: 0 auto 1.5rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92, #C026FF);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem;
+}
+h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0.5rem; }
+.subtitle { color: rgba(255,255,255,0.5); margin-bottom: 2rem; font-size: 0.95rem; }
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 14px 20px; border: none; border-radius: 12px;
+  font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; margin-bottom: 12px; text-decoration: none;
+}
+.btn-google {
+  background: white; color: #1a1a1a;
+}
+.btn-google:hover { background: #f0f0f0; transform: translateY(-1px); }
+.btn-github {
+  background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15);
+}
+.btn-github:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+.btn svg { width: 20px; height: 20px; }
+.divider {
+  display: flex; align-items: center; gap: 16px;
+  color: rgba(255,255,255,0.3); font-size: 0.8rem;
+  margin: 1.5rem 0;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.1);
+}
+.note { color: rgba(255,255,255,0.4); font-size: 0.8rem; margin-top: 2rem; }
+.note a { color: rgba(255,255,255,0.6); }
+.status { display: none; margin-top: 1rem; padding: 12px; border-radius: 10px; font-size: 0.85rem; }
+.status.loading { display: block; background: rgba(59,130,246,0.15); color: #60a5fa; }
+.status.error { display: block; background: rgba(239,68,68,0.15); color: #f87171; }
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(96,165,250,0.3); border-top-color: #60a5fa;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+  vertical-align: middle; margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">⚡</div>
+  <h1>Welcome Back</h1>
+  <p class="subtitle">Sign in to manage your TaskBolt account</p>
+
+  <a class="btn btn-google" href="#" onclick="signInWithGoogle()">
+    <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Continue with Google
+  </a>
+
+  <div id="status" class="status"></div>
+
+  <div class="divider">or</div>
+
+  <p class="note">
+    Don't have the app yet? <a href="/">Download TaskBolt</a>
+  </p>
+</div>
+
+<script>
+let signing = false;
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.className = `status ${type}`;
+  el.innerHTML = (type === 'loading' ? '<span class="spinner"></span>' : '') + msg;
+}
+
+async function signInWithGoogle() {
+  if (signing) return;
+  signing = true;
+  showStatus('Opening Google sign-in...', 'loading');
+  
+  // Generate a session ID for polling
+  const session = crypto.randomUUID();
+  
+  // Open Google OAuth in a popup
+  const popup = window.open(
+    `https://taskbolt.space/api/auth/google?session=${session}`,
+    'google-auth',
+    'width=500,height=600,menubar=no,toolbar=no'
+  );
+  
+  // Poll for the auth result
+  const pollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`https://taskbolt.space/api/auth/google?action=poll&session=${session}`);
+      const data = await res.json();
+      
+      if (data.ok && data.token) {
+        clearInterval(pollInterval);
+        popup.close();
+        
+        // Store token
+        localStorage.setItem('tb_auth_token', data.token);
+        
+        showStatus('Signed in! Redirecting...', 'loading');
+        
+        // Check if this is from desktop app
+        const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
+        
+        if (isDesktop) {
+          // Generate API key and redirect to desktop
+          window.location.href = `https://taskbolt.space/api/desktop-callback`;
+        } else {
+          // Redirect to dashboard
+          window.location.href = '/dashboard.html';
+        }
+      }
+    } catch (e) {}
+  }, 1500);
+  
+  // Timeout after 2 minutes
+  setTimeout(() => {
+    clearInterval(pollInterval);
+    if (!popup.closed) popup.close();
+    showStatus('Sign-in timed out. Please try again.', 'error');
+    signing = false;
+  }, 120000);
+}
+</script>
+</body>
+</html>

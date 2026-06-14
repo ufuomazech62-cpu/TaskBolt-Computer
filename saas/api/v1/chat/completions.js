@@ -66,16 +66,62 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: { message: "POST only", type: "invalid_request_error" } });
   }
 
-  // ═══ AUTH — JWT REQUIRED ═══
-  const user = requireAuth(req);
-  if (!user) {
-    setCorsHeaders(res);
-    return res.status(401).json({
-      error: { message: "Unauthorized — valid JWT token required", type: "authentication_error" }
-    });
+  // ═══ AUTH — JWT or API Key ═══
+  const authHeader = req.headers["authorization"] || "";
+  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  
+  let user = null;
+  
+  if (bearerToken.startsWith("tb_")) {
+    // API Key authentication (desktop app)
+    await initDB();
+    
+    // Ensure api_keys table exists
+    await sql`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        key_hash TEXT NOT NULL,
+        key_prefix TEXT NOT NULL,
+        name TEXT DEFAULT 'Default',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_used_at TIMESTAMP
+      )
+    `;
+    
+    const crypto = require("crypto");
+    const keyHash = crypto.createHash("sha256").update(bearerToken).digest("hex");
+    const keyRow = await sql`
+      SELECT ak.*, u.id as uid, u.email 
+      FROM api_keys ak 
+      JOIN users u ON ak.user_id = u.id 
+      WHERE ak.key_hash = ${keyHash} AND ak.is_active = true 
+      LIMIT 1
+    `;
+    
+    if (!keyRow.length) {
+      setCorsHeaders(res);
+      return res.status(401).json({
+        error: { message: "Invalid API key. Get your key at taskbolt.space/dashboard", type: "authentication_error" }
+      });
+    }
+    
+    // Update last_used_at
+    await sql`UPDATE api_keys SET last_used_at = NOW() WHERE id = ${keyRow[0].id}::uuid`;
+    
+    user = { id: keyRow[0].uid, email: keyRow[0].email };
+  } else {
+    // JWT authentication (web/gateway)
+    user = requireAuth(req);
+    if (!user) {
+      setCorsHeaders(res);
+      return res.status(401).json({
+        error: { message: "Unauthorized — valid JWT token or API key required", type: "authentication_error" }
+      });
+    }
+    await initDB();
   }
-
-  await initDB();
 
   // ═══ CREDIT CHECK ═══
   const credRows = await sql`SELECT balance FROM credits WHERE user_id = ${user.id}::uuid`;

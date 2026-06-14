@@ -6,7 +6,10 @@
     { "source": "/api/auth/callback/google", "destination": "/api/auth/google" },
     { "source": "/api/auth/callback/github", "destination": "/api/auth/github" },
     { "source": "/api/skills", "destination": "/api/tasks?_route=skills" },
-    { "source": "/api/(.*)", "destination": "/api/$1" }
+    { "source": "/api/v1/chat/completions", "destination": "/api/v1/chat/completions" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/signin", "destination": "/auth/signin.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" }
   ],
   "headers": [
     {

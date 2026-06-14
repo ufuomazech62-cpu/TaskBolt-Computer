@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — TaskBolt</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Instrument Serif"', 'serif'],
+        body: ['Inter', 'sans-serif'],
+      },
+      colors: {
+        background: 'hsl(201, 100%, 13%)',
+        foreground: 'hsl(0, 0%, 100%)',
+        'muted-foreground': 'hsl(240, 4%, 66%)',
+        primary: 'hsl(0, 0%, 100%)',
+        secondary: 'hsl(0, 0%, 10%)',
+        border: 'hsl(0, 0%, 18%)',
+      }
+    }
+  }
+}
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: hsl(201, 100%, 13%);
+  color: white;
+  min-height: 100vh;
+}
+.glass-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.glass-card::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit; padding: 1.4px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.15) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+.credit-big { font-family: 'Instrument Serif', serif; font-size: 3.5rem; line-height: 1; }
+.key-display {
+  font-family: monospace; font-size: 0.85rem;
+  background: rgba(0,0,0,0.3); padding: 10px 16px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);
+  word-break: break-all;
+}
+.btn {
+  padding: 10px 20px; border: none; border-radius: 10px;
+  font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: white; color: #0a1628; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,255,255,0.15); }
+.btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15); }
+.btn-secondary:hover { background: rgba(255,255,255,0.15); }
+.btn-danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.2); border-top-color: white;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.tab-btn {
+  padding: 8px 16px; border: none; background: none;
+  color: rgba(255,255,255,0.5); font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn.active { color: white; border-bottom-color: white; }
+.tab-btn:hover { color: rgba(255,255,255,0.8); }
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 14px 20px; border-radius: 12px;
+  font-size: 0.88rem; font-weight: 500;
+  transform: translateY(100px); opacity: 0;
+  transition: all 0.3s; z-index: 1000;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: #065f46; color: #6ee7b7; border: 1px solid #059669; }
+.toast.error { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+.empty-state { color: rgba(255,255,255,0.4); text-align: center; padding: 3rem 1rem; }
+</style>
+</head>
+<body>
+<!-- Nav -->
+<nav class="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
+  <a href="/" class="flex items-center gap-3 text-white no-underline">
+    <span class="font-display text-2xl">TaskBolt</span>
+  </a>
+  <div class="flex items-center gap-4">
+    <span class="text-sm text-[rgba(255,255,255,0.5)]" id="userEmail"></span>
+    <button class="btn btn-secondary text-xs" onclick="signOut()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- Dashboard -->
+<main class="max-w-6xl mx-auto px-6 pb-20">
+  <!-- Credits Card -->
+  <div class="glass-card mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div>
+        <p class="text-sm text-[rgba(255,255,255,0.5)] mb-1">Available Credits</p>
+        <div class="credit-big" id="creditBalance">—</div>
+        <p class="text-xs text-[rgba(255,255,255,0.35)] mt-2">1 credit = 200 tokens • Credits never expire</p>
+      </div>
+      <div class="flex flex-col gap-3">
+        <a href="/api/checkout?pack=core" class="btn btn-primary">Buy Credits</a>
+        <div class="flex gap-4 text-xs text-[rgba(255,255,255,0.4)]">
+          <span>Used: <span id="creditsUsed" class="text-white">—</span></span>
+          <span>Total: <span id="creditsTotal" class="text-white">—</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 mb-6 border-b border-[rgba(255,255,255,0.08)]">
+    <button class="tab-btn active" onclick="switchTab('keys')">API Keys</button>
+    <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
+    <button class="tab-btn" onclick="switchTab('billing')">Billing</button>
+  </div>
+
+  <!-- API Keys Tab -->
+  <div id="tab-keys">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="font-display text-xl">API Keys</h2>
+      <button class="btn btn-primary" onclick="createKey()">+ New Key</button>
+    </div>
+    <div id="keysList" class="space-y-3"></div>
+    <div id="newKeyBox" style="display:none" class="glass-card mt-4 border-[rgba(34,197,94,0.3)]">
+      <p class="text-sm text-[#6ee7b7] mb-3 font-medium">⚠️ Copy this key now — it won't be shown again:</p>
+      <div class="key-display" id="newKeyValue"></div>
+      <button class="btn btn-secondary mt-3" onclick="copyNewKey()">📋 Copy Key</button>
+    </div>
+  </div>
+
+  <!-- Usage Tab -->
+  <div id="tab-usage" style="display:none">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="glass-card text-center">
+        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">Today</p>
+        <p class="text-2xl font-bold" id="usageToday">—</p>
+        <p class="text-xs text-[rgba(255,255,255,0.35)]">credits</p>
+      </div>
+      <div class="glass-card text-center">
+        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">This Month</p>
+        <p class="text-2xl font-bold" id="usageMonth">—</p>
+        <p class="text-xs text-[rgba(255,255,255,0.35)]">credits</p>
+      </div>
+      <div class="glass-card text-center">
+        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">Total Tokens</p>
+        <p class="text-2xl font-bold" id="usageTokens">—</p>
+        <p class="text-xs text-[rgba(255,255,255,0.35)]">all time</p>
+      </div>
+    </div>
+    <div id="usageDetail" class="glass-card">
+      <p class="text-sm text-[rgba(255,255,255,0.5)]">Loading usage details...</p>
+    </div>
+  </div>
+
+  <!-- Billing Tab -->
+  <div id="tab-billing" style="display:none">
+    <h2 class="font-display text-xl mb-4">Credit Packs</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('lite')">
+        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Lite</div>
+        <div class="font-display text-3xl mb-1">$6</div>
+        <div class="text-sm text-[rgba(255,255,255,0.5)]">5,000 credits</div>
+      </div>
+      <div class="glass-card text-center cursor-pointer border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.3)] transition" onclick="buyPack('core')">
+        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Core</div>
+        <div class="font-display text-3xl mb-1">$24</div>
+        <div class="text-sm text-[rgba(255,255,255,0.5)]">25,000 credits</div>
+      </div>
+      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('scale')">
+        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Scale</div>
+        <div class="font-display text-3xl mb-1">$60</div>
+        <div class="text-sm text-[rgba(255,255,255,0.5)]">75,000 credits</div>
+      </div>
+      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('max')">
+        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Max</div>
+        <div class="font-display text-3xl mb-1">$150</div>
+        <div class="text-sm text-[rgba(255,255,255,0.5)]">200,000 credits</div>
+      </div>
+    </div>
+
+    <h2 class="font-display text-xl mt-8 mb-4">Transactions</h2>
+    <div id="transactionsList" class="glass-card">
+      <p class="text-sm text-[rgba(255,255,255,0.5)]">Loading transactions...</p>
+    </div>
+  </div>
+</main>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+const API = 'https://taskbolt.space';
+let token = localStorage.getItem('tb_auth_token');
+let newKeyRaw = '';
+
+// Check auth
+if (!token) {
+  window.location.href = '/auth/signin.html';
+}
+
+function headers() {
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).style.display = 'block';
+  event.target.classList.add('active');
+  if (tab === 'usage') loadUsage();
+  if (tab === 'billing') loadTransactions();
+}
+
+// Load credits
+async function loadCredits() {
+  try {
+    const res = await fetch(`${API}/api/billing?action=status`, { headers: headers() });
+    if (res.status === 401) { window.location.href = '/auth/signin.html'; return; }
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('creditBalance').textContent = data.credits.balance.toLocaleString();
+      document.getElementById('creditsUsed').textContent = data.credits.total_used.toLocaleString();
+      document.getElementById('creditsTotal').textContent = data.credits.total_allocated.toLocaleString();
+      document.getElementById('usageToday').textContent = data.usage.today.credits;
+      document.getElementById('usageMonth').textContent = data.usage.this_month.credits;
+    }
+  } catch (e) { console.error('Credits load error:', e); }
+}
+
+// Load user profile
+async function loadProfile() {
+  try {
+    const res = await fetch(`${API}/api/account`, { headers: headers() });
+    const data = await res.json();
+    if (data.ok && data.user) {
+      document.getElementById('userEmail').textContent = data.user.email || data.user.display_name || '';
+    }
+  } catch (e) {}
+}
+
+// Load API keys
+async function loadKeys() {
+  try {
+    const res = await fetch(`${API}/api/keys`, { headers: headers() });
+    const data = await res.json();
+    const list = document.getElementById('keysList');
+    
+    if (!data.ok || !data.keys || data.keys.length === 0) {
+      list.innerHTML = '<div class="empty-state"><p>No API keys yet.</p><p class="text-sm mt-2">Create one to connect the desktop app.</p></div>';
+      return;
+    }
+    
+    list.innerHTML = data.keys.map(k => `
+      <div class="glass-card flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-3">
+            <code class="text-sm font-mono">${k.key_prefix}...</code>
+            <span class="text-xs px-2 py-0.5 rounded-full ${k.is_active ? 'bg-[rgba(34,197,94,0.15)] text-[#6ee7b7]' : 'bg-[rgba(239,68,68,0.15)] text-[#f87171]'}">${k.is_active ? 'Active' : 'Revoked'}</span>
+          </div>
+          <p class="text-xs text-[rgba(255,255,255,0.4)] mt-1">${k.name} • Created ${new Date(k.created_at).toLocaleDateString()}</p>
+          ${k.last_used_at ? `<p class="text-xs text-[rgba(255,255,255,0.3)]">Last used: ${new Date(k.last_used_at).toLocaleDateString()}</p>` : ''}
+        </div>
+        ${k.is_active ? `<button class="btn btn-danger text-xs" onclick="revokeKey('${k.id}')">Revoke</button>` : ''}
+      </div>
+    `).join('');
+  } catch (e) { console.error('Keys load error:', e); }
+}
+
+// Create API key
+async function createKey() {
+  try {
+    const res = await fetch(`${API}/api/keys`, {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ name: 'Desktop App' })
+    });
+    const data = await res.json();
+    if (data.ok && data.key) {
+      newKeyRaw = data.key;
+      document.getElementById('newKeyValue').textContent = data.key;
+      document.getElementById('newKeyBox').style.display = 'block';
+      loadKeys();
+      toast('API key created!');
+    } else {
+      toast(data.error || 'Failed to create key', 'error');
+    }
+  } catch (e) { toast('Network error', 'error'); }
+}
+
+function copyNewKey() {
+  navigator.clipboard.writeText(newKeyRaw).then(() => toast('Key copied!'));
+}
+
+// Revoke key
+async function revokeKey(keyId) {
+  if (!confirm('Revoke this API key? The desktop app will stop working until you create a new one.')) return;
+  try {
+    const res = await fetch(`${API}/api/keys`, {
+      method: 'DELETE', headers: headers(),
+      body: JSON.stringify({ key_id: keyId })
+    });
+    const data = await res.json();
+    if (data.ok) { loadKeys(); toast('Key revoked'); }
+    else toast(data.error || 'Failed', 'error');
+  } catch (e) { toast('Network error', 'error'); }
+}
+
+// Load usage
+async function loadUsage() {
+  try {
+    const res = await fetch(`${API}/api/billing?action=usage`, { headers: headers() });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('usageTokens').textContent = data.stats.total_tokens.toLocaleString();
+      const detail = document.getElementById('usageDetail');
+      if (data.models && data.models.length > 0) {
+        detail.innerHTML = `
+          <h3 class="text-sm font-medium mb-3">By Model</h3>
+          ${data.models.map(m => `
+            <div class="flex justify-between items-center py-2 border-b border-[rgba(255,255,255,0.05)]">
+              <span class="text-sm">${m.model}</span>
+              <span class="text-xs text-[rgba(255,255,255,0.5)]">${m.requests} requests • ${m.credits} credits</span>
+            </div>
+          `).join('')}
+        `;
+      } else {
+        detail.innerHTML = '<div class="empty-state"><p>No usage yet.</p></div>';
+      }
+    }
+  } catch (e) { console.error('Usage load error:', e); }
+}
+
+// Load transactions
+async function loadTransactions() {
+  try {
+    const res = await fetch(`${API}/api/billing?action=status`, { headers: headers() });
+    const data = await res.json();
+    const list = document.getElementById('transactionsList');
+    if (data.ok && data.transactions && data.transactions.length > 0) {
+      list.innerHTML = data.transactions.map(t => `
+        <div class="flex justify-between items-center py-3 border-b border-[rgba(255,255,255,0.05)] last:border-0">
+          <div>
+            <span class="text-sm">${t.type}</span>
+            <span class="text-xs text-[rgba(255,255,255,0.4)] ml-2">${new Date(t.created_at).toLocaleDateString()}</span>
+          </div>
+          <div class="text-right">
+            <span class="text-sm ${t.credits > 0 ? 'text-[#6ee7b7]' : 'text-[#f87171]'}">${t.credits > 0 ? '+' : ''}${t.credits} credits</span>
+            ${t.amount_usd ? `<span class="text-xs text-[rgba(255,255,255,0.4)] ml-2">$${t.amount_usd}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    } else {
+      list.innerHTML = '<div class="empty-state"><p>No transactions yet.</p></div>';
+    }
+  } catch (e) { console.error('Transactions load error:', e); }
+}
+
+function buyPack(packId) {
+  window.location.href = `/api/checkout?pack=${packId}&token=${encodeURIComponent(token)}`;
+}
+
+function signOut() {
+  localStorage.removeItem('tb_auth_token');
+  window.location.href = '/auth/signin.html';
+}
+
+// Init
+loadProfile();
+loadCredits();
+loadKeys();
+</script>
+</body>
+</html>
