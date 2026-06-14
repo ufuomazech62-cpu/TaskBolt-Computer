@@ -9,6 +9,7 @@
     { "source": "/api/v1/chat/completions", "destination": "/api/v1/chat/completions" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/signin", "destination": "/auth/signin.html" },
+    { "source": "/auth/signin", "destination": "/auth/signin.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" }
   ],
   "headers": [
