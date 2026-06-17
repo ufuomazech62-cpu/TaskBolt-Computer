@@ -7,12 +7,12 @@ const DODO_API = process.env.DODO_API_URL || "https://live.dodopayments.com";
 const SAAS_URL = "https://taskbolt.space";
 
 // One-time credit packs (4 tiers, pay-as-you-go)
-// 1 credit = 200 tokens
+// 1 credit = 200 tokens | Flat rate: $1.50 per 1M tokens (no volume discount)
 const PACKS = [
-  { id: "lite",  name: "Lite",  price_usd: 6,   price_cents: 600,   credits: 5000,   tokens: 1000000,  description: "1M tokens - Casual exploration" },
-  { id: "core",  name: "Core",  price_usd: 24,  price_cents: 2400,  credits: 25000,  tokens: 5000000,  description: "5M tokens - Daily workflows" },
-  { id: "scale", name: "Scale", price_usd: 60,  price_cents: 6000,  credits: 75000,  tokens: 15000000, description: "15M tokens - Complex tasks" },
-  { id: "max",   name: "Max",   price_usd: 150, price_cents: 15000, credits: 200000, tokens: 40000000, description: "40M tokens - Enterprise workloads" },
+  { id: "lite",  name: "Lite",  price_usd: 6,   price_cents: 600,   credits: 20000,  tokens: 4000000,   description: "4M tokens - Casual exploration" },
+  { id: "core",  name: "Core",  price_usd: 24,  price_cents: 2400,  credits: 80000,  tokens: 16000000,  description: "16M tokens - Daily workflows" },
+  { id: "scale", name: "Scale", price_usd: 60,  price_cents: 6000,  credits: 200000, tokens: 40000000,  description: "40M tokens - Complex tasks" },
+  { id: "max",   name: "Max",   price_usd: 150, price_cents: 15000, credits: 500000, tokens: 100000000, description: "100M tokens - Enterprise workloads" },
 ];
 
 const PACKS_MAP = Object.fromEntries(PACKS.map(p => [p.id, { credits: p.credits }]));

@@ -1,10 +1,10 @@
 const { requireAuth } = require("../lib/_auth");
 
 const PACKS = [
-  { id: "lite",  name: "Lite",  price_usd: 6,   credits: 5000,   tokens: "1M",  description: "Casual exploration", features: ["5,000 credits", "1M tokens", "Never expires", "All AI models"] },
-  { id: "core",  name: "Core",  price_usd: 24,  credits: 25000,  tokens: "5M",  description: "Daily workflows", features: ["25,000 credits", "5M tokens", "Never expires", "All AI models", "Priority support"] },
-  { id: "scale", name: "Scale", price_usd: 60,  credits: 75000,  tokens: "15M", description: "Complex tasks", features: ["75,000 credits", "15M tokens", "Never expires", "All AI models", "Priority support", "Best value"] },
-  { id: "max",   name: "Max",   price_usd: 150, credits: 200000, tokens: "40M", description: "Enterprise workloads", features: ["200,000 credits", "40M tokens", "Never expires", "All AI models", "Priority support", "Volume discount"] },
+  { id: "lite",  name: "Lite",  price_usd: 6,   credits: 20000,  tokens: "4M",   description: "Casual exploration", features: ["20,000 credits", "4M tokens", "Never expires", "All AI models"] },
+  { id: "core",  name: "Core",  price_usd: 24,  credits: 80000,  tokens: "16M",  description: "Daily workflows", features: ["80,000 credits", "16M tokens", "Never expires", "All AI models", "Priority support"] },
+  { id: "scale", name: "Scale", price_usd: 60,  credits: 200000, tokens: "40M",  description: "Complex tasks", features: ["200,000 credits", "40M tokens", "Never expires", "All AI models", "Priority support"] },
+  { id: "max",   name: "Max",   price_usd: 150, credits: 500000, tokens: "100M", description: "Enterprise workloads", features: ["500,000 credits", "100M tokens", "Never expires", "All AI models", "Priority support"] },
 ];
 
 module.exports = async function handler(req, res) {
