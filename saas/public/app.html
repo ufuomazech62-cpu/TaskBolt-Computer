@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskBolt — Your AI Computer Assistant</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="TaskBolt is a free desktop AI assistant that installs software, fixes computer problems, automates tasks, and sets up AI tools. Just tell it what you need.">
+<meta property="og:title" content="TaskBolt — Your AI Computer Assistant">
+<meta property="og:description" content="Install software, fix problems, automate tasks, and set up AI tools — just by asking. Free desktop app for Windows and Mac.">
+<meta property="og:image" content="/icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Instrument Serif"', 'serif'],
+        body: ['Inter', 'sans-serif'],
+      },
+      colors: {
+        background: 'hsl(201, 100%, 13%)',
+        foreground: 'hsl(0, 0%, 100%)',
+        'muted-foreground': 'hsl(240, 4%, 66%)',
+        primary: 'hsl(0, 0%, 100%)',
+        'primary-foreground': 'hsl(0, 0%, 4%)',
+        secondary: 'hsl(0, 0%, 10%)',
+        muted: 'hsl(0, 0%, 10%)',
+        accent: 'hsl(0, 0%, 10%)',
+        border: 'hsl(0, 0%, 18%)',
+        input: 'hsl(0, 0%, 18%)',
+      }
+    }
+  }
+}
+</script>
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: hsl(201, 100%, 13%);
+  color: hsl(0, 0%, 100%);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.45) 0%,
+    rgba(255,255,255,0.15) 20%,
+    rgba(255,255,255,0) 40%,
+    rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.15) 80%,
+    rgba(255,255,255,0.45) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.liquid-glass-strong {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass-strong::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.5) 0%,
+    rgba(255,255,255,0.2) 20%,
+    rgba(255,255,255,0) 40%,
+    rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.2) 80%,
+    rgba(255,255,255,0.5) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  nav .max-w-7xl { padding-left: 1rem; padding-right: 1rem; }
+  nav .flex.items-center.gap-3 > a { padding: 6px 12px; font-size: 13px; }
+  nav .flex.items-center.gap-3 { gap: 6px; }
+  .logo-text-nav { font-size: 1.3rem !important; }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- Video Background -->
+<video
+  autoplay loop muted playsinline
+  style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"
+>
+  <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260314_131748_f2ca2a28-fed7-44c8-b9a9-bd9acdd5ec31.mp4" type="video/mp4">
+</video>
+
+<!-- Navigation -->
+<nav class="fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto flex justify-between items-center px-8 py-6">
+    <!-- Logo -->
+    <a href="#" class="flex items-center gap-3">
+      <img src="/icon.png" alt="TaskBolt" style="width:36px;height:36px;border-radius:8px">
+      <span class="font-display text-3xl tracking-tight text-foreground logo-text-nav">TaskBolt<sup class="text-xs ml-0.5">®</sup></span>
+    </a>
+
+    <!-- Nav Links -->
+    <div class="hidden md:flex gap-8 text-sm text-muted-foreground">
+      <a href="#" class="text-foreground transition-colors hover:text-foreground">Home</a>
+      <a href="#capabilities" class="transition-colors hover:text-foreground">Capabilities</a>
+      <a href="#examples" class="transition-colors hover:text-foreground">Examples</a>
+      <a href="#pricing" class="transition-colors hover:text-foreground">Pricing</a>
+    </div>
+
+    <!-- CTA -->
+    <div class="flex items-center gap-3">
+      <a href="/auth/signin" class="liquid-glass rounded-full px-6 py-2.5 text-sm text-foreground/70 hover:text-foreground transition-colors" id="nav-signin">
+        Sign In
+      </a>
+      <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="liquid-glass rounded-full px-6 py-2.5 text-sm text-foreground hover:scale-[1.03] transition-transform" id="nav-download">
+        Download
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-32 pb-40 min-h-screen">
+  <h1 class="font-display text-5xl sm:text-7xl md:text-8xl leading-[0.95] tracking-[-2.46px] max-w-6xl font-normal">
+    Your AI<br>Computer Assistant.
+  </h1>
+
+  <p class="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl mt-8">
+    Install software. Fix problems. Automate tasks. Set up AI tools.<br>
+    Just tell TaskBolt what you need — it handles the rest.
+  </p>
+
+  <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe"
+     class="liquid-glass rounded-full px-12 py-5 text-base text-foreground mt-12 cursor-pointer hover:scale-[1.03] transition-transform inline-flex flex-col items-center gap-2"
+     id="hero-download">
+    <div class="flex items-center gap-3">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" opacity="0.8"><path d="M3 12V6.75l6-1.25v7.25H3zM3 12l6 1.25v7.25l-6-1.25V12zM11 6l6-1.25v7.75h-6V6zM11 12.75h6v7.5l-6-1.25v-6.25zM19 4.5l3-.75v8h-3V4.5zM19 12h3v7.5l-3-.75V12z"/></svg>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" opacity="0.8"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 17 2.94 12.45 4.7 9.39C5.57 7.87 7.13 6.91 8.82 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/></svg>
+    </div>
+    <span>Download</span>
+  </a>
+
+  <a href="#capabilities" class="mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors">
+    See Everything TaskBolt Can Do →
+  </a>
+</section>
+
+<!-- Capabilities Section -->
+<section id="capabilities" class="relative z-10 px-6 py-32">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="font-display text-4xl sm:text-5xl md:text-6xl text-center mb-6">Everything Your Computer Needs</h2>
+    <p class="text-muted-foreground text-center max-w-2xl mx-auto mb-20 text-base sm:text-lg">
+      Whether you're fixing a problem, installing software, setting up AI tools, or automating repetitive work — TaskBolt handles it through conversation.
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Fix Problems -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4">🔧</div>
+        <h3 class="font-display text-2xl mb-3">Fix Problems</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Diagnose slow performance, software issues, crashes, storage problems, and network failures.
+        </p>
+      </div>
+
+      <!-- Install Software -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4">📦</div>
+        <h3 class="font-display text-2xl mb-3">Install Software</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Install applications, dependencies, updates, and system tools without complicated setup.
+        </p>
+      </div>
+
+      <!-- Automate Tasks -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4"><img src="/icon.png" alt="" style="width:32px;height:32px;border-radius:6px"></div>
+        <h3 class="font-display text-2xl mb-3">Automate Tasks</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Organize files, clean folders, create workflows, and automate repetitive work.
+        </p>
+      </div>
+
+      <!-- Understand Files -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4">📄</div>
+        <h3 class="font-display text-2xl mb-3">Understand Files</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Ask questions about PDFs, documents, spreadsheets, images, and source code.
+        </p>
+      </div>
+
+      <!-- Local AI Models -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4">🤖</div>
+        <h3 class="font-display text-2xl mb-3">Local AI Models</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Set up local models, AI coding tools, and AI development environments automatically.
+        </p>
+      </div>
+
+      <!-- AI Agents -->
+      <div class="liquid-glass-strong rounded-2xl p-8">
+        <div class="text-3xl mb-4">🛡️</div>
+        <h3 class="font-display text-2xl mb-3">AI Agents</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Install, configure, and manage AI coding tools — Claude Code, GitHub Copilot, Cursor, Aider — running as apps or in your terminal.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Example Requests Section -->
+<section id="examples" class="relative z-10 px-6 py-32">
+  <div class="max-w-5xl mx-auto text-center">
+    <h2 class="font-display text-4xl sm:text-5xl md:text-6xl mb-6">What Can You Ask TaskBolt?</h2>
+    <p class="text-muted-foreground mb-16 text-base sm:text-lg">Real commands. Real results.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Why is my computer slow?"</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Install Discord."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Fix my Wi-Fi."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Set up Python."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Install Ollama and download a model."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Configure an AI agent in my terminal."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Clean up my downloads folder."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Help me set up my new computer."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Set up a coding assistant for me."</span>
+      </div>
+      <div class="liquid-glass-strong rounded-xl px-6 py-5 text-left">
+        <span class="text-muted-foreground text-sm">"Configure AI tools in my terminal."</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison Section -->
+<section class="relative z-10 px-6 py-32">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="font-display text-4xl sm:text-5xl text-center mb-6">Why TaskBolt Wins</h2>
+    <p class="text-muted-foreground text-center max-w-xl mx-auto mb-16">
+      Cloud-based AI tools can't touch your machine. TaskBolt runs locally with full system access.
+    </p>
+
+    <div class="liquid-glass-strong rounded-2xl overflow-hidden">
+      <!-- Header -->
+      <div class="grid grid-cols-5 gap-0 px-6 py-5 border-b border-border">
+        <div class="text-sm font-medium text-muted-foreground"></div>
+        <div class="text-sm font-medium text-center text-foreground">TaskBolt</div>
+        <div class="text-sm font-medium text-center text-muted-foreground">Gemini Spark</div>
+        <div class="text-sm font-medium text-center text-muted-foreground">Claude Code</div>
+        <div class="text-sm font-medium text-center text-muted-foreground">GPT Codex</div>
+      </div>
+      <!-- Rows -->
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Runs on your machine</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-green-400">✓</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Installs software</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-yellow-400">~</div>
+        <div class="text-center text-yellow-400">~</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">System diagnostics</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Reads files & docs</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-yellow-400">~</div>
+        <div class="text-center text-yellow-400">~</div>
+        <div class="text-center text-yellow-400">~</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Sets up local LLMs</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Configures AI agents</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-yellow-400">~</div>
+        <div class="text-center text-red-400/50">✗</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4 border-b border-border/50">
+        <div class="text-sm text-foreground/80">Sets up AI coding tools</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+      </div>
+      <div class="grid grid-cols-5 gap-0 px-6 py-4">
+        <div class="text-sm text-foreground/80">No subscription needed</div>
+        <div class="text-center text-green-400">✓</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+        <div class="text-center text-red-400/50">✗</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="relative z-10 px-6 py-32">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="font-display text-4xl sm:text-5xl text-center mb-16">How It Works</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div class="text-center">
+        <div class="liquid-glass-strong rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-6">
+          <span class="font-display text-xl">1</span>
+        </div>
+        <h3 class="font-display text-xl mb-3">Download & Sign In</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">Install in seconds. Sign in with Google, GitHub, or email.</p>
+      </div>
+      <div class="text-center">
+        <div class="liquid-glass-strong rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-6">
+          <span class="font-display text-xl">2</span>
+        </div>
+        <h3 class="font-display text-xl mb-3">Describe What You Need</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">"Set up Python for ML" or "Why is my computer slow?"</p>
+      </div>
+      <div class="text-center">
+        <div class="liquid-glass-strong rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-6">
+          <span class="font-display text-xl">3</span>
+        </div>
+        <h3 class="font-display text-xl mb-3">Watch It Work</h3>
+        <p class="text-muted-foreground text-sm leading-relaxed">TaskBolt executes, installs, and configures — showing every step.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing" class="relative z-10 px-6 py-32">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="font-display text-4xl sm:text-5xl text-center mb-6">Simple, One-Time Pricing</h2>
+    <p class="text-muted-foreground text-center max-w-xl mx-auto mb-16">No subscriptions. Buy credits once, use forever.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Lite -->
+      <div class="liquid-glass-strong rounded-2xl p-8 text-center">
+        <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Lite</div>
+        <div class="font-display text-4xl mb-1">$6</div>
+        <div class="text-sm text-muted-foreground mb-6">Casual exploration</div>
+        <ul class="text-left text-sm text-muted-foreground space-y-2 mb-8">
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 5,000 credits</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 1M tokens</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Never expires</li>
+        </ul>
+        <a href="https://taskbolt.space/api/checkout?pack=lite" class="liquid-glass rounded-full py-3 px-6 text-sm text-foreground block hover:scale-[1.03] transition-transform">Get Started</a>
+      </div>
+
+      <!-- Core -->
+      <div class="liquid-glass-strong rounded-2xl p-8 text-center border border-foreground/20 relative">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs font-medium px-3 py-1 rounded-full">Popular</div>
+        <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Core</div>
+        <div class="font-display text-4xl mb-1">$24</div>
+        <div class="text-sm text-muted-foreground mb-6">Daily workflows</div>
+        <ul class="text-left text-sm text-muted-foreground space-y-2 mb-8">
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 25,000 credits</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 5M tokens</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Never expires</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Priority support</li>
+        </ul>
+        <a href="https://taskbolt.space/api/checkout?pack=core" class="bg-foreground text-background rounded-full py-3 px-6 text-sm font-medium block hover:scale-[1.03] transition-transform">Get Core</a>
+      </div>
+
+      <!-- Scale -->
+      <div class="liquid-glass-strong rounded-2xl p-8 text-center">
+        <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Scale</div>
+        <div class="font-display text-4xl mb-1">$60</div>
+        <div class="text-sm text-muted-foreground mb-6">Complex tasks</div>
+        <ul class="text-left text-sm text-muted-foreground space-y-2 mb-8">
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 75,000 credits</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 15M tokens</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Never expires</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Priority support</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Best value</li>
+        </ul>
+        <a href="https://taskbolt.space/api/checkout?pack=scale" class="liquid-glass rounded-full py-3 px-6 text-sm text-foreground block hover:scale-[1.03] transition-transform">Get Scale</a>
+      </div>
+
+      <!-- Max -->
+      <div class="liquid-glass-strong rounded-2xl p-8 text-center">
+        <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Max</div>
+        <div class="font-display text-4xl mb-1">$150</div>
+        <div class="text-sm text-muted-foreground mb-6">Enterprise workloads</div>
+        <ul class="text-left text-sm text-muted-foreground space-y-2 mb-8">
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 200,000 credits</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 40M tokens</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Never expires</li>
+          <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Volume discount</li>
+        </ul>
+        <a href="https://taskbolt.space/api/checkout?pack=max" class="liquid-glass rounded-full py-3 px-6 text-sm text-foreground block hover:scale-[1.03] transition-transform">Get Max</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="relative z-10 px-6 py-32 text-center">
+  <h2 class="font-display text-4xl sm:text-5xl md:text-6xl max-w-4xl mx-auto leading-tight">
+    Ready to Let AI Run<br>Your Computer?
+  </h2>
+  <p class="text-muted-foreground mt-6 max-w-lg mx-auto text-base sm:text-lg">
+    Free to download. Set up your first tool in under 2 minutes.
+  </p>
+  <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe"
+     class="liquid-glass rounded-full px-12 py-5 text-base text-foreground mt-12 cursor-pointer hover:scale-[1.03] transition-transform inline-flex flex-col items-center gap-2"
+     id="cta-download">
+    <div class="flex items-center gap-3">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" opacity="0.8"><path d="M3 12V6.75l6-1.25v7.25H3zM3 12l6 1.25v7.25l-6-1.25V12zM11 6l6-1.25v7.75h-6V6zM11 12.75h6v7.5l-6-1.25v-6.25zM19 4.5l3-.75v8h-3V4.5zM19 12h3v7.5l-3-.75V12z"/></svg>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" opacity="0.8"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 17 2.94 12.45 4.7 9.39C5.57 7.87 7.13 6.91 8.82 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/></svg>
+    </div>
+    <span>Download</span>
+  </a>
+  <p class="text-xs text-muted-foreground mt-4" id="platform-info"></p>
+</section>
+
+<!-- Footer -->
+<footer class="relative z-10 px-6 py-12 border-t border-border text-center">
+  <p class="text-sm text-muted-foreground">
+    © 2026 Qosta. All rights reserved.
+    <a href="https://taskbolt.space" class="hover:text-foreground transition-colors ml-2">taskbolt.space</a>
+  </p>
+</footer>
+
+<script>
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+
+</body>
+</html>
