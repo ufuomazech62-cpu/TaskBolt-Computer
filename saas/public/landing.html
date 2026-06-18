@@ -80,10 +80,19 @@ nav {
   color: var(--text);
   text-decoration: none;
   font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
 }
 .nav-brand sup {
   font-size: 0.6rem;
   vertical-align: super;
+  font-family: var(--font-body);
 }
 .nav-links {
   display: flex;
@@ -106,15 +115,15 @@ nav {
 .nav-cta {
   background: var(--accent) !important;
   color: #FFFFFF !important;
-  padding: 10px 24px;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  text-decoration: none;
-  transition: transform 0.2s;
-  font-weight: 500;
+  padding: 10px 24px !important;
+  border-radius: 9999px !important;
+  font-size: 0.875rem !important;
+  text-decoration: none !important;
+  transition: transform 0.2s !important;
+  font-weight: 500 !important;
 }
 .nav-cta:hover {
-  transform: scale(1.03);
+  transform: scale(1.03) !important;
 }
 
 /* Hero Section */
@@ -148,6 +157,7 @@ nav {
   color: var(--text-secondary);
 }
 .hero-description {
+  font-family: var(--font-body);
   font-size: clamp(1rem, 2vw, 1.125rem);
   color: var(--text-secondary);
   max-width: 640px;
@@ -172,7 +182,7 @@ nav {
   animation: fade-rise 0.8s ease-out 0.4s forwards;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .hero-cta:hover {
   transform: scale(1.03);
@@ -513,7 +523,7 @@ nav {
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .cta-btn:hover {
   transform: scale(1.03);
@@ -572,8 +582,8 @@ footer a:hover {
     display: none;
   }
   .nav-cta {
-    padding: 8px 16px;
-    font-size: 0.82rem;
+    padding: 8px 16px !important;
+    font-size: 0.82rem !important;
   }
   .hero {
     padding-top: 4rem;
@@ -605,7 +615,10 @@ footer a:hover {
 
 <!-- Navigation -->
 <nav>
-  <a href="/" class="nav-brand">TaskBolt<sup>&reg;</sup></a>
+  <a href="/" class="nav-brand">
+    <img src="/icon.png" alt="TaskBolt">
+    TaskBolt<sup>&reg;</sup>
+  </a>
   <div class="nav-links">
     <a href="/">Home</a>
     <a href="#features">Features</a>
@@ -618,10 +631,10 @@ footer a:hover {
 <!-- Hero Section -->
 <section class="hero">
   <h1 class="hero-headline">
-    Beyond <span class="italic">silence,</span> we build <span class="italic">the eternal.</span>
+    Your computer, <span class="italic">managed by AI.</span>
   </h1>
   <p class="hero-description">
-    Your AI computer assistant. Install software, fix problems, automate tasks &mdash; just by chatting. No technical skills needed.
+    TaskBolt is a desktop AI agent that installs software, fixes errors, diagnoses issues, sets up local LLMs, and configures tools &mdash; all through conversation. No terminal knowledge required.
   </p>
   <a href="#download" class="hero-cta">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
@@ -753,10 +766,8 @@ footer a:hover {
 <script>
 // Video fade-in/fade-out loop logic
 (function() {
-  const video = document.getElementById('bgVideo');
+  var video = document.getElementById('bgVideo');
   if (!video) return;
-  
-  let fading = false;
   
   function checkVideoProgress() {
     if (!video.duration || isNaN(video.duration)) {
@@ -764,20 +775,15 @@ footer a:hover {
       return;
     }
     
-    const currentTime = video.currentTime;
-    const duration = video.duration;
-    const fadeTime = 0.5; // 0.5 seconds
+    var currentTime = video.currentTime;
+    var duration = video.duration;
+    var fadeTime = 0.5;
     
-    // Fade in at start
     if (currentTime < fadeTime) {
       video.style.opacity = currentTime / fadeTime;
-    }
-    // Fade out before end
-    else if (currentTime > duration - fadeTime) {
+    } else if (currentTime > duration - fadeTime) {
       video.style.opacity = (duration - currentTime) / fadeTime;
-    }
-    // Full opacity in middle
-    else {
+    } else {
       video.style.opacity = 1;
     }
     
