@@ -6,9 +6,9 @@
 <title>TaskBolt &mdash; Your AI Computer Assistant</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" href="/icon.png">
-<meta name="description" content="TaskBolt is a free AI computer assistant that manages your entire machine. Automate complex workflows, fix deep system issues, set up environments, and run AI privately &mdash; all through conversation.">
+<meta name="description" content="TaskBolt is a free AI assistant that runs on your computer. It handles everything &mdash; apps, problems, files, tasks &mdash; all through simple conversation. Private, fast, free.">
 <meta property="og:title" content="TaskBolt &mdash; Your AI Computer Assistant">
-<meta property="og:description" content="An AI that actually runs your computer. Automate workflows, fix system issues, set up environments, run AI models privately. Free download.">
+<meta property="og:description" content="An AI that actually runs your computer. Private, free, and works through conversation. Download now.">
 <meta property="og:image" content="/icon.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,103 +18,105 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
 --bg:#fff;--text:#0a0a0a;--sub:#1a1a1a;--mute:#3a3a3a;--line:#ddd;
---font-d:'Instrument Serif',Georgia,'Times New Roman',serif;
---font-b:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+--fd:'Instrument Serif',Georgia,serif;
+--fb:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 html{scroll-behavior:smooth}
-body{font-family:var(--font-b);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--fb);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
 
-/* FIXED VIDEO - entire viewport, infinite loop, no blank */
-.vid{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:0;overflow:hidden;pointer-events:none}
-.vid video{position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;transform:translate(-50%,-50%);object-fit:cover;opacity:1}
-.vid-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(255,255,255,.25) 20%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.25) 80%,rgba(255,255,255,.7) 100%)}
-
-/* Content above video */
-.wrap{position:relative;z-index:10}
-
-/* Nav */
-nav{display:flex;justify-content:space-between;align-items:center;padding:20px 40px;max-width:1280px;margin:0 auto;backdrop-filter:blur(16px);background:rgba(255,255,255,.65)}
-.brand{font-family:var(--font-d);font-size:1.8rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:18px 40px;max-width:1280px;margin:0 auto;backdrop-filter:blur(20px);background:rgba(255,255,255,.7)}
+.brand{font-family:var(--fd);font-size:1.8rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
 .brand img{width:34px;height:34px;border-radius:8px}
-.brand sup{font-size:.55rem;font-family:var(--font-b);font-weight:400}
-.nlinks{display:flex;gap:28px;align-items:center}
-.nlinks a{font-size:.85rem;color:var(--mute);text-decoration:none;font-weight:500;transition:color .2s}
-.nlinks a:hover{color:var(--text)}
+.brand sup{font-size:.55rem;font-family:var(--fb);font-weight:400}
+.nl{display:flex;gap:28px;align-items:center}
+.nl a{font-size:.85rem;color:var(--mute);text-decoration:none;font-weight:500;transition:color .2s}
+.nl a:hover{color:var(--text)}
 .ncta{background:var(--text)!important;color:#fff!important;padding:10px 24px!important;border-radius:9999px!important;font-weight:600!important;transition:transform .2s!important}
 .ncta:hover{transform:scale(1.03)!important}
 
-/* Hero */
-.hero{padding:100px 24px 100px;display:flex;flex-direction:column;align-items:center;text-align:center}
-.hero h1{font-family:var(--font-d);font-size:clamp(3rem,9vw,7rem);font-weight:400;line-height:.9;letter-spacing:-3px;color:var(--text);max-width:1000px;opacity:0;transform:translateY(24px);animation:rise .9s ease-out .15s forwards}
+/* HERO with video */
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;overflow:hidden}
+.hero-vid{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;overflow:hidden}
+.hero-vid video{width:100%;height:100%;object-fit:contain;background:#000}
+.hero-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.35) 40%,rgba(255,255,255,.35) 60%,rgba(255,255,255,.6) 100%);z-index:1}
+.hero-c{position:relative;z-index:2;max-width:800px}
+.hero h1{font-family:var(--fd);font-size:clamp(3rem,9vw,7rem);font-weight:400;line-height:.9;letter-spacing:-3px;color:var(--text);opacity:0;transform:translateY(24px);animation:rise .9s ease-out .15s forwards}
 .hero h1 em{font-style:italic;color:var(--sub)}
-.hero-sub{font-size:clamp(1.05rem,2vw,1.2rem);color:var(--sub);max-width:560px;margin-top:28px;line-height:1.7;font-weight:400;opacity:0;transform:translateY(20px);animation:rise .8s ease-out .35s forwards}
+.hero-sub{font-size:clamp(1.05rem,2vw,1.2rem);color:var(--sub);max-width:540px;margin:28px auto 0;line-height:1.7;opacity:0;transform:translateY(20px);animation:rise .8s ease-out .35s forwards}
 .hero-dl{margin-top:48px;opacity:0;transform:translateY(20px);animation:rise .8s ease-out .5s forwards}
-.dl-btn{display:inline-flex;flex-direction:column;align-items:center;gap:6px;background:var(--text);color:#fff;padding:20px 56px;border-radius:9999px;text-decoration:none;font-weight:600;font-size:1.05rem;transition:transform .2s,box-shadow .2s;border:none;cursor:pointer}
+.dl-btn{display:inline-flex;flex-direction:column;align-items:center;gap:8px;background:var(--text);color:#fff;padding:20px 56px;border-radius:9999px;text-decoration:none;font-weight:600;font-size:1.05rem;transition:transform .2s,box-shadow .2s;border:none;cursor:pointer}
 .dl-btn:hover{transform:scale(1.04);box-shadow:0 10px 40px rgba(0,0,0,.2)}
-.dl-btn .logos{display:flex;gap:12px;align-items:center}
+.dl-btn .logos{display:flex;gap:14px;align-items:center}
 .dl-btn .logos svg{width:22px;height:22px;fill:#fff}
+.hero-priv{font-size:.78rem;color:var(--mute);margin-top:20px;font-weight:500;opacity:0;animation:rise .8s ease-out .65s forwards;display:flex;align-items:center;justify-content:center;gap:6px}
+.hero-priv .lock{width:14px;height:14px;fill:var(--mute)}
 
-/* Platform logos row below button */
-.platforms{display:flex;gap:24px;align-items:center;justify-content:center;margin-top:18px;opacity:0;animation:rise .8s ease-out .65s forwards}
-.platforms span{font-size:.75rem;color:var(--mute);font-weight:500;display:flex;align-items:center;gap:6px}
-.platforms svg{width:16px;height:16px;fill:var(--mute)}
-
-/* Section scaffolding */
-.sec{position:relative}
-.sec-pad{padding:100px 24px}
-.sec-wh{background:rgba(255,255,255,.75);backdrop-filter:blur(16px)}
-.sec-gr{background:rgba(245,245,245,.75);backdrop-filter:blur(16px)}
+/* Sections */
+.sp{padding:100px 24px}
+.sw{background:var(--bg)}
+.sg{background:#f7f7f7}
 .sh{text-align:center;margin-bottom:56px}
-.sh h2{font-family:var(--font-d);font-size:clamp(2.2rem,5vw,3.4rem);font-weight:400;letter-spacing:-1.5px;color:var(--text);margin-bottom:14px}
+.sh h2{font-family:var(--fd);font-size:clamp(2.2rem,5vw,3.4rem);font-weight:400;letter-spacing:-1.5px;color:var(--text);margin-bottom:14px}
 .sh p{color:var(--sub);font-size:1.05rem;max-width:500px;margin:0 auto;line-height:1.6}
 
-/* Use cases */
-.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:20px;max-width:1040px;margin:0 auto}
-.uc{background:rgba(255,255,255,.72);border:1.5px solid var(--line);border-radius:20px;padding:36px;transition:all .3s;backdrop-filter:blur(12px)}
-.uc:hover{border-color:#aaa;transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
+/* Privacy banner */
+.priv{padding:60px 24px;text-align:center;background:#f7f7f7;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.priv-inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:20px;justify-content:center;flex-wrap:wrap}
+.priv-ico{width:48px;height:48px;fill:var(--text);flex-shrink:0}
+.priv-text{text-align:left}
+.priv-text h3{font-family:var(--fd);font-size:1.4rem;color:var(--text);margin-bottom:4px}
+.priv-text p{font-size:.9rem;color:var(--sub);line-height:1.6;max-width:380px}
+
+/* Use case cards */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;max-width:1040px;margin:0 auto}
+.uc{background:var(--bg);border:1.5px solid var(--line);border-radius:20px;padding:36px;transition:all .3s}
+.uc:hover{border-color:#aaa;transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.07)}
 .uc-ico{font-size:2rem;margin-bottom:16px}
-.uc h3{font-family:var(--font-d);font-size:1.5rem;color:var(--text);margin-bottom:10px}
+.uc h3{font-family:var(--fd);font-size:1.5rem;color:var(--text);margin-bottom:10px}
 .uc p{font-size:.9rem;color:var(--sub);line-height:1.7}
 
 /* Steps */
 .steps{display:flex;gap:40px;max-width:940px;margin:0 auto;flex-wrap:wrap;justify-content:center}
 .step{flex:1;min-width:250px;text-align:center;padding:24px}
-.step-n{width:56px;height:56px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;margin:0 auto 20px;font-family:var(--font-d)}
-.step h3{font-family:var(--font-d);font-size:1.5rem;color:var(--text);margin-bottom:10px}
+.step-n{width:56px;height:56px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;margin:0 auto 20px;font-family:var(--fd)}
+.step h3{font-family:var(--fd);font-size:1.5rem;color:var(--text);margin-bottom:10px}
 .step p{font-size:.9rem;color:var(--sub);line-height:1.7}
 
 /* Pricing */
-.pbox{max-width:720px;margin:0 auto;text-align:center;background:rgba(255,255,255,.75);backdrop-filter:blur(16px);border:1.5px solid var(--line);border-radius:28px;padding:56px 48px}
-.pbox h2{font-family:var(--font-d);font-size:clamp(2rem,5vw,3rem);color:var(--text);margin-bottom:14px}
+.pbox{max-width:720px;margin:0 auto;text-align:center;background:var(--bg);border:1.5px solid var(--line);border-radius:28px;padding:56px 48px}
+.pbox h2{font-family:var(--fd);font-size:clamp(2rem,5vw,3rem);color:var(--text);margin-bottom:14px}
 .pbox .pdesc{color:var(--sub);font-size:1.05rem;margin-bottom:40px;line-height:1.6;max-width:460px;margin-left:auto;margin-right:auto}
 .chips{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:36px}
 .chip{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px 28px;min-width:140px;transition:all .2s}
 .chip:hover{border-color:var(--text);transform:translateY(-2px)}
 .chip.hi{border-color:var(--text);background:#f5f5f5}
-.chip .cp{font-family:var(--font-d);font-size:1.9rem;color:var(--text)}
+.chip .cp{font-family:var(--fd);font-size:1.9rem;color:var(--text)}
 .chip .ca{font-size:.82rem;color:var(--mute);margin-top:4px;font-weight:500}
 .pfoot{font-size:.82rem;color:var(--mute);line-height:1.7}
 .pfoot strong{color:var(--sub);font-weight:600}
 
 /* FAQ */
 .fqlist{max-width:660px;margin:0 auto}
-.fq{background:rgba(255,255,255,.75);backdrop-filter:blur(12px);border:1.5px solid var(--line);border-radius:16px;padding:24px 28px;margin-bottom:10px;transition:border-color .2s}
+.fq{background:var(--bg);border:1.5px solid var(--line);border-radius:16px;padding:24px 28px;margin-bottom:10px;transition:border-color .2s}
 .fq:hover{border-color:#aaa}
-.fq h3{font-family:var(--font-d);font-size:1.25rem;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.fq h3::after{content:'+';font-size:1.4rem;font-weight:300;color:var(--mute);font-family:var(--font-b)}
+.fq h3{font-family:var(--fd);font-size:1.25rem;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.fq h3::after{content:'+';font-size:1.4rem;font-weight:300;color:var(--mute);font-family:var(--fb)}
 .fq.open h3::after{content:'\2212'}
 .fq p{font-size:.88rem;color:var(--sub);line-height:1.7;display:none;margin-top:10px}
 .fq.open p{display:block}
 
 /* Final CTA */
-.fcta{text-align:center;padding:100px 24px 80px;background:rgba(255,255,255,.75);backdrop-filter:blur(16px)}
-.fcta h2{font-family:var(--font-d);font-size:clamp(2.4rem,6vw,3.6rem);color:var(--text);margin-bottom:14px}
+.fcta{text-align:center;padding:100px 24px 80px}
+.fcta h2{font-family:var(--fd);font-size:clamp(2.4rem,6vw,3.6rem);color:var(--text);margin-bottom:14px}
 .fcta p{color:var(--sub);font-size:1.1rem;margin-bottom:40px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.6}
-.fcta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
-.fcta-note{font-size:.78rem;color:var(--mute);font-weight:500}
+.fcta-plats{display:flex;gap:24px;align-items:center;justify-content:center;margin-top:18px}
+.fcta-plats span{font-size:.75rem;color:var(--mute);font-weight:500;display:flex;align-items:center;gap:6px}
+.fcta-plats svg{width:16px;height:16px;fill:var(--mute)}
+.fcta-note{font-size:.78rem;color:var(--mute);font-weight:500;margin-top:12px}
 
 /* Footer */
-footer{padding:40px 24px;border-top:1px solid var(--line);text-align:center;background:rgba(255,255,255,.95)}
+footer{padding:40px 24px;border-top:1px solid var(--line);text-align:center}
 footer p{font-size:.82rem;color:var(--mute)}
 footer a{color:var(--sub);text-decoration:none;font-weight:500}
 footer a:hover{color:var(--text)}
@@ -124,32 +126,22 @@ footer a:hover{color:var(--text)}
 @media(max-width:768px){
 nav{padding:14px 20px}
 .brand{font-size:1.4rem}
-.nlinks a:not(.ncta){display:none}
-.nlinks{gap:10px}
-.hero{padding:60px 20px 70px}
+.nl a:not(.ncta){display:none}
+.nl{gap:10px}
+.hero{padding:100px 20px 60px}
 .uc-grid{grid-template-columns:1fr}
 .chips{flex-direction:column;align-items:center}
 .chip{width:100%;max-width:200px}
-.fcta-actions{flex-direction:column;align-items:center}
+.fcta-plats{flex-direction:column;gap:12px}
 }
 </style>
 </head>
 <body>
 
-<!-- FIXED VIDEO -->
-<div class="vid">
-<video id="bv" autoplay muted loop playsinline preload="auto">
-<source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
-</video>
-<div class="vid-ov"></div>
-</div>
-
-<div class="wrap">
-
 <!-- Nav -->
 <nav>
 <a href="/" class="brand"><img src="/icon.png" alt="TaskBolt">TaskBolt<sup>&reg;</sup></a>
-<div class="nlinks">
+<div class="nl">
 <a href="#features">Features</a>
 <a href="#how">How It Works</a>
 <a href="#pricing">Pricing</a>
@@ -157,11 +149,18 @@ nav{padding:14px 20px}
 </div>
 </nav>
 
-<!-- HERO -->
+<!-- HERO with video inside -->
 <section class="hero">
+<div class="hero-vid">
+<video id="bv" autoplay muted loop playsinline preload="auto">
+<source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
+</video>
+</div>
+<div class="hero-ov"></div>
+<div class="hero-c">
 <h1>Your AI<br><em>Computer Assistant.</em></h1>
 <p class="hero-sub">
-Manage your entire computer through conversation. Automate complex workflows, fix deep system issues, build environments, and run AI privately &mdash; all by telling it what you need.
+An AI that lives on your computer and does things for you. Ask it to do anything &mdash; it handles it. Completely private. Nothing leaves your machine.
 </p>
 <div class="hero-dl">
 <a href="#download" class="dl-btn">
@@ -172,100 +171,116 @@ Manage your entire computer through conversation. Automate complex workflows, fi
 Download
 </a>
 </div>
+<p class="hero-priv">
+<svg class="lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2V6a5 5 0 0 0-5-5zm-3 5a3 3 0 1 1 6 0v3H9V6z"/></svg>
+Runs locally on your computer. Everything stays private.
+</p>
+</div>
+</section>
+
+<!-- PRIVACY BANNER -->
+<section class="priv">
+<div class="priv-inner">
+<svg class="priv-ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2V6a5 5 0 0 0-5-5zm-3 5a3 3 0 1 1 6 0v3H9V6zm3 9a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>
+<div class="priv-text">
+<h3>100% private. Always.</h3>
+<p>TaskBolt runs entirely on your computer. Your files, your data, your conversations &mdash; nothing ever leaves your machine. No cloud. No tracking. No compromises.</p>
+</div>
+</div>
 </section>
 
 <!-- WHAT IT DOES -->
-<section class="sec-pad sec-wh" id="features">
+<section class="sp sw" id="features">
 <div class="sh">
-<h2>It runs your computer<br>so you don't have to.</h2>
-<p>Six capabilities that replace hours of manual work.</p>
+<h2>It does what you ask.<br>That's it.</h2>
+<p>No searching for tutorials. No figuring things out yourself. Just ask.</p>
 </div>
 <div class="uc-grid">
 <div class="uc">
-<div class="uc-ico">&#128640;</div>
-<h3>Build entire environments</h3>
-<p>"Set up a full-stack dev environment with Docker, Node, Postgres, and Redis." TaskBolt provisions everything &mdash; installs, configs, dependencies, PATH &mdash; end to end. What takes you a day takes it minutes.</p>
+<div class="uc-ico">&#128230;</div>
+<h3>Get any app set up</h3>
+<p>Need a specific program? Just say which one. TaskBolt finds it, installs it, and makes sure it works &mdash; without you touching a single setting.</p>
 </div>
 <div class="uc">
-<div class="uc-ico">&#128269;</div>
-<h3>Diagnose system failures</h3>
-<p>Crashing apps, corrupted services, broken network configs, kernel panics. TaskBolt scans logs, traces dependencies, identifies root causes, and applies fixes &mdash; all through one conversation.</p>
+<div class="uc-ico">&#128295;</div>
+<h3>Fix problems instantly</h3>
+<p>Something not working right? Your computer is slow? An app keeps crashing? Describe what's happening and TaskBolt figures it out and fixes it.</p>
 </div>
 <div class="uc">
-<div class="uc-ico">&#128202;</div>
-<h3>Analyze anything on your machine</h3>
-<p>Drop a 200-page PDF, a folder of spreadsheets, raw log files, or database exports. TaskBolt reads, cross-references, and gives you structured answers in seconds.</p>
+<div class="uc-ico">&#128196;</div>
+<h3>Read and understand files</h3>
+<p>Drop any document &mdash; a contract, a spreadsheet, a report, a photo. TaskBolt reads it, pulls out what matters, and answers your questions about it.</p>
 </div>
 <div class="uc">
-<div class="uc-ico">&#129504;</div>
-<h3>Run AI models locally</h3>
-<p>TaskBolt deploys LLMs, image generators, and embedding models directly on your hardware. Your data stays on your machine. No API keys leaking. No cloud bills. Full privacy.</p>
+<div class="uc-ico">&#129302;</div>
+<h3>Use AI without the cloud</h3>
+<p>TaskBolt sets up AI that runs right on your computer. Ask it anything. Your data stays on your machine &mdash; nothing gets sent anywhere else.</p>
 </div>
 <div class="uc">
 <div class="uc-ico">&#128737;&#65039;</div>
-<h3>Harden your security</h3>
-<p>Full vulnerability audits, firewall rules, SSH hardening, certificate management, intrusion detection. Enterprise-grade security setup through a plain English conversation.</p>
+<h3>Keep your computer safe</h3>
+<p>TaskBolt checks for threats, locks down your settings, and makes sure nothing can get in. Security that doesn't require you to be an expert.</p>
 </div>
 <div class="uc">
 <div class="uc-ico">&#9889;</div>
-<h3>Automate complex workflows</h3>
-<p>Multi-step processes that span files, services, APIs, and system configs. Describe the workflow once. TaskBolt executes it reliably every time &mdash; monitoring, error-handling, and reporting included.</p>
+<h3>Handle repetitive work</h3>
+<p>Renaming hundreds of files. Moving things around. Organizing folders. Cleaning up your desktop. Tell TaskBolt once and it takes care of all of it.</p>
 </div>
 </div>
 </section>
 
 <!-- HOW -->
-<section class="sec-pad sec-gr" id="how">
+<section class="sp sg" id="how">
 <div class="sh">
-<h2>Three steps.</h2>
-<p>No terminal. No learning curve. No prerequisites.</p>
+<h2>How it works.</h2>
+<p>Three steps. That's the whole thing.</p>
 </div>
 <div class="steps">
 <div class="step">
 <div class="step-n">1</div>
-<h3>Download &amp; sign in</h3>
-<p>One-click install. Create an account with Google, GitHub, or email. You're ready in under 60 seconds.</p>
+<h3>Download the app</h3>
+<p>One click to install. Sign up with Google, GitHub, or email. You're ready in under a minute.</p>
 </div>
 <div class="step">
 <div class="step-n">2</div>
-<h3>Describe what you need</h3>
-<p>Type naturally. "Set up my machine for ML development." "Why does my app keep crashing?" "Migrate this database to Postgres." TaskBolt understands context.</p>
+<h3>Tell it what you need</h3>
+<p>Type like you're texting someone. "My computer is running slow." "I need this app." "Can you read this document?" Simple as that.</p>
 </div>
 <div class="step">
 <div class="step-n">3</div>
-<h3>It executes. You watch.</h3>
-<p>Every command, every step, every decision &mdash; visible in real time. You see exactly what TaskBolt is doing and why. Full transparency, zero black boxes.</p>
+<h3>Watch it work</h3>
+<p>TaskBolt does everything &mdash; and you can see exactly what it's doing at every step. No black boxes. No guessing.</p>
 </div>
 </div>
 </section>
 
 <!-- PRICING -->
-<section class="sec-pad sec-wh" id="pricing">
+<section class="sp sw" id="pricing">
 <div class="sh">
-<h2>One-time credits.<br>No subscriptions.</h2>
-<p>Buy what you need. They never expire.</p>
+<h2>Simple pricing.<br>No surprises.</h2>
+<p>Buy credits once. Use them whenever. They never expire.</p>
 </div>
 <div class="pbox">
-<p class="pdesc">Credits power every AI task on your computer. Complex workflows use more. Quick fixes use less. You start with 500 free.</p>
+<p class="pdesc">Credits power every task. Simple tasks use a few. Bigger tasks use more. You start with 500 free &mdash; enough to see what TaskBolt can do.</p>
 <div class="chips">
 <div class="chip"><div class="cp">$6</div><div class="ca">20,000 credits</div></div>
 <div class="chip hi"><div class="cp">$24</div><div class="ca">80,000 credits</div></div>
 <div class="chip"><div class="cp">$60</div><div class="ca">200,000 credits</div></div>
 <div class="chip"><div class="cp">$150</div><div class="ca">500,000 credits</div></div>
 </div>
-<p class="pfoot"><strong>Credits never expire.</strong> No recurring charges. No auto-renewal. Use them whenever.</p>
+<p class="pfoot"><strong>Credits never expire.</strong> No subscriptions. No auto-renewal. Pay once, use forever.</p>
 </div>
 </section>
 
 <!-- FAQ -->
-<section class="sec-pad sec-gr">
+<section class="sp sg">
 <div class="sh"><h2>Common questions.</h2></div>
 <div class="fqlist">
-<div class="fq"><h3>What exactly is TaskBolt?</h3><p>An AI agent that runs on your computer with full system access. It can execute commands, manage files, install packages, edit configs, run diagnostics, and automate multi-step workflows &mdash; all through natural conversation.</p></div>
-<div class="fq"><h3>Is it free?</h3><p>The app is free to download. You get 500 credits on signup. After that, buy a one-time credit pack. No subscription, ever.</p></div>
-<div class="fq"><h3>How is this different from ChatGPT or Claude?</h3><p>ChatGPT gives you instructions. TaskBolt executes them. It doesn't tell you what to type in the terminal &mdash; it runs the terminal for you. Full system access, real actions, real results.</p></div>
-<div class="fq"><h3>Is my data private?</h3><p>TaskBolt runs on your machine. Your files never leave your computer. Only the AI conversation goes through our servers &mdash; and we never store your data.</p></div>
-<div class="fq"><h3>What platforms are supported?</h3><p>Windows is available now. Mac and Linux are coming soon. The AI capabilities are identical across all platforms.</p></div>
+<div class="fq"><h3>What is TaskBolt?</h3><p>It's an AI assistant that lives on your computer. You tell it what you need in plain language, and it does it. Installs things, fixes problems, reads files, handles tasks &mdash; all by itself.</p></div>
+<div class="fq"><h3>Is it really free?</h3><p>The app is free. You get 500 credits when you sign up &mdash; enough to try it out. When you want more, buy a one-time credit pack. No subscription, ever.</p></div>
+<div class="fq"><h3>Is my data private?</h3><p>Completely. TaskBolt runs on your computer. Your files never leave your machine. Your conversations are processed locally. We don't see your data, we don't store your data, we can't access your data.</p></div>
+<div class="fq"><h3>How is this different from ChatGPT?</h3><p>ChatGPT gives you answers in a browser tab. TaskBolt actually does things on your computer. It doesn't tell you what to do &mdash; it does it for you.</p></div>
+<div class="fq"><h3>What platforms work?</h3><p>Windows is available now. Mac and Linux are coming soon.</p></div>
 </div>
 </section>
 
@@ -273,7 +288,6 @@ Download
 <section class="fcta" id="download">
 <h2>Get started now.</h2>
 <p>Download TaskBolt. Tell it what you need. Watch it work.</p>
-<div class="fcta-actions">
 <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="dl-btn" id="downloadBtn">
 <span class="logos">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
@@ -281,30 +295,24 @@ Download
 </span>
 Download
 </a>
-</div>
-<div class="platforms">
+<div class="fcta-plats">
 <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg> Windows</span>
 <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg> Mac (Soon)</span>
 <span>Linux (Soon)</span>
 </div>
-<p class="fcta-note" style="margin-top:10px">One-click installer &bull; No admin rights needed</p>
+<p class="fcta-note">One-click installer. No admin rights needed.</p>
 </section>
 
 <footer>
 <p>&copy; 2026 <a href="https://qosta.com">Qosta</a>. All rights reserved. &middot; <a href="https://taskbolt.space">taskbolt.space</a></p>
 </footer>
 
-</div>
-
 <script>
-// Video: seamless infinite loop, no blank ever
 (function(){
 var v=document.getElementById('bv');
 if(!v)return;
-// Preload + immediate play
 v.preload='auto';
 v.play().catch(function(){});
-// On ended: seamless restart with crossfade
 v.addEventListener('ended',function(){
 v.style.transition='opacity .4s ease';
 v.style.opacity='0';
@@ -315,13 +323,9 @@ setTimeout(function(){v.style.opacity='1'},50);
 },200);
 });
 })();
-
-// FAQ
 document.querySelectorAll('.fq h3').forEach(function(h){
 h.addEventListener('click',function(){h.parentElement.classList.toggle('open')});
 });
-
-// Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(function(a){
 a.addEventListener('click',function(e){
 var h=a.getAttribute('href');if(h==='#')return;
