@@ -6,7 +6,7 @@
 <title>TaskBolt &mdash; Your AI Computer Assistant</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" href="/icon.png">
-<meta name="description" content="TaskBolt is a free AI desktop assistant that installs software, fixes computer problems, and automates tasks &mdash; just by chatting with you. No technical skills needed.">
+<meta name="description" content="TaskBolt is a free AI assistant that runs on your computer. Just tell it what you need &mdash; install software, fix problems, automate tasks. No tech skills required.">
 <meta property="og:title" content="TaskBolt &mdash; Your AI Computer Assistant">
 <meta property="og:description" content="Stop Googling errors. TaskBolt fixes your computer, installs software, and handles tasks through simple conversation.">
 <meta property="og:image" content="/icon.png">
@@ -24,8 +24,8 @@
   --accent: #000000;
   --accent-light: #1a1a1a;
   --green: #22c55e;
-  --font-display: 'Instrument Serif', serif;
-  --font-body: 'Inter', sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
 }
 html { scroll-behavior: smooth; }
 body {
@@ -160,32 +160,66 @@ nav {
   font-family: var(--font-body);
   font-size: clamp(1rem, 2vw, 1.125rem);
   color: var(--text-secondary);
-  max-width: 640px;
+  max-width: 580px;
   margin-top: 32px;
   line-height: 1.7;
   opacity: 0;
   transform: translateY(20px);
   animation: fade-rise 0.8s ease-out 0.2s forwards;
 }
-.hero-cta {
-  background: var(--accent);
-  color: #FFFFFF;
-  padding: 20px 56px;
-  border-radius: 9999px;
-  font-size: 1rem;
+.hero-actions {
+  display: flex;
+  gap: 14px;
   margin-top: 48px;
-  text-decoration: none;
-  transition: transform 0.2s;
-  font-weight: 500;
+  flex-wrap: wrap;
+  justify-content: center;
   opacity: 0;
   transform: translateY(20px);
   animation: fade-rise 0.8s ease-out 0.4s forwards;
+}
+.hero-btn {
+  background: var(--accent);
+  color: #FFFFFF;
+  padding: 18px 40px;
+  border-radius: 9999px;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.2s;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
-.hero-cta:hover {
+.hero-btn:hover {
   transform: scale(1.03);
+}
+.hero-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.hero-btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  padding: 18px 40px;
+  border-radius: 9999px;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: all 0.2s;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.hero-btn-secondary:hover {
+  border-color: var(--text);
+  transform: scale(1.03);
+}
+.hero-btn-secondary svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 .hero-note {
   font-size: 0.82rem;
@@ -193,13 +227,6 @@ nav {
   margin-top: 16px;
   opacity: 0;
   animation: fade-rise 0.8s ease-out 0.6s forwards;
-}
-
-/* Container for sections below hero */
-.container {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 24px;
 }
 
 /* Social proof */
@@ -512,12 +539,19 @@ nav {
   margin-right: auto;
   line-height: 1.7;
 }
+.cta-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
 .cta-btn {
   background: var(--accent);
   color: #FFFFFF;
-  padding: 20px 56px;
+  padding: 18px 40px;
   border-radius: 9999px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   text-decoration: none;
   transition: transform 0.2s;
   font-weight: 500;
@@ -528,10 +562,45 @@ nav {
 .cta-btn:hover {
   transform: scale(1.03);
 }
+.cta-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.cta-btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  padding: 18px 40px;
+  border-radius: 9999px;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: all 0.2s;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.cta-btn-secondary:hover {
+  border-color: var(--text);
+  transform: scale(1.03);
+}
+.cta-btn-secondary svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+.cta-btn-secondary.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.cta-btn-secondary.disabled:hover {
+  border-color: var(--border);
+  transform: none;
+}
 .cta-note {
   font-size: 0.78rem;
   color: var(--text-tertiary);
-  margin-top: 16px;
 }
 
 /* Footer */
@@ -589,6 +658,10 @@ footer a:hover {
     padding-top: 4rem;
     padding-bottom: 6rem;
   }
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
   .proof-grid {
     gap: 32px;
   }
@@ -599,6 +672,10 @@ footer a:hover {
   .credit-chip {
     width: 100%;
     max-width: 200px;
+  }
+  .cta-actions {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>
@@ -631,16 +708,22 @@ footer a:hover {
 <!-- Hero Section -->
 <section class="hero">
   <h1 class="hero-headline">
-    Your computer, <span class="italic">managed by AI.</span>
+    Tell your computer<br><span class="italic">what to do.</span>
   </h1>
   <p class="hero-description">
-    TaskBolt is a desktop AI agent that installs software, fixes errors, diagnoses issues, sets up local LLMs, and configures tools &mdash; all through conversation. No terminal knowledge required.
+    TaskBolt is a free AI assistant that lives on your computer. Just ask it to install apps, fix problems, or handle tasks &mdash; it does the rest.
   </p>
-  <a href="#download" class="hero-cta">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
-    Download Free
-  </a>
-  <p class="hero-note">Free download &bull; 500 credits included &bull; No subscription</p>
+  <div class="hero-actions">
+    <a href="#download" class="hero-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
+      Windows
+    </a>
+    <a href="#download" class="hero-btn-secondary" id="heroMacBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
+      Mac (Soon)
+    </a>
+  </div>
+  <p class="hero-note">Free to download &bull; 500 credits included &bull; No subscription</p>
 </section>
 
 <!-- Social proof -->
@@ -657,39 +740,39 @@ footer a:hover {
 <!-- Features -->
 <section class="features" id="features">
   <div class="section-title">
-    <h2>One assistant. Every task.</h2>
-    <p>Skip the troubleshooting guides. TaskBolt does it for you.</p>
+    <h2>Ask. It handles it.</h2>
+    <p>Anything you'd Google how to do &mdash; TaskBolt just does it for you.</p>
   </div>
   <div class="feature-grid">
     <div class="feature-card">
       <div class="feature-icon">&#128295;</div>
-      <h3>Fix computer problems</h3>
-      <p>Slow PC? WiFi not working? App keeps crashing? Describe the problem in plain English and TaskBolt diagnoses and fixes it automatically.</p>
+      <h3>Fix anything</h3>
+      <p>Computer slow? WiFi dropping? App crashing? Tell TaskBolt what's wrong and it diagnoses and fixes the problem automatically.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#128230;</div>
-      <h3>Install any software</h3>
-      <p>Say "install Photoshop" or "set up Python." TaskBolt downloads, installs, and configures everything &mdash; including dependencies you didn't know you needed.</p>
+      <h3>Install any app</h3>
+      <p>Need Photoshop? Python? Docker? Just say the word. TaskBolt finds, downloads, and installs everything for you.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#128196;</div>
-      <h3>Read and analyze files</h3>
-      <p>Drop a PDF, image, spreadsheet, or document. TaskBolt reads the content, summarizes it, and answers questions &mdash; like having a research assistant on your desktop.</p>
+      <h3>Read any file</h3>
+      <p>Drop a PDF, spreadsheet, image, or document. TaskBolt reads it, summarizes the key points, and answers your questions about it.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#129302;</div>
-      <h3>Set up AI tools</h3>
-      <p>Want to run AI on your own computer? TaskBolt installs and configures local AI models so you can use them privately, with no cloud required.</p>
+      <h3>Run AI privately</h3>
+      <p>TaskBolt sets up AI models that run entirely on your computer. Your data never leaves your machine.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#128737;&#65039;</div>
-      <h3>Security &amp; privacy</h3>
-      <p>Check for vulnerabilities, configure your firewall, harden your system. TaskBolt keeps your computer secure without complicated settings menus.</p>
+      <h3>Stay secure</h3>
+      <p>Scan for threats, configure your firewall, lock down your system &mdash; all through a simple conversation. No complex menus.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">&#9889;</div>
-      <h3>Automate repetitive tasks</h3>
-      <p>Renaming 500 files? Backing up folders? Cleaning up your desktop? Tell TaskBolt once and it handles the entire job while you do something else.</p>
+      <h3>Automate the boring stuff</h3>
+      <p>Renaming files, backing up folders, cleaning up storage &mdash; tell TaskBolt once and it handles the entire job.</p>
     </div>
   </div>
 </section>
@@ -697,24 +780,24 @@ footer a:hover {
 <!-- How it works -->
 <section class="how" id="how">
   <div class="section-title">
-    <h2>How it works</h2>
-    <p>No technical skills required. Just talk to it.</p>
+    <h2>Three steps. That's it.</h2>
+    <p>No terminal. No command line. No tech skills.</p>
   </div>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
       <h3>Download &amp; sign in</h3>
-      <p>Install in seconds. Create an account with Google, GitHub, or email &mdash; you get 500 free credits right away.</p>
+      <p>Install in seconds. Sign up with Google, GitHub, or email. You get 500 free credits instantly.</p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <h3>Tell it what you need</h3>
-      <p>Type naturally. "My computer is slow," "Install Node.js," "Summarize this PDF." No commands, no menus to navigate.</p>
+      <h3>Say what you need</h3>
+      <p>Type like you're texting a friend. "My laptop is slow" or "Install Node.js" or "Summarize this report."</p>
     </div>
     <div class="step">
       <div class="step-num">3</div>
       <h3>Watch it work</h3>
-      <p>TaskBolt runs the commands, installs the packages, and fixes the issues &mdash; showing you exactly what it's doing at every step.</p>
+      <p>TaskBolt does it all &mdash; running the commands, installing the tools, fixing the issues &mdash; while you watch every step.</p>
     </div>
   </div>
 </section>
@@ -722,8 +805,8 @@ footer a:hover {
 <!-- Credits -->
 <section class="credits-section" id="credits">
   <div class="credits-box">
-    <h2>Simple credits.<br>No subscriptions.</h2>
-    <p class="subtitle">Buy credits once, use them forever. Each credit powers AI tasks on your computer. Start with 500 free credits when you sign up.</p>
+    <h2>Pay once.<br>Use forever.</h2>
+    <p class="subtitle">No subscriptions. No hidden fees. Buy credits when you need them &mdash; they never expire. You start with 500 free.</p>
     <div class="credit-tiers">
       <div class="credit-chip"><div class="price">$6</div><div class="amount">20K credits</div></div>
       <div class="credit-chip highlight"><div class="price">$24</div><div class="amount">80K credits</div></div>
@@ -731,7 +814,7 @@ footer a:hover {
       <div class="credit-chip"><div class="price">$150</div><div class="amount">500K credits</div></div>
     </div>
     <p class="credits-note"><strong>Credits never expire.</strong> No monthly fees. No auto-renewal.<br>Buy what you need, when you need it.</p>
-    <div class="credits-cta"><a href="/auth/signin">View all packs &rarr;</a></div>
+    <div class="credits-cta"><a href="/auth/signin">Get Credits &rarr;</a></div>
   </div>
 </section>
 
@@ -739,22 +822,28 @@ footer a:hover {
 <section class="faq">
   <div class="section-title"><h2>Common questions</h2></div>
   <div class="faq-list">
-    <div class="faq-item"><h3>Is TaskBolt really free?</h3><p>Yes. The app is free to download and you get 500 credits when you sign up. That's enough for several tasks. When you need more, buy a credit pack &mdash; no subscription, no strings attached.</p></div>
-    <div class="faq-item"><h3>Do I need technical skills?</h3><p>Not at all. Just describe what you need in everyday language. TaskBolt handles all the technical stuff behind the scenes &mdash; installing packages, editing system files, running diagnostics.</p></div>
-    <div class="faq-item"><h3>Is my data safe?</h3><p>TaskBolt runs on your computer, not in the cloud. Your files stay on your machine. Only the AI conversation passes through our servers &mdash; and we never store your files or screen content.</p></div>
-    <div class="faq-item"><h3>What can I actually do with it?</h3><p>Install software, fix computer problems, analyze documents, automate repetitive tasks, set up development tools, run AI models locally, configure network settings &mdash; basically anything you'd do on your computer, but faster.</p></div>
-    <div class="faq-item"><h3>How do credits work?</h3><p>Each AI task uses a small number of credits (usually 1&ndash;10 depending on complexity). Credits never expire and there's no monthly commitment. Buy a pack when you're running low &mdash; that's it.</p></div>
+    <div class="faq-item"><h3>Is it really free?</h3><p>Yes. TaskBolt is free to download and use. You get 500 credits when you sign up &mdash; enough for several tasks. When you need more, buy a credit pack. No subscription ever.</p></div>
+    <div class="faq-item"><h3>Do I need to be technical?</h3><p>Not at all. Just type what you need in plain English. TaskBolt handles all the complicated stuff behind the scenes &mdash; you never see a command line.</p></div>
+    <div class="faq-item"><h3>Is my data safe?</h3><p>TaskBolt runs on your computer, not in the cloud. Your files stay on your machine. Only the AI conversation goes through our servers &mdash; and we never store your files.</p></div>
+    <div class="faq-item"><h3>What can I actually do with it?</h3><p>Install software, fix computer problems, analyze documents, automate repetitive tasks, run AI models locally, configure security settings &mdash; basically anything you'd normally Google how to do.</p></div>
+    <div class="faq-item"><h3>How do credits work?</h3><p>Each task uses a small number of credits (usually 1&ndash;10). Credits never expire and there's no monthly commitment. Buy a pack when you're running low.</p></div>
   </div>
 </section>
 
 <!-- Final CTA -->
 <section class="cta" id="download">
-  <h2>Ready to let AI<br>handle your computer?</h2>
-  <p>Download TaskBolt free. Get 500 credits on us. Fix your first problem in under 2 minutes.</p>
-  <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="cta-btn" id="downloadBtn">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
-    Download for Windows
-  </a>
+  <h2>Ready to get started?</h2>
+  <p>Download TaskBolt free. 500 credits on us. Your first task takes under 2 minutes.</p>
+  <div class="cta-actions">
+    <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="cta-btn" id="downloadBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
+      Download for Windows
+    </a>
+    <a href="#" class="cta-btn-secondary disabled" id="downloadMacBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
+      Mac (Coming Soon)
+    </a>
+  </div>
   <p class="cta-note">Windows 10/11 &bull; One-click installer &bull; 500 free credits included</p>
 </section>
 
@@ -768,17 +857,14 @@ footer a:hover {
 (function() {
   var video = document.getElementById('bgVideo');
   if (!video) return;
-  
   function checkVideoProgress() {
     if (!video.duration || isNaN(video.duration)) {
       requestAnimationFrame(checkVideoProgress);
       return;
     }
-    
     var currentTime = video.currentTime;
     var duration = video.duration;
     var fadeTime = 0.5;
-    
     if (currentTime < fadeTime) {
       video.style.opacity = currentTime / fadeTime;
     } else if (currentTime > duration - fadeTime) {
@@ -786,10 +872,8 @@ footer a:hover {
     } else {
       video.style.opacity = 1;
     }
-    
     requestAnimationFrame(checkVideoProgress);
   }
-  
   video.addEventListener('ended', function() {
     video.style.opacity = 0;
     setTimeout(function() {
@@ -797,25 +881,10 @@ footer a:hover {
       video.play();
     }, 100);
   });
-  
   video.addEventListener('loadedmetadata', function() {
     requestAnimationFrame(checkVideoProgress);
   });
 })();
-
-// OS detection for download button
-var ua = navigator.userAgent.toLowerCase();
-var btn = document.getElementById('downloadBtn');
-var winSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>';
-var appleSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>';
-var linuxSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" style="fill:currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489"/></svg>';
-if (ua.includes('mac')) {
-  btn.innerHTML = appleSvg + ' Download for Mac (Coming Soon)';
-  btn.style.opacity = '0.6';
-} else if (ua.includes('linux')) {
-  btn.innerHTML = linuxSvg + ' Download for Linux (Coming Soon)';
-  btn.style.opacity = '0.6';
-}
 
 // FAQ toggle
 document.querySelectorAll('.faq-item h3').forEach(function(h) {
