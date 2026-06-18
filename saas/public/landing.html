@@ -37,9 +37,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content
 
 /* HERO with video */
 .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;overflow:hidden}
-.hero-vid{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;overflow:hidden}
-.hero-vid video{width:100%;height:100%;object-fit:contain;background:#000}
-.hero-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.35) 40%,rgba(255,255,255,.35) 60%,rgba(255,255,255,.6) 100%);z-index:1}
+.hero-vid{position:fixed;top:300px;left:0;right:0;bottom:0;z-index:0;overflow:hidden}
+.hero-vid video{width:100%;height:100%;object-fit:cover}
+.hero-ov{position:fixed;top:300px;left:0;right:0;bottom:0;background:linear-gradient(to bottom,rgba(255,255,255,.4),transparent);z-index:1;pointer-events:none}
 .hero-c{position:relative;z-index:2;max-width:800px}
 .hero h1{font-family:var(--fd);font-size:clamp(3rem,9vw,7rem);font-weight:400;line-height:.9;letter-spacing:-3px;color:var(--text);opacity:0;transform:translateY(24px);animation:rise .9s ease-out .15s forwards}
 .hero h1 em{font-style:italic;color:var(--sub)}
