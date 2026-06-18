@@ -121,7 +121,7 @@ module.exports = async function handler(req, res) {
 </head>
 <body>
   <div class="container">
-    <div class="logo">⚡</div>
+    <div class="logo"><img src="https://taskbolt.space/icon.png" alt="TaskBolt" style="width:48px;height:48px;border-radius:12px"></div>
     <h1>You're In!</h1>
     <p class="subtitle">Where would you like to go?</p>
 
