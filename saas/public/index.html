@@ -35,11 +35,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content
 .ncta{background:var(--text)!important;color:#fff!important;padding:10px 24px!important;border-radius:9999px!important;font-weight:600!important;transition:transform .2s!important}
 .ncta:hover{transform:scale(1.03)!important}
 
-/* HERO with video */
-.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;overflow:hidden}
-.hero-vid{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;overflow:hidden}
-.hero-vid video{width:100%;height:100%;object-fit:contain;background:#000}
-.hero-ov{position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(to bottom,rgba(255,255,255,.5) 0%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.5) 100%);z-index:1;pointer-events:none}
+/* HERO — two halves: white text top, video bottom */
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column}
+.hero-top{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 60px;background:var(--bg);position:relative;z-index:2}
+.hero-bottom{flex:1;position:relative;overflow:hidden;min-height:40vh}
+.hero-vid{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0}
+.hero-vid video{width:100%;height:100%;object-fit:cover}
+.hero-ov{position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(to bottom,rgba(255,255,255,1) 0%,rgba(255,255,255,.3) 15%,transparent 40%);z-index:1;pointer-events:none}
 .hero-c{position:relative;z-index:2;max-width:800px}
 .hero h1{font-family:var(--fd);font-size:clamp(3rem,9vw,7rem);font-weight:400;line-height:.9;letter-spacing:-3px;color:var(--text);opacity:0;transform:translateY(24px);animation:rise .9s ease-out .15s forwards}
 .hero h1 em{font-style:italic;color:var(--sub)}
@@ -149,14 +151,9 @@ nav{padding:14px 20px}
 </div>
 </nav>
 
-<!-- HERO with video inside -->
+<!-- HERO — top white, bottom video -->
 <section class="hero">
-<div class="hero-vid">
-<video id="bv" autoplay muted loop playsinline preload="auto">
-<source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
-</video>
-</div>
-<div class="hero-ov"></div>
+<div class="hero-top">
 <div class="hero-c">
 <h1>Your AI<br><em>Computer Assistant.</em></h1>
 <p class="hero-sub">
@@ -171,6 +168,15 @@ An AI that lives on your computer and does things for you. Ask it to do anything
 Download
 </a>
 </div>
+</div>
+</div>
+<div class="hero-bottom">
+<div class="hero-vid">
+<video id="bv" autoplay muted loop playsinline preload="auto">
+<source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
+</video>
+</div>
+<div class="hero-ov"></div>
 </div>
 </section>
 
