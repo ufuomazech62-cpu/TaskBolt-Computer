@@ -3,6 +3,7 @@
     "api/**/*.js": { "runtime": "@vercel/node@5.1.0" }
   },
   "rewrites": [
+    { "source": "/", "destination": "/landing.html" },
     { "source": "/api/auth/callback/google", "destination": "/api/auth/google" },
     { "source": "/api/auth/callback/github", "destination": "/api/auth/github" },
     { "source": "/api/skills", "destination": "/api/tasks?_route=skills" },
