@@ -3,704 +3,332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TaskBolt &mdash; Free AI Desktop Assistant for Windows &amp; Mac</title>
+<title>TaskBolt &mdash; Your AI Computer Assistant</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" href="/icon.png">
-<meta name="description" content="TaskBolt is a free AI assistant for your computer. It installs apps, fixes errors, reads files, and automates tasks &mdash; all through simple conversation. Download free for Windows. Mac coming soon.">
-<meta property="og:title" content="TaskBolt &mdash; Free AI Desktop Assistant">
-<meta property="og:description" content="Stop Googling how-to guides. TaskBolt installs apps, fixes errors, and automates tasks on your computer through simple chat. Free download, 500 credits included.">
+<meta name="description" content="TaskBolt is a free AI computer assistant that manages your entire machine. Automate complex workflows, fix deep system issues, set up environments, and run AI privately &mdash; all through conversation.">
+<meta property="og:title" content="TaskBolt &mdash; Your AI Computer Assistant">
+<meta property="og:description" content="An AI that actually runs your computer. Automate workflows, fix system issues, set up environments, run AI models privately. Free download.">
 <meta property="og:image" content="/icon.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="keywords" content="AI computer assistant, free AI desktop app, Windows AI assistant, install software automatically, fix computer errors, AI automation, desktop AI agent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --bg: #FFFFFF;
-  --text: #0A0A0A;
-  --text-secondary: #2A2A2A;
-  --text-muted: #444444;
-  --border: #E0E0E0;
-  --accent: #0A0A0A;
-  --green: #16A34A;
-  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#fff;--text:#0a0a0a;--sub:#1a1a1a;--mute:#3a3a3a;--line:#ddd;
+--font-d:'Instrument Serif',Georgia,'Times New Roman',serif;
+--font-b:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
-html { scroll-behavior: smooth; }
-body {
-  font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
-/* FIXED Video Background - spans entire viewport */
-.video-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.video-bg video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.video-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0.6) 60%, rgba(255,255,255,0.85) 100%);
-  z-index: 1;
-}
+/* FIXED VIDEO - entire viewport, infinite loop, no blank */
+.vid{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:0;overflow:hidden;pointer-events:none}
+.vid video{position:absolute;top:50%;left:50%;min-width:100%;min-height:100%;transform:translate(-50%,-50%);object-fit:cover;opacity:1}
+.vid-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.82) 0%,rgba(255,255,255,.55) 35%,rgba(255,255,255,.55) 65%,rgba(255,255,255,.82) 100%)}
 
-/* All content above video */
-.content-wrap {
-  position: relative;
-  z-index: 10;
-}
+/* Content above video */
+.wrap{position:relative;z-index:10}
 
-/* Navigation */
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 40px;
-  max-width: 1280px;
-  margin: 0 auto;
-  backdrop-filter: blur(12px);
-  background: rgba(255,255,255,0.7);
-}
-.nav-brand {
-  font-family: var(--font-display);
-  font-size: 1.8rem;
-  color: var(--text);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.nav-brand img { width: 34px; height: 34px; border-radius: 8px; }
-.nav-brand sup { font-size: 0.55rem; font-family: var(--font-body); font-weight: 400; }
-.nav-links { display: flex; gap: 32px; align-items: center; }
-.nav-links a {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-.nav-links a:hover { color: var(--text); }
-.nav-cta {
-  background: var(--accent) !important;
-  color: #FFF !important;
-  padding: 10px 24px !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  transition: transform 0.2s !important;
-}
-.nav-cta:hover { transform: scale(1.03) !important; }
+/* Nav */
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 40px;max-width:1280px;margin:0 auto;backdrop-filter:blur(16px);background:rgba(255,255,255,.65)}
+.brand{font-family:var(--font-d);font-size:1.8rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+.brand img{width:34px;height:34px;border-radius:8px}
+.brand sup{font-size:.55rem;font-family:var(--font-b);font-weight:400}
+.nlinks{display:flex;gap:28px;align-items:center}
+.nlinks a{font-size:.85rem;color:var(--mute);text-decoration:none;font-weight:500;transition:color .2s}
+.nlinks a:hover{color:var(--text)}
+.ncta{background:var(--text)!important;color:#fff!important;padding:10px 24px!important;border-radius:9999px!important;font-weight:600!important;transition:transform .2s!important}
+.ncta:hover{transform:scale(1.03)!important}
 
 /* Hero */
-.hero {
-  padding: 80px 24px 120px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.8);
-  border: 1px solid var(--border);
-  padding: 6px 18px;
-  border-radius: 9999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 28px;
-  opacity: 0;
-  animation: fade-rise 0.6s ease-out forwards;
-}
-.hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
-.hero-headline {
-  font-family: var(--font-display);
-  font-size: clamp(3rem, 8vw, 6.5rem);
-  font-weight: 400;
-  line-height: 0.92;
-  letter-spacing: -3px;
-  color: var(--text);
-  max-width: 900px;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fade-rise 0.8s ease-out 0.1s forwards;
-}
-.hero-headline em {
-  font-style: italic;
-  color: var(--text-secondary);
-}
-.hero-desc {
-  font-size: clamp(1.05rem, 2vw, 1.2rem);
-  color: var(--text-secondary);
-  max-width: 520px;
-  margin-top: 28px;
-  line-height: 1.65;
-  font-weight: 400;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fade-rise 0.8s ease-out 0.25s forwards;
-}
-.hero-actions {
-  display: flex;
-  gap: 14px;
-  margin-top: 44px;
-  flex-wrap: wrap;
-  justify-content: center;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: fade-rise 0.8s ease-out 0.4s forwards;
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: 9999px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: transform 0.2s, box-shadow 0.2s;
-  cursor: pointer;
-  border: none;
-}
-.btn:hover { transform: scale(1.03); }
-.btn svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
-.btn-primary {
-  background: var(--accent);
-  color: #FFF;
-  padding: 18px 42px;
-}
-.btn-primary:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
-.btn-outline {
-  background: transparent;
-  color: var(--text);
-  border: 2px solid var(--text);
-  padding: 16px 40px;
-}
-.btn-outline.disabled {
-  opacity: 0.4;
-  cursor: default;
-  border-color: var(--border);
-  color: var(--text-muted);
-}
-.btn-outline.disabled:hover { transform: none; box-shadow: none; }
-.hero-note {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 18px;
-  font-weight: 500;
-  opacity: 0;
-  animation: fade-rise 0.8s ease-out 0.55s forwards;
-}
+.hero{padding:100px 24px 100px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.hero h1{font-family:var(--font-d);font-size:clamp(3rem,9vw,7rem);font-weight:400;line-height:.9;letter-spacing:-3px;color:var(--text);max-width:1000px;opacity:0;transform:translateY(24px);animation:rise .9s ease-out .15s forwards}
+.hero h1 em{font-style:italic;color:var(--sub)}
+.hero-sub{font-size:clamp(1.05rem,2vw,1.2rem);color:var(--sub);max-width:560px;margin-top:28px;line-height:1.7;font-weight:400;opacity:0;transform:translateY(20px);animation:rise .8s ease-out .35s forwards}
+.hero-dl{margin-top:48px;opacity:0;transform:translateY(20px);animation:rise .8s ease-out .5s forwards}
+.dl-btn{display:inline-flex;flex-direction:column;align-items:center;gap:6px;background:var(--text);color:#fff;padding:20px 56px;border-radius:9999px;text-decoration:none;font-weight:600;font-size:1.05rem;transition:transform .2s,box-shadow .2s;border:none;cursor:pointer}
+.dl-btn:hover{transform:scale(1.04);box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.dl-btn .logos{display:flex;gap:12px;align-items:center}
+.dl-btn .logos svg{width:22px;height:22px;fill:#fff}
 
-/* Sections */
-section { position: relative; }
-.section-pad { padding: 100px 24px; }
-.section-bg { background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); }
-.section-alt { background: rgba(245,245,245,0.92); backdrop-filter: blur(8px); }
-.section-head {
-  text-align: center;
-  margin-bottom: 56px;
-}
-.section-head h2 {
-  font-family: var(--font-display);
-  font-size: clamp(2.2rem, 5vw, 3.2rem);
-  font-weight: 400;
-  letter-spacing: -1.5px;
-  color: var(--text);
-  margin-bottom: 14px;
-}
-.section-head p {
-  color: var(--text-secondary);
-  font-size: 1.05rem;
-  max-width: 480px;
-  margin: 0 auto;
-  font-weight: 400;
-  line-height: 1.6;
-}
+/* Platform logos row below button */
+.platforms{display:flex;gap:24px;align-items:center;justify-content:center;margin-top:18px;opacity:0;animation:rise .8s ease-out .65s forwards}
+.platforms span{font-size:.75rem;color:var(--mute);font-weight:500;display:flex;align-items:center;gap:6px}
+.platforms svg{width:16px;height:16px;fill:var(--mute)}
 
-/* Proof bar */
-.proof {
-  padding: 56px 24px;
-  text-align: center;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(8px);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.proof-label {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-  margin-bottom: 28px;
-}
-.proof-grid {
-  display: flex;
-  justify-content: center;
-  gap: 56px;
-  flex-wrap: wrap;
-  max-width: 720px;
-  margin: 0 auto;
-}
-.proof-item { text-align: center; }
-.proof-item .big {
-  font-family: var(--font-display);
-  font-size: 2.2rem;
-  color: var(--text);
-}
-.proof-item .small {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 4px;
-  font-weight: 500;
-}
+/* Section scaffolding */
+.sec{position:relative}
+.sec-pad{padding:100px 24px}
+.sec-wh{background:rgba(255,255,255,.93);backdrop-filter:blur(10px)}
+.sec-gr{background:rgba(245,245,245,.93);backdrop-filter:blur(10px)}
+.sh{text-align:center;margin-bottom:56px}
+.sh h2{font-family:var(--font-d);font-size:clamp(2.2rem,5vw,3.4rem);font-weight:400;letter-spacing:-1.5px;color:var(--text);margin-bottom:14px}
+.sh p{color:var(--sub);font-size:1.05rem;max-width:500px;margin:0 auto;line-height:1.6}
 
-/* Feature cards */
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  max-width: 1020px;
-  margin: 0 auto;
-}
-.feature-card {
-  background: rgba(255,255,255,0.9);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 36px;
-  transition: all 0.3s;
-}
-.feature-card:hover {
-  border-color: #BBB;
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-}
-.feature-icon { font-size: 2rem; margin-bottom: 18px; }
-.feature-card h3 {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: var(--text);
-  margin-bottom: 10px;
-}
-.feature-card p {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
+/* Use cases */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:20px;max-width:1040px;margin:0 auto}
+.uc{background:rgba(255,255,255,.92);border:1.5px solid var(--line);border-radius:20px;padding:36px;transition:all .3s}
+.uc:hover{border-color:#aaa;transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.08)}
+.uc-ico{font-size:2rem;margin-bottom:16px}
+.uc h3{font-family:var(--font-d);font-size:1.5rem;color:var(--text);margin-bottom:10px}
+.uc p{font-size:.9rem;color:var(--sub);line-height:1.7}
 
 /* Steps */
-.steps {
-  display: flex;
-  gap: 32px;
-  max-width: 920px;
-  margin: 0 auto;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.step { flex: 1; min-width: 240px; text-align: center; padding: 24px; }
-.step-num {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #FFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1.3rem;
-  margin: 0 auto 20px;
-  font-family: var(--font-display);
-}
-.step h3 {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: var(--text);
-  margin-bottom: 10px;
-}
-.step p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7; }
+.steps{display:flex;gap:40px;max-width:940px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.step{flex:1;min-width:250px;text-align:center;padding:24px}
+.step-n{width:56px;height:56px;border-radius:50%;background:var(--text);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;margin:0 auto 20px;font-family:var(--font-d)}
+.step h3{font-family:var(--font-d);font-size:1.5rem;color:var(--text);margin-bottom:10px}
+.step p{font-size:.9rem;color:var(--sub);line-height:1.7}
 
-/* Credits */
-.credits-box {
-  max-width: 700px;
-  margin: 0 auto;
-  text-align: center;
-  background: rgba(255,255,255,0.92);
-  border: 1px solid var(--border);
-  border-radius: 28px;
-  padding: 56px 48px;
-}
-.credits-box h2 {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 3rem);
-  color: var(--text);
-  margin-bottom: 14px;
-}
-.credits-box .sub {
-  color: var(--text-secondary);
-  font-size: 1.05rem;
-  margin-bottom: 40px;
-  line-height: 1.6;
-  max-width: 440px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.credit-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 36px;
-}
-.chip {
-  background: #FFF;
-  border: 1.5px solid var(--border);
-  border-radius: 16px;
-  padding: 22px 30px;
-  min-width: 140px;
-  transition: all 0.2s;
-}
-.chip:hover { border-color: var(--accent); transform: translateY(-2px); }
-.chip.pop { border-color: var(--accent); background: #F7F7F7; }
-.chip .price { font-family: var(--font-display); font-size: 1.9rem; color: var(--text); }
-.chip .amt { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
-.credits-foot { font-size: 0.82rem; color: var(--text-muted); line-height: 1.7; }
-.credits-foot strong { color: var(--text-secondary); font-weight: 600; }
+/* Pricing */
+.pbox{max-width:720px;margin:0 auto;text-align:center;background:rgba(255,255,255,.93);border:1.5px solid var(--line);border-radius:28px;padding:56px 48px}
+.pbox h2{font-family:var(--font-d);font-size:clamp(2rem,5vw,3rem);color:var(--text);margin-bottom:14px}
+.pbox .pdesc{color:var(--sub);font-size:1.05rem;margin-bottom:40px;line-height:1.6;max-width:460px;margin-left:auto;margin-right:auto}
+.chips{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:36px}
+.chip{background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:22px 28px;min-width:140px;transition:all .2s}
+.chip:hover{border-color:var(--text);transform:translateY(-2px)}
+.chip.hi{border-color:var(--text);background:#f5f5f5}
+.chip .cp{font-family:var(--font-d);font-size:1.9rem;color:var(--text)}
+.chip .ca{font-size:.82rem;color:var(--mute);margin-top:4px;font-weight:500}
+.pfoot{font-size:.82rem;color:var(--mute);line-height:1.7}
+.pfoot strong{color:var(--sub);font-weight:600}
 
 /* FAQ */
-.faq-list { max-width: 660px; margin: 0 auto; }
-.faq-item {
-  background: rgba(255,255,255,0.92);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 28px;
-  margin-bottom: 10px;
-  transition: border-color 0.2s;
-}
-.faq-item:hover { border-color: #BBB; }
-.faq-item h3 {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  color: var(--text);
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.faq-item h3::after { content: '+'; font-size: 1.4rem; font-weight: 300; color: var(--text-muted); font-family: var(--font-body); }
-.faq-item.open h3::after { content: '\2212'; }
-.faq-item p { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; display: none; margin-top: 10px; }
-.faq-item.open p { display: block; }
+.fqlist{max-width:660px;margin:0 auto}
+.fq{background:rgba(255,255,255,.93);border:1.5px solid var(--line);border-radius:16px;padding:24px 28px;margin-bottom:10px;transition:border-color .2s}
+.fq:hover{border-color:#aaa}
+.fq h3{font-family:var(--font-d);font-size:1.25rem;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.fq h3::after{content:'+';font-size:1.4rem;font-weight:300;color:var(--mute);font-family:var(--font-b)}
+.fq.open h3::after{content:'\2212'}
+.fq p{font-size:.88rem;color:var(--sub);line-height:1.7;display:none;margin-top:10px}
+.fq.open p{display:block}
 
 /* Final CTA */
-.final-cta { text-align: center; padding: 100px 24px 80px; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); }
-.final-cta h2 {
-  font-family: var(--font-display);
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
-  color: var(--text);
-  margin-bottom: 14px;
-}
-.final-cta p {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-  margin-bottom: 40px;
-  max-width: 440px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.6;
-}
-.final-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
-.final-note { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+.fcta{text-align:center;padding:100px 24px 80px;background:rgba(255,255,255,.93);backdrop-filter:blur(10px)}
+.fcta h2{font-family:var(--font-d);font-size:clamp(2.4rem,6vw,3.6rem);color:var(--text);margin-bottom:14px}
+.fcta p{color:var(--sub);font-size:1.1rem;margin-bottom:40px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.6}
+.fcta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.fcta-note{font-size:.78rem;color:var(--mute);font-weight:500}
 
 /* Footer */
-footer {
-  padding: 40px 24px;
-  border-top: 1px solid var(--border);
-  text-align: center;
-  background: rgba(255,255,255,0.95);
-}
-footer p { font-size: 0.82rem; color: var(--text-muted); }
-footer a { color: var(--text-secondary); text-decoration: none; font-weight: 500; }
-footer a:hover { color: var(--text); }
+footer{padding:40px 24px;border-top:1px solid var(--line);text-align:center;background:rgba(255,255,255,.95)}
+footer p{font-size:.82rem;color:var(--mute)}
+footer a{color:var(--sub);text-decoration:none;font-weight:500}
+footer a:hover{color:var(--text)}
 
-/* Animations */
-@keyframes fade-rise {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 
-/* Responsive */
-@media (max-width: 768px) {
-  nav { padding: 14px 20px; }
-  .nav-brand { font-size: 1.4rem; }
-  .nav-links a:not(.nav-cta) { display: none; }
-  .nav-links { gap: 10px; }
-  .hero { padding: 60px 20px 80px; }
-  .hero-actions { flex-direction: column; align-items: center; }
-  .proof-grid { gap: 28px; }
-  .credit-row { flex-direction: column; align-items: center; }
-  .chip { width: 100%; max-width: 200px; }
-  .final-actions { flex-direction: column; align-items: center; }
+@media(max-width:768px){
+nav{padding:14px 20px}
+.brand{font-size:1.4rem}
+.nlinks a:not(.ncta){display:none}
+.nlinks{gap:10px}
+.hero{padding:60px 20px 70px}
+.uc-grid{grid-template-columns:1fr}
+.chips{flex-direction:column;align-items:center}
+.chip{width:100%;max-width:200px}
+.fcta-actions{flex-direction:column;align-items:center}
 }
 </style>
 </head>
 <body>
 
-<!-- FIXED Video Background -->
-<div class="video-bg">
-  <video id="bgVideo" autoplay muted loop playsinline>
-    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
-  </video>
-  <div class="video-overlay"></div>
+<!-- FIXED VIDEO -->
+<div class="vid">
+<video id="bv" autoplay muted loop playsinline preload="auto">
+<source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260328_083109_283f3553-e28f-428b-a723-d639c617eb2b.mp4" type="video/mp4">
+</video>
+<div class="vid-ov"></div>
 </div>
 
-<!-- All Content -->
-<div class="content-wrap">
+<div class="wrap">
 
 <!-- Nav -->
 <nav>
-  <a href="/" class="nav-brand">
-    <img src="/icon.png" alt="TaskBolt">
-    TaskBolt<sup>&reg;</sup>
-  </a>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#how">How It Works</a>
-    <a href="#pricing">Pricing</a>
-    <a href="/auth/signin" class="nav-cta">Sign In</a>
-  </div>
+<a href="/" class="brand"><img src="/icon.png" alt="TaskBolt">TaskBolt<sup>&reg;</sup></a>
+<div class="nlinks">
+<a href="#features">Features</a>
+<a href="#how">How It Works</a>
+<a href="#pricing">Pricing</a>
+<a href="/auth/signin" class="ncta">Sign In</a>
+</div>
 </nav>
 
-<!-- Hero -->
+<!-- HERO -->
 <section class="hero">
-  <div class="hero-badge"><span class="dot"></span> Free download for Windows</div>
-  <h1 class="hero-headline">
-    The AI that runs<br><em>your computer.</em>
-  </h1>
-  <p class="hero-desc">
-    Get apps installed. Fix errors instantly. Automate any task. Just tell TaskBolt what you need in plain English &mdash; it handles everything.
-  </p>
-  <div class="hero-actions">
-    <a href="#download" class="btn btn-primary">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
-      Download for Windows
-    </a>
-    <a href="#download" class="btn btn-outline disabled" onclick="return false">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
-      Mac &mdash; Coming Soon
-    </a>
-  </div>
-  <p class="hero-note">Free forever &bull; 500 credits on signup &bull; No credit card needed</p>
+<h1>Your AI<br><em>Computer Assistant.</em></h1>
+<p class="hero-sub">
+Manage your entire computer through conversation. Automate complex workflows, fix deep system issues, build environments, and run AI privately &mdash; all by telling it what you need.
+</p>
+<div class="hero-dl">
+<a href="#download" class="dl-btn">
+<span class="logos">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
+</span>
+Download
+</a>
+</div>
 </section>
 
-<!-- Proof -->
-<section class="proof">
-  <p class="proof-label">What TaskBolt handles for you</p>
-  <div class="proof-grid">
-    <div class="proof-item"><div class="big">Apps</div><div class="small">Installed in one click</div></div>
-    <div class="proof-item"><div class="big">Errors</div><div class="small">Found &amp; fixed instantly</div></div>
-    <div class="proof-item"><div class="big">Files</div><div class="small">Read, summarized, analyzed</div></div>
-    <div class="proof-item"><div class="big">Tasks</div><div class="small">Automated start to finish</div></div>
-  </div>
+<!-- WHAT IT DOES -->
+<section class="sec-pad sec-wh" id="features">
+<div class="sh">
+<h2>It runs your computer<br>so you don't have to.</h2>
+<p>Six capabilities that replace hours of manual work.</p>
+</div>
+<div class="uc-grid">
+<div class="uc">
+<div class="uc-ico">&#128640;</div>
+<h3>Build entire environments</h3>
+<p>"Set up a full-stack dev environment with Docker, Node, Postgres, and Redis." TaskBolt provisions everything &mdash; installs, configs, dependencies, PATH &mdash; end to end. What takes you a day takes it minutes.</p>
+</div>
+<div class="uc">
+<div class="uc-ico">&#128269;</div>
+<h3>Diagnose system failures</h3>
+<p>Crashing apps, corrupted services, broken network configs, kernel panics. TaskBolt scans logs, traces dependencies, identifies root causes, and applies fixes &mdash; all through one conversation.</p>
+</div>
+<div class="uc">
+<div class="uc-ico">&#128202;</div>
+<h3>Analyze anything on your machine</h3>
+<p>Drop a 200-page PDF, a folder of spreadsheets, raw log files, or database exports. TaskBolt reads, cross-references, and gives you structured answers in seconds.</p>
+</div>
+<div class="uc">
+<div class="uc-ico">&#129504;</div>
+<h3>Run AI models locally</h3>
+<p>TaskBolt deploys LLMs, image generators, and embedding models directly on your hardware. Your data stays on your machine. No API keys leaking. No cloud bills. Full privacy.</p>
+</div>
+<div class="uc">
+<div class="uc-ico">&#128737;&#65039;</div>
+<h3>Harden your security</h3>
+<p>Full vulnerability audits, firewall rules, SSH hardening, certificate management, intrusion detection. Enterprise-grade security setup through a plain English conversation.</p>
+</div>
+<div class="uc">
+<div class="uc-ico">&#9889;</div>
+<h3>Automate complex workflows</h3>
+<p>Multi-step processes that span files, services, APIs, and system configs. Describe the workflow once. TaskBolt executes it reliably every time &mdash; monitoring, error-handling, and reporting included.</p>
+</div>
+</div>
 </section>
 
-<!-- Features -->
-<section class="section-pad section-bg" id="features">
-  <div class="section-head">
-    <h2>Everything. In one app.</h2>
-    <p>Six things TaskBolt does that would normally take you hours of Googling.</p>
-  </div>
-  <div class="feature-grid">
-    <div class="feature-card">
-      <div class="feature-icon">&#128230;</div>
-      <h3>Get any app running</h3>
-      <p>Say "I need Photoshop" or "Set up Python." TaskBolt finds it, downloads it, installs it, and makes sure it works. You don't lift a finger.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">&#128295;</div>
-      <h3>Fix problems instantly</h3>
-      <p>Computer slow? WiFi keeps dropping? App won't open? Describe what's happening and TaskBolt finds the cause and fixes it &mdash; no troubleshooting guides needed.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">&#128196;</div>
-      <h3>Read any document</h3>
-      <p>Drop a PDF, spreadsheet, or image. TaskBolt reads the entire thing, pulls out what matters, and answers any question you have about it.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">&#129302;</div>
-      <h3>Run AI on your machine</h3>
-      <p>TaskBolt sets up local AI models that run entirely on your computer. Your data never leaves your device. Total privacy, zero cloud dependency.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">&#128737;&#65039;</div>
-      <h3>Lock down your security</h3>
-      <p>Scan for threats, configure your firewall, harden your system. TaskBolt does it through conversation &mdash; no complicated security panels.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">&#9889;</div>
-      <h3>Automate the busywork</h3>
-      <p>Renaming hundreds of files? Backing up folders? Organizing your desktop? Tell TaskBolt once. It handles the whole job while you focus on what matters.</p>
-    </div>
-  </div>
+<!-- HOW -->
+<section class="sec-pad sec-gr" id="how">
+<div class="sh">
+<h2>Three steps.</h2>
+<p>No terminal. No learning curve. No prerequisites.</p>
+</div>
+<div class="steps">
+<div class="step">
+<div class="step-n">1</div>
+<h3>Download &amp; sign in</h3>
+<p>One-click install. Create an account with Google, GitHub, or email. You're ready in under 60 seconds.</p>
+</div>
+<div class="step">
+<div class="step-n">2</div>
+<h3>Describe what you need</h3>
+<p>Type naturally. "Set up my machine for ML development." "Why does my app keep crashing?" "Migrate this database to Postgres." TaskBolt understands context.</p>
+</div>
+<div class="step">
+<div class="step-n">3</div>
+<h3>It executes. You watch.</h3>
+<p>Every command, every step, every decision &mdash; visible in real time. You see exactly what TaskBolt is doing and why. Full transparency, zero black boxes.</p>
+</div>
+</div>
 </section>
 
-<!-- How it works -->
-<section class="section-pad section-alt" id="how">
-  <div class="section-head">
-    <h2>Works in three steps.</h2>
-    <p>No terminal. No technical knowledge. No learning curve.</p>
-  </div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <h3>Download the app</h3>
-      <p>One-click install. Create your account with Google, GitHub, or email. You get 500 free credits instantly.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <h3>Type what you need</h3>
-      <p>"My laptop is slow." "Install Node.js." "Summarize this PDF." Type like you're messaging a friend. That's it.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <h3>It just works</h3>
-      <p>TaskBolt runs the commands, installs the tools, fixes the problems &mdash; and shows you every step so you know exactly what's happening.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Pricing -->
-<section class="section-pad section-bg" id="pricing">
-  <div class="section-head">
-    <h2>Pay once. Use forever.</h2>
-    <p>No subscriptions. No recurring charges. Buy credits when you need them.</p>
-  </div>
-  <div class="credits-box">
-    <p class="sub">Every credit powers AI tasks on your computer. They never expire. Start with 500 free when you sign up.</p>
-    <div class="credit-row">
-      <div class="chip"><div class="price">$6</div><div class="amt">20,000 credits</div></div>
-      <div class="chip pop"><div class="price">$24</div><div class="amt">80,000 credits</div></div>
-      <div class="chip"><div class="price">$60</div><div class="amt">200,000 credits</div></div>
-      <div class="chip"><div class="price">$150</div><div class="amt">500,000 credits</div></div>
-    </div>
-    <p class="credits-foot"><strong>Credits never expire.</strong> No monthly fees. No auto-renewal. Buy what you need, when you need it.</p>
-  </div>
+<!-- PRICING -->
+<section class="sec-pad sec-wh" id="pricing">
+<div class="sh">
+<h2>One-time credits.<br>No subscriptions.</h2>
+<p>Buy what you need. They never expire.</p>
+</div>
+<div class="pbox">
+<p class="pdesc">Credits power every AI task on your computer. Complex workflows use more. Quick fixes use less. You start with 500 free.</p>
+<div class="chips">
+<div class="chip"><div class="cp">$6</div><div class="ca">20,000 credits</div></div>
+<div class="chip hi"><div class="cp">$24</div><div class="ca">80,000 credits</div></div>
+<div class="chip"><div class="cp">$60</div><div class="ca">200,000 credits</div></div>
+<div class="chip"><div class="cp">$150</div><div class="ca">500,000 credits</div></div>
+</div>
+<p class="pfoot"><strong>Credits never expire.</strong> No recurring charges. No auto-renewal. Use them whenever.</p>
+</div>
 </section>
 
 <!-- FAQ -->
-<section class="section-pad section-alt">
-  <div class="section-head"><h2>Questions, answered.</h2></div>
-  <div class="faq-list">
-    <div class="faq-item"><h3>Is TaskBolt free?</h3><p>Yes. Download it, sign up, and start using it immediately. You get 500 credits for free. When you need more, buy a one-time credit pack. There's no subscription.</p></div>
-    <div class="faq-item"><h3>Do I need technical skills?</h3><p>Zero. You type what you need in plain English. TaskBolt runs the commands, manages dependencies, edits system files &mdash; all behind the scenes. You never see a terminal.</p></div>
-    <div class="faq-item"><h3>Is my data safe?</h3><p>TaskBolt runs on your computer. Your files stay on your machine. Only the AI conversation goes through our servers, and we never store your files or screen content.</p></div>
-    <div class="faq-item"><h3>What can it actually do?</h3><p>Install any app, fix computer problems, read and analyze documents, automate repetitive tasks, set up AI tools locally, configure security settings &mdash; basically anything you'd Google how to do, TaskBolt just does.</p></div>
-    <div class="faq-item"><h3>How many credits does a task use?</h3><p>Most tasks use 1&ndash;10 credits depending on complexity. 500 free credits is enough for dozens of tasks. A $6 pack (20,000 credits) lasts most people months.</p></div>
-  </div>
+<section class="sec-pad sec-gr">
+<div class="sh"><h2>Common questions.</h2></div>
+<div class="fqlist">
+<div class="fq"><h3>What exactly is TaskBolt?</h3><p>An AI agent that runs on your computer with full system access. It can execute commands, manage files, install packages, edit configs, run diagnostics, and automate multi-step workflows &mdash; all through natural conversation.</p></div>
+<div class="fq"><h3>Is it free?</h3><p>The app is free to download. You get 500 credits on signup. After that, buy a one-time credit pack. No subscription, ever.</p></div>
+<div class="fq"><h3>How is this different from ChatGPT or Claude?</h3><p>ChatGPT gives you instructions. TaskBolt executes them. It doesn't tell you what to type in the terminal &mdash; it runs the terminal for you. Full system access, real actions, real results.</p></div>
+<div class="fq"><h3>Is my data private?</h3><p>TaskBolt runs on your machine. Your files never leave your computer. Only the AI conversation goes through our servers &mdash; and we never store your data.</p></div>
+<div class="fq"><h3>What platforms are supported?</h3><p>Windows is available now. Mac and Linux are coming soon. The AI capabilities are identical across all platforms.</p></div>
+</div>
 </section>
 
-<!-- Final CTA -->
-<section class="final-cta" id="download">
-  <h2>Download TaskBolt. Free.</h2>
-  <p>500 credits included. Fix your first problem in under 2 minutes.</p>
-  <div class="final-actions">
-    <a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="btn btn-primary" id="downloadBtn">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
-      Download for Windows
-    </a>
-    <a href="#" class="btn btn-outline disabled" onclick="return false">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
-      Mac &mdash; Coming Soon
-    </a>
-  </div>
-  <p class="final-note">Windows 10/11 &bull; One-click installer &bull; No admin rights needed</p>
+<!-- FINAL CTA -->
+<section class="fcta" id="download">
+<h2>Get started now.</h2>
+<p>Download TaskBolt. Tell it what you need. Watch it work.</p>
+<div class="fcta-actions">
+<a href="https://github.com/ufuomazech62-cpu/TaskBolt-Computer/releases/download/v1.0.0/TaskBolt_Setup_1.0.0.exe" class="dl-btn" id="downloadBtn">
+<span class="logos">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>
+</span>
+Download
+</a>
+</div>
+<div class="platforms">
+<span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0,0H11.377V11.372H0ZM12.623,0H24V11.372H12.623ZM0,12.623H11.377V24H0Zm12.623,0H24V24H12.623"/></svg> Windows</span>
+<span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg> Mac (Soon)</span>
+<span>Linux (Soon)</span>
+</div>
+<p class="fcta-note" style="margin-top:10px">One-click installer &bull; No admin rights needed</p>
 </section>
 
-<!-- Footer -->
 <footer>
-  <p>&copy; 2026 <a href="https://qosta.com">Qosta</a>. All rights reserved. &middot; <a href="https://taskbolt.space">taskbolt.space</a></p>
+<p>&copy; 2026 <a href="https://qosta.com">Qosta</a>. All rights reserved. &middot; <a href="https://taskbolt.space">taskbolt.space</a></p>
 </footer>
 
-</div><!-- /content-wrap -->
+</div>
 
 <script>
-// Seamless video loop with fade transitions
-(function() {
-  var video = document.getElementById('bgVideo');
-  if (!video) return;
-  var fadeDuration = 0.5;
-  video.style.opacity = 0;
-
-  video.addEventListener('loadedmetadata', function() {
-    video.style.transition = 'opacity 0.5s ease';
-    video.style.opacity = 1;
-    requestAnimationFrame(function loop() {
-      if (video.duration && !isNaN(video.duration)) {
-        var t = video.currentTime;
-        var d = video.duration;
-        if (t < fadeDuration) {
-          video.style.opacity = t / fadeDuration;
-        } else if (t > d - fadeDuration) {
-          video.style.opacity = (d - t) / fadeDuration;
-        } else {
-          video.style.opacity = 1;
-        }
-      }
-      requestAnimationFrame(loop);
-    });
-  });
-
-  video.addEventListener('ended', function() {
-    video.style.opacity = 0;
-    setTimeout(function() {
-      video.currentTime = 0;
-      video.play().catch(function(){});
-    }, 100);
-  });
-
-  // Fallback: if video doesn't autoplay
-  video.play().catch(function(){});
+// Video: seamless infinite loop, no blank ever
+(function(){
+var v=document.getElementById('bv');
+if(!v)return;
+// Preload + immediate play
+v.preload='auto';
+v.play().catch(function(){});
+// On ended: seamless restart with crossfade
+v.addEventListener('ended',function(){
+v.style.transition='opacity .4s ease';
+v.style.opacity='0';
+setTimeout(function(){
+v.currentTime=0;
+v.play().catch(function(){});
+setTimeout(function(){v.style.opacity='1'},50);
+},200);
+});
 })();
 
-// FAQ accordion
-document.querySelectorAll('.faq-item h3').forEach(function(h) {
-  h.addEventListener('click', function() { h.parentElement.classList.toggle('open'); });
+// FAQ
+document.querySelectorAll('.fq h3').forEach(function(h){
+h.addEventListener('click',function(){h.parentElement.classList.toggle('open')});
 });
 
 // Smooth scroll
-document.querySelectorAll('a[href^="#"]').forEach(function(a) {
-  a.addEventListener('click', function(e) {
-    var href = a.getAttribute('href');
-    if (href === '#') return;
-    e.preventDefault();
-    var t = document.querySelector(href);
-    if (t) t.scrollIntoView({ behavior: 'smooth' });
-  });
+document.querySelectorAll('a[href^="#"]').forEach(function(a){
+a.addEventListener('click',function(e){
+var h=a.getAttribute('href');if(h==='#')return;
+e.preventDefault();var t=document.querySelector(h);
+if(t)t.scrollIntoView({behavior:'smooth'});
+});
 });
 </script>
-
 </body>
 </html>
