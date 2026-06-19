@@ -12,7 +12,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Inter', sans-serif;
-  background: hsl(201, 100%, 13%);
+  background: #0a0a0a;
   color: white;
   min-height: 100vh;
   display: flex;
@@ -20,45 +20,61 @@ body {
   justify-content: center;
 }
 .container { max-width: 400px; width: 90%; text-align: center; }
-.logo {
-  width: 56px; height: 56px; margin: 0 auto 1.5rem;
-  border-radius: 16px;
+.logo-wrap {
+  width: 80px; height: 80px; margin: 0 auto 1.5rem;
+  border-radius: 20px;
   background: linear-gradient(135deg, #FF9A1F, #FF2F92, #C026FF);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.8rem;
+  box-shadow: 0 8px 32px rgba(255, 47, 146, 0.25);
 }
-h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0.5rem; }
-.subtitle { color: rgba(255,255,255,0.5); margin-bottom: 2rem; font-size: 0.95rem; }
+.logo-wrap img { width: 56px; height: 56px; border-radius: 12px; }
+h1 { font-family: 'Instrument Serif', serif; font-size: 2.4rem; margin-bottom: 0.3rem; letter-spacing: -0.02em; }
+.subtitle { color: rgba(255,255,255,0.45); margin-bottom: 2.5rem; font-size: 0.95rem; }
+
 .btn {
   display: flex; align-items: center; justify-content: center; gap: 12px;
   width: 100%; padding: 14px 20px; border: none; border-radius: 12px;
   font-size: 0.95rem; font-weight: 600; cursor: pointer;
   transition: all 0.2s; margin-bottom: 12px; text-decoration: none;
 }
-.btn-google {
-  background: white; color: #1a1a1a;
+.btn-taskbolt {
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92, #C026FF);
+  color: white;
+  font-size: 1rem;
+  padding: 16px 20px;
 }
-.btn-google:hover { background: #f0f0f0; transform: translateY(-1px); }
+.btn-taskbolt:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(255, 47, 146, 0.35); }
+.btn-taskbolt:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-taskbolt svg { width: 22px; height: 22px; }
+
 .btn-email {
-  background: linear-gradient(135deg, #FF9A1F, #FF2F92); color: white;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
 }
-.btn-email:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-email:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
 .btn-email:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
 .btn svg { width: 20px; height: 20px; }
+
 .divider {
   display: flex; align-items: center; gap: 16px;
-  color: rgba(255,255,255,0.3); font-size: 0.8rem;
+  color: rgba(255,255,255,0.25); font-size: 0.8rem;
   margin: 1.5rem 0;
 }
 .divider::before, .divider::after {
-  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.1);
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08);
 }
-.note { color: rgba(255,255,255,0.4); font-size: 0.8rem; margin-top: 2rem; }
-.note a { color: rgba(255,255,255,0.6); }
-.status { display: none; margin-top: 1rem; padding: 12px; border-radius: 10px; font-size: 0.85rem; }
-.status.loading { display: block; background: rgba(59,130,246,0.15); color: #60a5fa; }
-.status.error { display: block; background: rgba(239,68,68,0.15); color: #f87171; }
-.status.success { display: block; background: rgba(34,197,94,0.15); color: #4ade80; }
+
+.note { color: rgba(255,255,255,0.35); font-size: 0.8rem; margin-top: 2rem; }
+.note a { color: rgba(255,255,255,0.5); text-decoration: none; }
+.note a:hover { color: rgba(255,255,255,0.8); }
+
+.status { display: none; margin-top: 1rem; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; }
+.status.loading { display: block; background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.15); }
+.status.error { display: block; background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.15); }
+.status.success { display: block; background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.15); }
+
 .spinner {
   display: inline-block; width: 16px; height: 16px;
   border: 2px solid rgba(96,165,250,0.3); border-top-color: #60a5fa;
@@ -71,43 +87,43 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
 .email-form { display: flex; gap: 8px; margin-bottom: 12px; }
 .email-input {
   flex: 1; padding: 14px 16px; border-radius: 12px;
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
   color: white; font-size: 0.95rem; outline: none;
   transition: border-color 0.2s;
 }
 .email-input:focus { border-color: rgba(255,154,31,0.5); }
-.email-input::placeholder { color: rgba(255,255,255,0.3); }
+.email-input::placeholder { color: rgba(255,255,255,0.25); }
 
 /* OTP input */
 .otp-section { display: none; }
 .otp-section.active { display: block; }
 .otp-input {
   width: 100%; padding: 14px 16px; border-radius: 12px;
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
   color: white; font-size: 1.2rem; text-align: center; letter-spacing: 8px;
   outline: none; transition: border-color 0.2s; margin-bottom: 12px;
 }
 .otp-input:focus { border-color: rgba(255,154,31,0.5); }
-.otp-input::placeholder { letter-spacing: normal; font-size: 0.9rem; color: rgba(255,255,255,0.3); }
-.otp-label { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-bottom: 8px; text-align: left; }
-.back-link { color: rgba(255,255,255,0.4); font-size: 0.8rem; cursor: pointer; margin-top: 12px; }
+.otp-input::placeholder { letter-spacing: normal; font-size: 0.9rem; color: rgba(255,255,255,0.25); }
+.otp-label { color: rgba(255,255,255,0.45); font-size: 0.85rem; margin-bottom: 8px; text-align: left; }
+.back-link { color: rgba(255,255,255,0.35); font-size: 0.8rem; cursor: pointer; margin-top: 12px; display: inline-block; }
 .back-link:hover { color: rgba(255,255,255,0.7); }
-.credits-note { color: rgba(255,255,255,0.35); font-size: 0.8rem; margin-top: 0.5rem; }
+.credits-note { color: rgba(255,255,255,0.3); font-size: 0.8rem; margin-top: 0.5rem; }
 .credits-note span { color: #4ade80; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="logo"><img src="/icon.png" alt="TaskBolt" style="width:48px;height:48px;border-radius:12px"></div>
-  <h1>Welcome Back</h1>
-  <p class="subtitle">Sign in to manage your TaskBolt account</p>
+  <div class="logo-wrap"><img src="/icon.png" alt="TaskBolt"></div>
+  <h1>TaskBolt</h1>
+  <p class="subtitle">Sign in to manage your account</p>
 
-  <a class="btn btn-google" href="#" onclick="signInWithGoogle()">
-    <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-    Continue with Google
-  </a>
+  <button class="btn btn-taskbolt" id="googleBtn" onclick="signInWithGoogle()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+    Sign in to TaskBolt
+  </button>
 
-  <div class="divider">or</div>
+  <div class="divider">or sign in with email</div>
 
   <!-- Email passwordless -->
   <div id="emailSection">
@@ -116,7 +132,7 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
     </div>
     <button class="btn btn-email" id="sendCodeBtn" onclick="sendCode()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-      Sign in with Email
+      Continue with Email
     </button>
     <p class="credits-note">New here? You'll get <span>500 free credits</span></p>
   </div>
@@ -125,8 +141,8 @@ h1 { font-family: 'Instrument Serif', serif; font-size: 2.2rem; margin-bottom: 0
   <div id="otpSection" class="otp-section">
     <p class="otp-label">Enter the 6-digit code sent to <strong id="otpEmail"></strong></p>
     <input type="text" id="otpInput" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-    <button class="btn btn-email" id="verifyBtn" onclick="verifyCode()">Verify & Sign In</button>
-    <p class="back-link" onclick="goBackToEmail()">← Use a different email</p>
+    <button class="btn btn-taskbolt" id="verifyBtn" onclick="verifyCode()">Verify & Sign In</button>
+    <span class="back-link" onclick="goBackToEmail()">← Use a different email</span>
   </div>
 
   <div id="status" class="status"></div>
@@ -145,80 +161,50 @@ function showStatus(msg, type) {
   el.className = `status ${type}`;
   el.innerHTML = (type === 'loading' ? '<span class="spinner"></span>' : '') + msg;
 }
+function hideStatus() { document.getElementById('status').className = 'status'; }
 
-function hideStatus() {
-  document.getElementById('status').className = 'status';
-}
-
-// Enter key handlers
-document.getElementById('emailInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendCode();
-});
-document.getElementById('otpInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') verifyCode();
-});
+document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
+document.getElementById('otpInput').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
 
 async function sendCode() {
   const email = document.getElementById('emailInput').value.trim();
-  if (!email || !email.includes('@')) {
-    showStatus('Please enter a valid email', 'error');
-    return;
-  }
+  if (!email || !email.includes('@')) { showStatus('Please enter a valid email', 'error'); return; }
   if (signing) return;
-  signing = true;
-  hideStatus();
+  signing = true; hideStatus();
   document.getElementById('sendCodeBtn').disabled = true;
-  
   try {
     const res = await fetch('https://taskbolt.space/api/auth/email?action=send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
     const data = await res.json();
-    
     if (data.ok) {
       pendingEmail = email;
       document.getElementById('otpEmail').textContent = email;
       document.getElementById('emailSection').style.display = 'none';
       document.getElementById('otpSection').classList.add('active');
       document.getElementById('otpInput').focus();
-      showStatus('Code sent! Check your inbox (and spam).', 'success');
-    } else {
-      showStatus(data.error || 'Failed to send code', 'error');
-    }
-  } catch (e) {
-    showStatus('Network error. Please try again.', 'error');
-  }
-  signing = false;
-  document.getElementById('sendCodeBtn').disabled = false;
+      showStatus('Code sent! Check your inbox.', 'success');
+    } else { showStatus(data.error || 'Failed to send code', 'error'); }
+  } catch (e) { showStatus('Network error. Please try again.', 'error'); }
+  signing = false; document.getElementById('sendCodeBtn').disabled = false;
 }
 
 async function verifyCode() {
   const code = document.getElementById('otpInput').value.trim();
-  if (!code || code.length < 6) {
-    showStatus('Enter the 6-digit code', 'error');
-    return;
-  }
+  if (!code || code.length < 6) { showStatus('Enter the 6-digit code', 'error'); return; }
   if (signing) return;
-  signing = true;
-  showStatus('Verifying...', 'loading');
+  signing = true; showStatus('Verifying...', 'loading');
   document.getElementById('verifyBtn').disabled = true;
-  
   try {
     const res = await fetch('https://taskbolt.space/api/auth/email?action=verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: pendingEmail, code })
     });
     const data = await res.json();
-    
     if (data.ok && data.token) {
-      localStorage.setItem('tb_auth_token', data.token);
-      hideStatus();
-      
+      localStorage.setItem('tb_auth_token', data.token); hideStatus();
       const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
-      
       if (isDesktop) {
         showStatus('Signed in! Redirecting...', 'loading');
         window.location.href = `https://taskbolt.space/api/desktop-callback?token=${encodeURIComponent(data.token)}`;
@@ -226,14 +212,9 @@ async function verifyCode() {
         showStatus('Signed in! Redirecting to dashboard...', 'loading');
         window.location.href = '/dashboard.html';
       }
-    } else {
-      showStatus(data.error || 'Invalid code', 'error');
-    }
-  } catch (e) {
-    showStatus('Network error. Please try again.', 'error');
-  }
-  signing = false;
-  document.getElementById('verifyBtn').disabled = false;
+    } else { showStatus(data.error || 'Invalid code', 'error'); }
+  } catch (e) { showStatus('Network error. Please try again.', 'error'); }
+  signing = false; document.getElementById('verifyBtn').disabled = false;
 }
 
 function goBackToEmail() {
@@ -247,43 +228,29 @@ function goBackToEmail() {
 async function signInWithGoogle() {
   if (signing) return;
   signing = true;
-  showStatus('Opening Google sign-in...', 'loading');
-  
+  showStatus('Opening sign-in...', 'loading');
   const session = crypto.randomUUID();
-  
   const popup = window.open(
     `https://taskbolt.space/api/auth/google?session=${session}`,
-    'google-auth',
-    'width=500,height=600,menubar=no,toolbar=no'
+    'google-auth', 'width=500,height=600,menubar=no,toolbar=no'
   );
-  
   const pollInterval = setInterval(async () => {
     try {
       const res = await fetch(`https://taskbolt.space/api/auth/google?action=poll&session=${session}`);
       const data = await res.json();
-      
       if (data.ok && data.token) {
-        clearInterval(pollInterval);
-        popup.close();
-        
+        clearInterval(pollInterval); popup.close();
         localStorage.setItem('tb_auth_token', data.token);
-        
         showStatus('Signed in! Redirecting...', 'loading');
-        
         const isDesktop = new URLSearchParams(window.location.search).get('desktop') === 'true';
-        
         if (isDesktop) {
           window.location.href = `https://taskbolt.space/api/desktop-callback?token=${encodeURIComponent(data.token)}`;
-        } else {
-          window.location.href = '/dashboard.html';
-        }
+        } else { window.location.href = '/dashboard.html'; }
       }
     } catch (e) {}
   }, 1500);
-  
   setTimeout(() => {
-    clearInterval(pollInterval);
-    if (!popup.closed) popup.close();
+    clearInterval(pollInterval); if (!popup.closed) popup.close();
     showStatus('Sign-in timed out. Please try again.', 'error');
     signing = false;
   }, 120000);

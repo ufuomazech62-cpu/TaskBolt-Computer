@@ -8,86 +8,129 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      fontFamily: {
-        display: ['"Instrument Serif"', 'serif'],
-        body: ['Inter', 'sans-serif'],
-      },
-      colors: {
-        background: 'hsl(201, 100%, 13%)',
-        foreground: 'hsl(0, 0%, 100%)',
-        'muted-foreground': 'hsl(240, 4%, 66%)',
-        primary: 'hsl(0, 0%, 100%)',
-        secondary: 'hsl(0, 0%, 10%)',
-        border: 'hsl(0, 0%, 18%)',
-      }
-    }
-  }
-}
-</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Inter', sans-serif;
-  background: hsl(201, 100%, 13%);
-  color: white;
+  background: #0a0a0a;
+  color: #e5e5e5;
   min-height: 100vh;
 }
-.glass-card {
+a { color: inherit; text-decoration: none; }
+
+/* ── Nav ── */
+nav {
+  max-width: 1100px; margin: 0 auto;
+  padding: 20px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Instrument Serif', serif; font-size: 1.5rem;
+}
+.nav-brand-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92, #C026FF);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-brand-icon img { width: 22px; height: 22px; border-radius: 4px; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.nav-email { font-size: 0.85rem; color: rgba(255,255,255,0.4); }
+.nav-signout {
+  padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: transparent; color: rgba(255,255,255,0.5); font-size: 0.8rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.nav-signout:hover { color: white; border-color: rgba(255,255,255,0.2); }
+
+/* ── Cards ── */
+.card {
   background: rgba(255,255,255,0.03);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
   padding: 24px;
-  position: relative;
-  overflow: hidden;
 }
-.glass-card::before {
-  content: '';
-  position: absolute; inset: 0; border-radius: inherit; padding: 1.4px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.15) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  pointer-events: none;
+.card-accent {
+  border-color: rgba(255, 154, 31, 0.15);
+  background: linear-gradient(135deg, rgba(255,154,31,0.03), rgba(255,47,146,0.03));
 }
-.credit-big { font-family: 'Instrument Serif', serif; font-size: 3.5rem; line-height: 1; }
-.key-display {
-  font-family: monospace; font-size: 0.85rem;
-  background: rgba(0,0,0,0.3); padding: 10px 16px;
-  border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);
-  word-break: break-all;
+
+/* ── Credits hero ── */
+.credits-hero {
+  display: flex; flex-direction: column; gap: 20px;
 }
+@media (min-width: 768px) {
+  .credits-hero { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+.credits-label { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.credits-big {
+  font-family: 'Instrument Serif', serif; font-size: 3.5rem; line-height: 1;
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.credits-sub { font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 8px; }
+.credits-actions { display: flex; flex-direction: column; gap: 12px; }
+.credits-stats { display: flex; gap: 20px; font-size: 0.8rem; color: rgba(255,255,255,0.35); }
+.credits-stats span { color: rgba(255,255,255,0.7); }
+
+/* ── Buttons ── */
 .btn {
   padding: 10px 20px; border: none; border-radius: 10px;
   font-size: 0.88rem; font-weight: 600; cursor: pointer;
   transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
 }
-.btn-primary { background: white; color: #0a1628; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,255,255,0.15); }
-.btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15); }
-.btn-secondary:hover { background: rgba(255,255,255,0.15); }
-.btn-danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
-.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-primary {
+  background: linear-gradient(135deg, #FF9A1F, #FF2F92);
+  color: white;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255, 47, 146, 0.25); }
+.btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.1); color: white; }
+.btn-danger {
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.12);
+}
+.btn-danger:hover { background: rgba(239,68,68,0.15); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.spinner {
-  display: inline-block; width: 16px; height: 16px;
-  border: 2px solid rgba(255,255,255,0.2); border-top-color: white;
-  border-radius: 50%; animation: spin 0.6s linear infinite;
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 2px; margin-bottom: 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 .tab-btn {
-  padding: 8px 16px; border: none; background: none;
-  color: rgba(255,255,255,0.5); font-size: 0.88rem; font-weight: 500;
+  padding: 10px 18px; border: none; background: none;
+  color: rgba(255,255,255,0.4); font-size: 0.88rem; font-weight: 500;
   cursor: pointer; border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
-.tab-btn.active { color: white; border-bottom-color: white; }
-.tab-btn:hover { color: rgba(255,255,255,0.8); }
+.tab-btn.active { color: white; border-bottom-color: #FF9A1F; }
+.tab-btn:hover { color: rgba(255,255,255,0.7); }
+
+/* ── API Key display ── */
+.key-display {
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem;
+  background: rgba(0,0,0,0.4); padding: 10px 16px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);
+  word-break: break-all; color: rgba(255,255,255,0.7);
+}
+
+/* ── Status badges ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;
+}
+.badge-active { background: rgba(34,197,94,0.1); color: #4ade80; }
+.badge-revoked { background: rgba(239,68,68,0.1); color: #f87171; }
+
+/* ── Toast ── */
 .toast {
   position: fixed; bottom: 24px; right: 24px;
   padding: 14px 20px; border-radius: 12px;
@@ -96,117 +139,180 @@ body {
   transition: all 0.3s; z-index: 1000;
 }
 .toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { background: #065f46; color: #6ee7b7; border: 1px solid #059669; }
-.toast.error { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
-.empty-state { color: rgba(255,255,255,0.4); text-align: center; padding: 3rem 1rem; }
+.toast.success { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+.toast.error { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+
+/* ── Utility ── */
+.mb-6 { margin-bottom: 24px; }
+.mt-4 { margin-top: 16px; }
+.mt-8 { margin-top: 32px; }
+.space-y-3 > * + * { margin-top: 12px; }
+.empty-state { color: rgba(255,255,255,0.3); text-align: center; padding: 3rem 1rem; font-size: 0.9rem; }
+.section-title { font-family: 'Instrument Serif', serif; font-size: 1.2rem; margin-bottom: 16px; color: white; }
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.15); border-top-color: white;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Grid ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Pack cards ── */
+.pack-card {
+  text-align: center; cursor: pointer; transition: all 0.2s;
+  padding: 20px;
+}
+.pack-card:hover { border-color: rgba(255,154,31,0.3); transform: translateY(-2px); }
+.pack-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
+.pack-price { font-family: 'Instrument Serif', serif; font-size: 2rem; color: white; }
+.pack-desc { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+/* ── Key row ── */
+.key-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+}
+.key-info { display: flex; flex-direction: column; gap: 4px; }
+.key-code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: rgba(255,255,255,0.7); }
+.key-meta { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
+
+/* ── Usage row ── */
+.usage-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.usage-row:last-child { border-bottom: none; }
+
+/* ── Txn row ── */
+.txn-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.txn-row:last-child { border-bottom: none; }
+.txn-positive { color: #4ade80; }
+.txn-negative { color: #f87171; }
 </style>
 </head>
 <body>
 <!-- Nav -->
-<nav class="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
-  <a href="/" class="flex items-center gap-3 text-white no-underline">
-    <span class="font-display text-2xl">TaskBolt</span>
+<nav>
+  <a href="/" class="nav-brand">
+    <div class="nav-brand-icon"><img src="/icon.png" alt="TaskBolt"></div>
+    TaskBolt
   </a>
-  <div class="flex items-center gap-4">
-    <span class="text-sm text-[rgba(255,255,255,0.5)]" id="userEmail"></span>
-    <button class="btn btn-secondary text-xs" onclick="signOut()">Sign Out</button>
+  <div class="nav-right">
+    <span class="nav-email" id="userEmail"></span>
+    <button class="nav-signout" onclick="signOut()">Sign Out</button>
   </div>
 </nav>
 
 <!-- Dashboard -->
-<main class="max-w-6xl mx-auto px-6 pb-20">
+<main style="max-width:1100px;margin:0 auto;padding:0 24px 80px;">
+
   <!-- Credits Card -->
-  <div class="glass-card mb-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+  <div class="card card-accent mb-6">
+    <div class="credits-hero">
       <div>
-        <p class="text-sm text-[rgba(255,255,255,0.5)] mb-1">Available Credits</p>
-        <div class="credit-big" id="creditBalance">—</div>
-        <p class="text-xs text-[rgba(255,255,255,0.35)] mt-2">1 credit = 200 tokens • Credits never expire</p>
+        <p class="credits-label">Available Credits</p>
+        <div class="credits-big" id="creditBalance">—</div>
+        <p class="credits-sub">1 credit = 200 tokens • Credits never expire</p>
       </div>
-      <div class="flex flex-col gap-3">
+      <div class="credits-actions">
         <a href="/api/checkout?pack=core" class="btn btn-primary">Buy Credits</a>
-        <div class="flex gap-4 text-xs text-[rgba(255,255,255,0.4)]">
-          <span>Used: <span id="creditsUsed" class="text-white">—</span></span>
-          <span>Total: <span id="creditsTotal" class="text-white">—</span></span>
+        <div class="credits-stats">
+          <div>Used <span id="creditsUsed">—</span></div>
+          <div>Total <span id="creditsTotal">—</span></div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Tabs -->
-  <div class="flex gap-1 mb-6 border-b border-[rgba(255,255,255,0.08)]">
-    <button class="tab-btn active" onclick="switchTab('keys')">API Keys</button>
-    <button class="tab-btn" onclick="switchTab('usage')">Usage</button>
-    <button class="tab-btn" onclick="switchTab('billing')">Billing</button>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('keys', this)">API Keys</button>
+    <button class="tab-btn" onclick="switchTab('usage', this)">Usage</button>
+    <button class="tab-btn" onclick="switchTab('billing', this)">Billing</button>
   </div>
 
   <!-- API Keys Tab -->
   <div id="tab-keys">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="font-display text-xl">API Keys</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 class="section-title" style="margin-bottom:0;">API Keys</h2>
       <button class="btn btn-primary" onclick="createKey()">+ New Key</button>
     </div>
     <div id="keysList" class="space-y-3"></div>
-    <div id="newKeyBox" style="display:none" class="glass-card mt-4 border-[rgba(34,197,94,0.3)]">
-      <p class="text-sm text-[#6ee7b7] mb-3 font-medium">⚠️ Copy this key now — it won't be shown again:</p>
+    <div id="newKeyBox" style="display:none" class="card mt-4" style="border-color:rgba(34,197,94,0.2);">
+      <p style="font-size:0.85rem;color:#4ade80;margin-bottom:12px;font-weight:500;">⚠️ Copy this key now — it won't be shown again:</p>
       <div class="key-display" id="newKeyValue"></div>
-      <button class="btn btn-secondary mt-3" onclick="copyNewKey()">📋 Copy Key</button>
+      <button class="btn btn-secondary mt-4" onclick="copyNewKey()">Copy Key</button>
     </div>
   </div>
 
   <!-- Usage Tab -->
   <div id="tab-usage" style="display:none">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="glass-card text-center">
-        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">Today</p>
-        <p class="text-2xl font-bold" id="usageToday">—</p>
-        <p class="text-xs text-[rgba(255,255,255,0.35)]">credits</p>
+    <div class="grid-3 mb-6">
+      <div class="card" style="text-align:center;">
+        <p class="credits-label">Today</p>
+        <p style="font-size:1.8rem;font-weight:700;color:white;" id="usageToday">—</p>
+        <p class="credits-sub">credits</p>
       </div>
-      <div class="glass-card text-center">
-        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">This Month</p>
-        <p class="text-2xl font-bold" id="usageMonth">—</p>
-        <p class="text-xs text-[rgba(255,255,255,0.35)]">credits</p>
+      <div class="card" style="text-align:center;">
+        <p class="credits-label">This Month</p>
+        <p style="font-size:1.8rem;font-weight:700;color:white;" id="usageMonth">—</p>
+        <p class="credits-sub">credits</p>
       </div>
-      <div class="glass-card text-center">
-        <p class="text-xs text-[rgba(255,255,255,0.5)] mb-1">Total Tokens</p>
-        <p class="text-2xl font-bold" id="usageTokens">—</p>
-        <p class="text-xs text-[rgba(255,255,255,0.35)]">all time</p>
+      <div class="card" style="text-align:center;">
+        <p class="credits-label">Total Tokens</p>
+        <p style="font-size:1.8rem;font-weight:700;color:white;" id="usageTokens">—</p>
+        <p class="credits-sub">all time</p>
       </div>
     </div>
-    <div id="usageDetail" class="glass-card">
-      <p class="text-sm text-[rgba(255,255,255,0.5)]">Loading usage details...</p>
+    <div id="usageDetail" class="card">
+      <p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Loading usage details...</p>
     </div>
   </div>
 
   <!-- Billing Tab -->
   <div id="tab-billing" style="display:none">
-    <h2 class="font-display text-xl mb-4">Credit Packs</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('lite')">
-        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Lite</div>
-        <div class="font-display text-3xl mb-1">$6</div>
-        <div class="text-sm text-[rgba(255,255,255,0.5)]">5,000 credits</div>
+    <h2 class="section-title">Credit Packs</h2>
+    <div class="grid-4 mb-6">
+      <div class="card pack-card" onclick="buyPack('lite')">
+        <div class="pack-label">Lite</div>
+        <div class="pack-price">$6</div>
+        <div class="pack-desc">5,000 credits</div>
       </div>
-      <div class="glass-card text-center cursor-pointer border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.3)] transition" onclick="buyPack('core')">
-        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Core</div>
-        <div class="font-display text-3xl mb-1">$24</div>
-        <div class="text-sm text-[rgba(255,255,255,0.5)]">25,000 credits</div>
+      <div class="card pack-card" style="border-color:rgba(255,154,31,0.2);" onclick="buyPack('core')">
+        <div class="pack-label">Core</div>
+        <div class="pack-price">$24</div>
+        <div class="pack-desc">25,000 credits</div>
       </div>
-      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('scale')">
-        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Scale</div>
-        <div class="font-display text-3xl mb-1">$60</div>
-        <div class="text-sm text-[rgba(255,255,255,0.5)]">75,000 credits</div>
+      <div class="card pack-card" onclick="buyPack('scale')">
+        <div class="pack-label">Scale</div>
+        <div class="pack-price">$60</div>
+        <div class="pack-desc">75,000 credits</div>
       </div>
-      <div class="glass-card text-center cursor-pointer hover:border-[rgba(255,255,255,0.2)] transition" onclick="buyPack('max')">
-        <div class="text-xs uppercase tracking-wider text-[rgba(255,255,255,0.4)] mb-1">Max</div>
-        <div class="font-display text-3xl mb-1">$150</div>
-        <div class="text-sm text-[rgba(255,255,255,0.5)]">200,000 credits</div>
+      <div class="card pack-card" onclick="buyPack('max')">
+        <div class="pack-label">Max</div>
+        <div class="pack-price">$150</div>
+        <div class="pack-desc">200,000 credits</div>
       </div>
     </div>
 
-    <h2 class="font-display text-xl mt-8 mb-4">Transactions</h2>
-    <div id="transactionsList" class="glass-card">
-      <p class="text-sm text-[rgba(255,255,255,0.5)]">Loading transactions...</p>
+    <h2 class="section-title mt-8">Transactions</h2>
+    <div id="transactionsList" class="card">
+      <p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Loading transactions...</p>
     </div>
   </div>
 </main>
@@ -219,10 +325,7 @@ const API = 'https://taskbolt.space';
 let token = localStorage.getItem('tb_auth_token');
 let newKeyRaw = '';
 
-// Check auth
-if (!token) {
-  window.location.href = '/auth/signin.html';
-}
+if (!token) { window.location.href = '/auth/signin.html'; }
 
 function headers() {
   return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -235,16 +338,15 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function switchTab(tab) {
+function switchTab(tab, btn) {
   document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).style.display = 'block';
-  event.target.classList.add('active');
+  btn.classList.add('active');
   if (tab === 'usage') loadUsage();
   if (tab === 'billing') loadTransactions();
 }
 
-// Load credits
 async function loadCredits() {
   try {
     const res = await fetch(`${API}/api/billing?action=status`, { headers: headers() });
@@ -260,7 +362,6 @@ async function loadCredits() {
   } catch (e) { console.error('Credits load error:', e); }
 }
 
-// Load user profile
 async function loadProfile() {
   try {
     const res = await fetch(`${API}/api/account`, { headers: headers() });
@@ -271,35 +372,31 @@ async function loadProfile() {
   } catch (e) {}
 }
 
-// Load API keys
 async function loadKeys() {
   try {
     const res = await fetch(`${API}/api/keys`, { headers: headers() });
     const data = await res.json();
     const list = document.getElementById('keysList');
-    
     if (!data.ok || !data.keys || data.keys.length === 0) {
-      list.innerHTML = '<div class="empty-state"><p>No API keys yet.</p><p class="text-sm mt-2">Create one to connect the desktop app.</p></div>';
+      list.innerHTML = '<div class="empty-state"><p>No API keys yet.</p><p style="font-size:0.8rem;margin-top:8px;color:rgba(255,255,255,0.2);">Create one to connect the desktop app.</p></div>';
       return;
     }
-    
     list.innerHTML = data.keys.map(k => `
-      <div class="glass-card flex items-center justify-between">
-        <div>
-          <div class="flex items-center gap-3">
-            <code class="text-sm font-mono">${k.key_prefix}...</code>
-            <span class="text-xs px-2 py-0.5 rounded-full ${k.is_active ? 'bg-[rgba(34,197,94,0.15)] text-[#6ee7b7]' : 'bg-[rgba(239,68,68,0.15)] text-[#f87171]'}">${k.is_active ? 'Active' : 'Revoked'}</span>
+      <div class="card key-row">
+        <div class="key-info">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <code class="key-code">${k.key_prefix}...</code>
+            <span class="badge ${k.is_active ? 'badge-active' : 'badge-revoked'}">${k.is_active ? '● Active' : '● Revoked'}</span>
           </div>
-          <p class="text-xs text-[rgba(255,255,255,0.4)] mt-1">${k.name} • Created ${new Date(k.created_at).toLocaleDateString()}</p>
-          ${k.last_used_at ? `<p class="text-xs text-[rgba(255,255,255,0.3)]">Last used: ${new Date(k.last_used_at).toLocaleDateString()}</p>` : ''}
+          <span class="key-meta">${k.name} • Created ${new Date(k.created_at).toLocaleDateString()}</span>
+          ${k.last_used_at ? `<span class="key-meta">Last used: ${new Date(k.last_used_at).toLocaleDateString()}</span>` : ''}
         </div>
-        ${k.is_active ? `<button class="btn btn-danger text-xs" onclick="revokeKey('${k.id}')">Revoke</button>` : ''}
+        ${k.is_active ? `<button class="btn btn-danger" style="font-size:0.8rem;padding:6px 14px;" onclick="revokeKey('${k.id}')">Revoke</button>` : ''}
       </div>
     `).join('');
   } catch (e) { console.error('Keys load error:', e); }
 }
 
-// Create API key
 async function createKey() {
   try {
     const res = await fetch(`${API}/api/keys`, {
@@ -313,9 +410,7 @@ async function createKey() {
       document.getElementById('newKeyBox').style.display = 'block';
       loadKeys();
       toast('API key created!');
-    } else {
-      toast(data.error || 'Failed to create key', 'error');
-    }
+    } else { toast(data.error || 'Failed to create key', 'error'); }
   } catch (e) { toast('Network error', 'error'); }
 }
 
@@ -323,7 +418,6 @@ function copyNewKey() {
   navigator.clipboard.writeText(newKeyRaw).then(() => toast('Key copied!'));
 }
 
-// Revoke key
 async function revokeKey(keyId) {
   if (!confirm('Revoke this API key? The desktop app will stop working until you create a new one.')) return;
   try {
@@ -337,7 +431,6 @@ async function revokeKey(keyId) {
   } catch (e) { toast('Network error', 'error'); }
 }
 
-// Load usage
 async function loadUsage() {
   try {
     const res = await fetch(`${API}/api/billing?action=usage`, { headers: headers() });
@@ -347,11 +440,11 @@ async function loadUsage() {
       const detail = document.getElementById('usageDetail');
       if (data.models && data.models.length > 0) {
         detail.innerHTML = `
-          <h3 class="text-sm font-medium mb-3">By Model</h3>
+          <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:12px;color:rgba(255,255,255,0.6);">By Model</h3>
           ${data.models.map(m => `
-            <div class="flex justify-between items-center py-2 border-b border-[rgba(255,255,255,0.05)]">
-              <span class="text-sm">${m.model}</span>
-              <span class="text-xs text-[rgba(255,255,255,0.5)]">${m.requests} requests • ${m.credits} credits</span>
+            <div class="usage-row">
+              <span style="font-size:0.88rem;">${m.model}</span>
+              <span style="font-size:0.8rem;color:rgba(255,255,255,0.35);">${m.requests} requests • ${m.credits} credits</span>
             </div>
           `).join('')}
         `;
@@ -362,7 +455,6 @@ async function loadUsage() {
   } catch (e) { console.error('Usage load error:', e); }
 }
 
-// Load transactions
 async function loadTransactions() {
   try {
     const res = await fetch(`${API}/api/billing?action=status`, { headers: headers() });
@@ -370,14 +462,14 @@ async function loadTransactions() {
     const list = document.getElementById('transactionsList');
     if (data.ok && data.transactions && data.transactions.length > 0) {
       list.innerHTML = data.transactions.map(t => `
-        <div class="flex justify-between items-center py-3 border-b border-[rgba(255,255,255,0.05)] last:border-0">
+        <div class="txn-row">
           <div>
-            <span class="text-sm">${t.type}</span>
-            <span class="text-xs text-[rgba(255,255,255,0.4)] ml-2">${new Date(t.created_at).toLocaleDateString()}</span>
+            <span style="font-size:0.88rem;">${t.type}</span>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.3);margin-left:8px;">${new Date(t.created_at).toLocaleDateString()}</span>
           </div>
-          <div class="text-right">
-            <span class="text-sm ${t.credits > 0 ? 'text-[#6ee7b7]' : 'text-[#f87171]'}">${t.credits > 0 ? '+' : ''}${t.credits} credits</span>
-            ${t.amount_usd ? `<span class="text-xs text-[rgba(255,255,255,0.4)] ml-2">$${t.amount_usd}</span>` : ''}
+          <div style="text-align:right;">
+            <span style="font-size:0.88rem;font-weight:500;" class="${t.credits > 0 ? 'txn-positive' : 'txn-negative'}">${t.credits > 0 ? '+' : ''}${t.credits} credits</span>
+            ${t.amount_usd ? `<span style="font-size:0.75rem;color:rgba(255,255,255,0.3);margin-left:8px;">$${t.amount_usd}</span>` : ''}
           </div>
         </div>
       `).join('');
